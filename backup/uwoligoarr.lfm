@@ -1,0 +1,139 @@
+object Form3: TForm3
+  Left = 1379
+  Height = 238
+  Top = 455
+  Width = 339
+  Caption = 'Массив олигонуклеотидов'
+  ClientHeight = 238
+  ClientWidth = 339
+  Position = poMainFormCenter
+  LCLVersion = '4.0.0.4'
+  OnCreate = FormCreate
+  OnShow = FormShow
+  object SE_NOligoCol: TSpinEdit
+    Left = 188
+    Height = 23
+    Top = 28
+    Width = 50
+    MaxValue = 1000
+    MinValue = 1
+    TabOrder = 0
+    Value = 10
+  end
+  object L_ArrColumns: TLabel
+    Left = 56
+    Height = 15
+    Top = 32
+    Width = 120
+    Anchors = [akTop, akRight]
+    Caption = 'Количество столбцов'
+  end
+  object SE_NOligoRow: TSpinEdit
+    Left = 188
+    Height = 23
+    Top = 56
+    Width = 50
+    MaxValue = 1000
+    MinValue = 1
+    TabOrder = 1
+    Value = 10
+  end
+  object L_ArrRows: TLabel
+    Left = 77
+    Height = 15
+    Top = 56
+    Width = 99
+    Anchors = [akTop, akRight]
+    Caption = 'Количество строк'
+  end
+  object L_SetOligoSize: TLabel
+    Left = 56
+    Height = 15
+    Top = 4
+    Width = 177
+    Caption = 'Задайте размер массива олигов'
+  end
+  object BB_CreateArr: TBitBtn
+    Left = 164
+    Height = 30
+    Top = 196
+    Width = 75
+    Default = True
+    DefaultCaption = True
+    Kind = bkOK
+    ModalResult = 1
+    TabOrder = 2
+    OnClick = BB_CreateArrClick
+  end
+  object RG_Fill: TRadioGroup
+    Left = 32
+    Height = 68
+    Top = 80
+    Width = 257
+    AutoFill = True
+    Caption = 'RG_Fill'
+    ChildSizing.LeftRightSpacing = 6
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 1
+    ClientHeight = 48
+    ClientWidth = 253
+    ItemIndex = 0
+    Items.Strings = (
+      'Пустой массив'
+      'Случайное наполнение'
+      'Одинаковая последовательность'
+    )
+    TabOrder = 3
+    OnClick = RG_FillClick
+  end
+  object BB_CancelArr: TBitBtn
+    Left = 68
+    Height = 30
+    Top = 196
+    Width = 75
+    Cancel = True
+    DefaultCaption = True
+    Kind = bkCancel
+    ModalResult = 2
+    TabOrder = 4
+    OnClick = BB_CancelArrClick
+  end
+  object SE_LenOfRNDSeq: TSpinEdit
+    Left = 52
+    Height = 23
+    Top = 158
+    Width = 50
+    MaxValue = 200
+    MinValue = 1
+    TabOrder = 5
+    Value = 10
+  end
+  object L_LenOfRNDSeq: TLabel
+    Left = 10
+    Height = 15
+    Top = 161
+    Width = 35
+    Anchors = [akTop, akRight]
+    Caption = 'Длина'
+  end
+  object E_ConstSeq: TEdit
+    Left = 128
+    Height = 23
+    Top = 158
+    Width = 180
+    TabOrder = 6
+    Text = 'E_ConstSeq'
+  end
+  object L_Seq: TLabel
+    Left = 8
+    Height = 15
+    Top = 161
+    Width = 115
+    Anchors = [akTop, akRight]
+    Caption = 'Последовательность'
+  end
+end

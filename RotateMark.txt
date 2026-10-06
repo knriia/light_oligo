@@ -1,0 +1,7 @@
+[PARAM]
+FILECNT=1
+
+[FILE0]
+NAME=C:\Users\GMARK\Desktop\02.02.2022 встреча 09 00.ezd
+VALUE=7.500000e+001
+

@@ -1,0 +1,105 @@
+object Form2: TForm2
+  Left = 1246
+  Height = 800
+  Top = 107
+  Width = 1000
+  Caption = 'Form2'
+  ClientHeight = 800
+  ClientWidth = 1000
+  Constraints.MinHeight = 600
+  Constraints.MinWidth = 800
+  DesignTimePPI = 192
+  Position = poMainFormCenter
+  LCLVersion = '4.0.0.4'
+  OnCreate = FormCreate
+  object GB_Matrix: TGroupBox
+    Left = 0
+    Height = 800
+    Top = 0
+    Width = 240
+    Align = alLeft
+    Caption = 'GB_Matrix'
+    ClientHeight = 763
+    ClientWidth = 236
+    TabOrder = 0
+    object SE_NCols: TSpinEdit
+      Left = 128
+      Height = 40
+      Top = 48
+      Width = 100
+      MaxValue = 1000
+      MinValue = 1
+      TabOrder = 0
+      Value = 20
+      OnChange = SE_NColsChange
+    end
+    object SE_NRows: TSpinEdit
+      Left = 128
+      Height = 40
+      Top = 112
+      Width = 100
+      MaxValue = 1000
+      MinValue = 1
+      TabOrder = 1
+      Value = 20
+      OnChange = SE_NRowsChange
+    end
+    object L_Columns: TLabel
+      Left = 5
+      Height = 32
+      Top = 48
+      Width = 115
+      Anchors = [akTop, akRight]
+      Caption = 'L_Columns'
+    end
+    object L_Rows: TLabel
+      Left = 45
+      Height = 32
+      Top = 112
+      Width = 75
+      Anchors = [akTop, akRight]
+      Caption = 'L_Rows'
+    end
+    object B_RND: TButton
+      Left = 48
+      Height = 50
+      Top = 240
+      Width = 150
+      Caption = 'B_RND'
+      TabOrder = 2
+      OnClick = B_RNDClick
+    end
+    object B_Clear: TButton
+      Left = 48
+      Height = 50
+      Top = 176
+      Width = 150
+      Caption = 'B_Clear'
+      TabOrder = 3
+      OnClick = B_ClearClick
+    end
+    object B_LoadFile: TBitBtn
+      Left = 48
+      Height = 60
+      Top = 304
+      Width = 150
+      Caption = 'B_LoadFile'
+      TabOrder = 4
+      OnClick = B_LoadFileClick
+    end
+  end
+  object SG_Matrix: TStringGrid
+    Left = 240
+    Height = 800
+    Top = 0
+    Width = 760
+    Align = alClient
+    DefaultColWidth = 30
+    DefaultRowHeight = 30
+    Font.Height = -16
+    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goEditing, goSmoothScroll]
+    ParentFont = False
+    TabOrder = 1
+    OnKeyDown = SG_MatrixKeyDown
+  end
+end

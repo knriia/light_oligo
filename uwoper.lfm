@@ -1,0 +1,263 @@
+object Form7: TForm7
+  Left = 857
+  Height = 376
+  Top = 286
+  Width = 720
+  Caption = 'Form7'
+  ClientHeight = 376
+  ClientWidth = 720
+  DesignTimePPI = 192
+  Position = poMainFormCenter
+  LCLVersion = '4.0.0.4'
+  OnCreate = FormCreate
+  object RG_Operator: TRadioGroup
+    Left = 0
+    Height = 276
+    Top = 0
+    Width = 272
+    Align = alLeft
+    AutoFill = True
+    Caption = 'RG_Operator'
+    ChildSizing.LeftRightSpacing = 6
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 1
+    ClientHeight = 239
+    ClientWidth = 268
+    Items.Strings = (
+      'Шприцевая станция'
+      'Вакуум'
+      'Лазер'
+      'Пауза'
+      'Комментарий'
+    )
+    TabOrder = 0
+    OnClick = RG_OperatorClick
+  end
+  object Panel1: TPanel
+    Left = 0
+    Height = 100
+    Top = 276
+    Width = 720
+    Align = alBottom
+    ClientHeight = 100
+    ClientWidth = 720
+    TabOrder = 1
+    object BB_Ok: TBitBtn
+      Left = 392
+      Height = 60
+      Top = 16
+      Width = 150
+      Default = True
+      DefaultCaption = True
+      Kind = bkOK
+      ModalResult = 1
+      TabOrder = 0
+      OnClick = BB_OkClick
+    end
+    object BB_Cancel: TBitBtn
+      Left = 160
+      Height = 60
+      Top = 16
+      Width = 150
+      Cancel = True
+      DefaultCaption = True
+      Kind = bkCancel
+      ModalResult = 2
+      TabOrder = 1
+    end
+  end
+  object Panel2: TPanel
+    Left = 272
+    Height = 276
+    Top = 0
+    Width = 448
+    Align = alClient
+    ClientHeight = 276
+    ClientWidth = 448
+    TabOrder = 2
+    object GB_Vac: TGroupBox
+      Left = 1
+      Height = 274
+      Top = 1
+      Width = 446
+      Align = alClient
+      Caption = 'GB_Vac'
+      ClientHeight = 237
+      ClientWidth = 442
+      TabOrder = 0
+      object ChB_Vac: TCheckBox
+        Left = 128
+        Height = 36
+        Top = 64
+        Width = 122
+        Alignment = taLeftJustify
+        Caption = 'ChB_Vac'
+        Checked = True
+        State = cbChecked
+        TabOrder = 0
+      end
+    end
+    object GB_Comment: TGroupBox
+      Left = 1
+      Height = 274
+      Top = 1
+      Width = 446
+      Align = alClient
+      Caption = 'GB_Comment'
+      ClientHeight = 237
+      ClientWidth = 442
+      TabOrder = 1
+      object LE_Comment: TLabeledEdit
+        Left = 120
+        Height = 40
+        Top = 96
+        Width = 160
+        EditLabel.Height = 32
+        EditLabel.Width = 160
+        EditLabel.Caption = 'LE_Comment'
+        TabOrder = 0
+      end
+    end
+    object GB_Pause: TGroupBox
+      Left = 1
+      Height = 274
+      Top = 1
+      Width = 446
+      Align = alClient
+      Caption = 'GB_Pause'
+      ClientHeight = 237
+      ClientWidth = 442
+      TabOrder = 2
+      object SE_Pause: TSpinEdit
+        Left = 168
+        Height = 40
+        Top = 72
+        Width = 136
+        MaxValue = 1000
+        MinValue = 1
+        TabOrder = 0
+        Value = 10
+      end
+      object L_Pause: TLabel
+        Left = 64
+        Height = 32
+        Top = 80
+        Width = 83
+        Caption = 'Pause, s'
+      end
+    end
+    object GB_SyrSt: TGroupBox
+      Left = 1
+      Height = 274
+      Top = 1
+      Width = 446
+      Align = alClient
+      Caption = 'GB_SyrSt'
+      ClientHeight = 237
+      ClientWidth = 442
+      TabOrder = 3
+      object FSE_SyrVolume: TFloatSpinEdit
+        Left = 176
+        Height = 40
+        Top = 48
+        Width = 116
+        DecimalPlaces = 1
+        MaxValue = 10000
+        MinValue = 0.1
+        TabOrder = 0
+        Value = 1000
+      end
+      object L_SyrVol: TLabel
+        Left = 37
+        Height = 32
+        Top = 48
+        Width = 113
+        Anchors = [akTop, akRight]
+        Caption = 'Volume, ul'
+      end
+      object SE_Flow: TSpinEdit
+        Left = 176
+        Height = 40
+        Top = 96
+        Width = 116
+        MaxValue = 100
+        MinValue = 1
+        TabOrder = 1
+        Value = 10
+      end
+      object L_Flow: TLabel
+        Left = 50
+        Height = 32
+        Top = 96
+        Width = 100
+        Anchors = [akTop, akRight]
+        Caption = 'Flow, ul/s'
+      end
+      object LE_SyrNames: TLabeledEdit
+        Left = 176
+        Height = 40
+        Hint = 'Для одного шприца указывайте его символ: '#13#10'Dbl'#13#10'Для нескольких шприцов символы через двоеточие:'#13#10'C:Act'
+        Top = 0
+        Width = 232
+        EditLabel.Height = 40
+        EditLabel.Width = 139
+        EditLabel.Caption = 'LE_SyrNames'
+        LabelPosition = lpLeft
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 2
+      end
+    end
+    object GB_Laser: TGroupBox
+      Left = 1
+      Height = 274
+      Top = 1
+      Width = 446
+      Align = alClient
+      Caption = 'GB_Laser'
+      ClientHeight = 237
+      ClientWidth = 442
+      TabOrder = 4
+      object SE_LasRepeats: TSpinEdit
+        Left = 186
+        Height = 40
+        Top = 64
+        Width = 100
+        MaxValue = 100
+        MinValue = 1
+        TabOrder = 0
+        Value = 1
+      end
+      object L_LasRepeats: TLabel
+        Left = 42
+        Height = 32
+        Top = 66
+        Width = 137
+        Anchors = [akTop, akRight]
+        Caption = 'L_LasRepeats'
+      end
+      object SE_LasTIme: TSpinEdit
+        Left = 186
+        Height = 40
+        Top = 128
+        Width = 100
+        MaxValue = 100
+        MinValue = 1
+        TabOrder = 1
+        Value = 10
+      end
+      object L_LasTime: TLabel
+        Left = 72
+        Height = 32
+        Top = 136
+        Width = 107
+        Anchors = [akTop, akRight]
+        Caption = 'L_LasTime'
+      end
+    end
+  end
+end

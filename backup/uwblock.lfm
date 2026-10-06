@@ -1,0 +1,46 @@
+object Form6: TForm6
+  Left = 1171
+  Height = 262
+  Top = 525
+  Width = 548
+  Caption = 'Form6'
+  ClientHeight = 262
+  ClientWidth = 548
+  DesignTimePPI = 192
+  Position = poMainFormCenter
+  LCLVersion = '4.0.0.4'
+  OnCreate = FormCreate
+  object BB_Ok: TBitBtn
+    Left = 304
+    Height = 60
+    Top = 160
+    Width = 150
+    Default = True
+    DefaultCaption = True
+    Kind = bkOK
+    ModalResult = 1
+    TabOrder = 0
+    OnClick = BB_OkClick
+  end
+  object LE_String: TLabeledEdit
+    Left = 128
+    Height = 40
+    Top = 88
+    Width = 304
+    EditLabel.Height = 32
+    EditLabel.Width = 304
+    EditLabel.Caption = 'LE_String'
+    TabOrder = 1
+  end
+  object BB_Cancel: TBitBtn
+    Left = 88
+    Height = 60
+    Top = 160
+    Width = 150
+    Cancel = True
+    Caption = 'Cancel'
+    Kind = bkCancel
+    ModalResult = 2
+    TabOrder = 2
+  end
+end

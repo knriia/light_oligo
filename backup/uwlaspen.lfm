@@ -1,0 +1,345 @@
+object Form5: TForm5
+  Left = 355
+  Height = 660
+  Top = 216
+  Width = 850
+  Caption = 'Form5'
+  ClientHeight = 660
+  ClientWidth = 850
+  Constraints.MinHeight = 660
+  Constraints.MinWidth = 800
+  DesignTimePPI = 192
+  Position = poMainFormCenter
+  LCLVersion = '4.0.0.4'
+  OnClose = FormClose
+  OnCreate = FormCreate
+  object B_GetPen: TButton
+    Left = 152
+    Height = 50
+    Top = 568
+    Width = 150
+    Caption = 'B_GetPen'
+    TabOrder = 0
+    OnClick = B_GetPenClick
+  end
+  object SE_PenNo: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 24
+    Width = 120
+    MaxValue = 255
+    TabOrder = 1
+    Value = 1
+  end
+  object SE_MarkLoop: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 72
+    Width = 120
+    MaxValue = 1000
+    MinValue = 1
+    TabOrder = 2
+    Value = 1
+  end
+  object FSE_MarkSpeed: TFloatSpinEdit
+    Left = 254
+    Height = 40
+    Top = 120
+    Width = 120
+    DecimalPlaces = 1
+    Increment = 50
+    MaxValue = 10000
+    TabOrder = 3
+    Value = 500
+  end
+  object FSE_Power: TFloatSpinEdit
+    Left = 254
+    Height = 40
+    Top = 168
+    Width = 120
+    DecimalPlaces = 1
+    MaxValue = 100
+    MinValue = 1
+    TabOrder = 4
+    Value = 50
+  end
+  object FSE_Current: TFloatSpinEdit
+    Left = 254
+    Height = 40
+    Top = 216
+    Width = 120
+    DecimalPlaces = 0
+    MaxValue = 20
+    TabOrder = 5
+    Value = 10
+  end
+  object SE_Freq: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 264
+    Width = 120
+    MaxValue = 150
+    MinValue = 10
+    TabOrder = 6
+    Value = 30
+  end
+  object SE_QPulse: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 312
+    Width = 120
+    MaxValue = 100
+    MinValue = 1
+    TabOrder = 7
+    Value = 33
+  end
+  object SE_StartTC: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 360
+    Width = 120
+    MaxValue = 10000
+    TabOrder = 8
+    Value = 150
+  end
+  object SE_LaserOffTC: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 408
+    Width = 120
+    MaxValue = 10000
+    TabOrder = 9
+    Value = 150
+  end
+  object SE_EndTC: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 456
+    Width = 120
+    MaxValue = 10000
+    TabOrder = 10
+    Value = 300
+  end
+  object SE_PolyTC: TSpinEdit
+    Left = 254
+    Height = 40
+    Top = 504
+    Width = 120
+    MaxValue = 10000
+    TabOrder = 11
+    Value = 100
+  end
+  object L_PenNo: TLabel
+    Left = 154
+    Height = 32
+    Top = 32
+    Width = 92
+    Anchors = [akTop, akRight]
+    Caption = 'L_PenNo'
+  end
+  object L_MarkLoop: TLabel
+    Left = 118
+    Height = 32
+    Top = 80
+    Width = 128
+    Anchors = [akTop, akRight]
+    Caption = 'L_MarkLoop'
+  end
+  object L_MarkSpeed: TLabel
+    Left = 104
+    Height = 32
+    Top = 128
+    Width = 142
+    Anchors = [akTop, akRight]
+    Caption = 'L_MarkSpeed'
+  end
+  object L_PowerRatio: TLabel
+    Left = 107
+    Height = 32
+    Top = 176
+    Width = 139
+    Anchors = [akTop, akRight]
+    Caption = 'L_PowerRatio'
+  end
+  object L_Current: TLabel
+    Left = 145
+    Height = 32
+    Top = 224
+    Width = 101
+    Anchors = [akTop, akRight]
+    Caption = 'L_Current'
+  end
+  object L_Freq: TLabel
+    Left = 178
+    Height = 32
+    Top = 272
+    Width = 68
+    Anchors = [akTop, akRight]
+    Caption = 'L_Freq'
+  end
+  object L_QPulseWidth: TLabel
+    Left = 87
+    Height = 32
+    Top = 320
+    Width = 159
+    Anchors = [akTop, akRight]
+    Caption = 'L_QPulseWidth'
+  end
+  object L_StartTC: TLabel
+    Left = 150
+    Height = 32
+    Top = 368
+    Width = 96
+    Anchors = [akTop, akRight]
+    Caption = 'L_StartTC'
+  end
+  object L_LaserOffTC: TLabel
+    Left = 110
+    Height = 32
+    Top = 416
+    Width = 136
+    Anchors = [akTop, akRight]
+    Caption = 'L_LaserOffTC'
+  end
+  object L_EndTC: TLabel
+    Left = 158
+    Height = 32
+    Top = 464
+    Width = 88
+    Anchors = [akTop, akRight]
+    Caption = 'L_EndTC'
+  end
+  object L_PolyTC: TLabel
+    Left = 154
+    Height = 32
+    Top = 512
+    Width = 92
+    Anchors = [akTop, akRight]
+    Caption = 'L_PolyTC'
+  end
+  object B_SetPen: TButton
+    Left = 544
+    Height = 50
+    Top = 568
+    Width = 150
+    Caption = 'B_SetPen'
+    TabOrder = 12
+    OnClick = B_SetPenClick
+  end
+  object FSE_JumpSpeed: TFloatSpinEdit
+    Left = 720
+    Height = 40
+    Top = 24
+    Width = 100
+    DecimalPlaces = 1
+    TabOrder = 13
+  end
+  object SE_JumpPosTC: TSpinEdit
+    Left = 720
+    Height = 40
+    Top = 72
+    Width = 100
+    TabOrder = 14
+  end
+  object SE_JumpDistTC: TSpinEdit
+    Left = 720
+    Height = 40
+    Top = 120
+    Width = 100
+    TabOrder = 15
+  end
+  object FSE_PointTime: TFloatSpinEdit
+    Left = 720
+    Height = 40
+    Top = 168
+    Width = 100
+    TabOrder = 16
+  end
+  object CB_WobbleMode: TCheckBox
+    Left = 604
+    Height = 36
+    Top = 264
+    Width = 216
+    Alignment = taLeftJustify
+    Anchors = [akTop, akRight]
+    Caption = 'CB_WobbleMode'
+    TabOrder = 17
+  end
+  object FSE_WobbleDiameter: TFloatSpinEdit
+    Left = 720
+    Height = 40
+    Top = 312
+    Width = 100
+    TabOrder = 18
+  end
+  object L_JumpSpeed: TLabel
+    Left = 564
+    Height = 32
+    Top = 32
+    Width = 146
+    Anchors = [akTop, akRight]
+    Caption = 'L_JumpSpeed'
+  end
+  object L_JumpPosTC: TLabel
+    Left = 568
+    Height = 32
+    Top = 80
+    Width = 142
+    Anchors = [akTop, akRight]
+    Caption = 'L_JumpPosTC'
+  end
+  object L_JumpDistTC: TLabel
+    Left = 563
+    Height = 32
+    Top = 128
+    Width = 147
+    Anchors = [akTop, akRight]
+    Caption = 'L_JumpDistTC'
+  end
+  object L_PointTime: TLabel
+    Left = 584
+    Height = 32
+    Top = 176
+    Width = 128
+    Anchors = [akTop, akRight]
+    Caption = 'L_PointTime'
+  end
+  object L_WobbleDiameter: TLabel
+    Left = 509
+    Height = 32
+    Top = 320
+    Width = 201
+    Anchors = [akTop, akRight]
+    Caption = 'L_WobbleDiameter'
+  end
+  object SE_SpiWave: TSpinEdit
+    Left = 720
+    Height = 40
+    Top = 216
+    Width = 100
+    TabOrder = 19
+  end
+  object L_SpiWave: TLabel
+    Left = 600
+    Height = 32
+    Top = 224
+    Width = 112
+    Anchors = [akTop, akRight]
+    Caption = 'L_SpiWave'
+  end
+  object FSE_WobbleDist: TFloatSpinEdit
+    Left = 720
+    Height = 40
+    Top = 364
+    Width = 100
+    TabOrder = 20
+  end
+  object L_WobbleDist: TLabel
+    Left = 566
+    Height = 32
+    Top = 368
+    Width = 144
+    Anchors = [akTop, akRight]
+    Caption = 'L_WobbleDist'
+  end
+end

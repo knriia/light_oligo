@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Debug"/>
+    <Units>
+      <Unit>
+        <Filename Value="LightOligo.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="10"/>
+        <CursorPos Y="34"/>
+        <UsageCount Value="204"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="umain.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form1"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UMain"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="216"/>
+        <CursorPos X="88" Y="233"/>
+        <UsageCount Value="204"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="lasfunc.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="LasFunc"/>
+        <EditorIndex Value="8"/>
+        <TopLine Value="335"/>
+        <CursorPos X="75" Y="389"/>
+        <UsageCount Value="204"/>
+        <Bookmarks Count="1">
+          <Item0 X="189" Y="734" Left="1" Top="713" ID="1"/>
+        </Bookmarks>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uwmatrix.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form2"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWMatrix"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="33"/>
+        <CursorPos X="44" Y="64"/>
+        <UsageCount Value="200"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uwoligoarr.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form3"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWOligoArr"/>
+        <EditorIndex Value="3"/>
+        <TopLine Value="46"/>
+        <CursorPos X="77" Y="52"/>
+        <UsageCount Value="207"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="myglobals.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="MyGlobals"/>
+        <EditorIndex Value="11"/>
+        <TopLine Value="707"/>
+        <CursorPos X="68" Y="718"/>
+        <UsageCount Value="201"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uwlayerchart.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form4"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWLayerChart"/>
+        <EditorIndex Value="4"/>
+        <TopLine Value="10"/>
+        <CursorPos X="39" Y="34"/>
+        <UsageCount Value="250"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="dilutor.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Dilutor"/>
+        <EditorIndex Value="9"/>
+        <CursorPos X="62" Y="5"/>
+        <UsageCount Value="207"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uwlaspen.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form5"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWLasPen"/>
+        <EditorIndex Value="5"/>
+        <TopLine Value="148"/>
+        <CursorPos X="9" Y="175"/>
+        <UsageCount Value="202"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="usynthread.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="USynThread"/>
+        <EditorIndex Value="1"/>
+        <TopLine Value="45"/>
+        <CursorPos X="86" Y="66"/>
+        <UsageCount Value="118"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\lazarus\fpc\3.2.2\source\packages\rtl-objpas\src\inc\strutils.pp"/>
+        <UnitName Value="StrUtils"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="848"/>
+        <CursorPos X="10" Y="865"/>
+        <UsageCount Value="17"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uwblock.pas"/>
+        <ComponentName Value="Form6"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWBlock"/>
+        <EditorIndex Value="6"/>
+        <CursorPos X="24" Y="42"/>
+        <UsageCount Value="101"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uwoper.pas"/>
+        <ComponentName Value="Form7"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWOper"/>
+        <EditorIndex Value="7"/>
+        <TopLine Value="143"/>
+        <CursorPos X="18" Y="152"/>
+        <UsageCount Value="101"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\lazarus\lcl\grids.pas"/>
+        <UnitName Value="Grids"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="1816"/>
+        <CursorPos X="3" Y="1834"/>
+        <UsageCount Value="7"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="29">
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="817" TopLine="788"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="815" TopLine="788"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="720" TopLine="708"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="722" TopLine="708"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="723" TopLine="708"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="724" TopLine="708"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="725" TopLine="708"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="727" TopLine="717"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="728" TopLine="717"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="734" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="735" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="743" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="744" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="745" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="747" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="746" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="747" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="746" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="747" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="746" TopLine="723"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="720" TopLine="701"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="722" TopLine="711"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="723" TopLine="711"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="724" TopLine="711"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="725" TopLine="711"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="727" TopLine="711"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="728" TopLine="711"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="734" TopLine="720"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="735" TopLine="720"/>
+      </Position>
+      <Position>
+        <Filename Value="myglobals.pas"/>
+        <Caret Line="720" TopLine="701"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+  <Debugging>
+    <BreakPoints>
+      <Item>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="usynthread.pas"/>
+        <Line Value="66"/>
+      </Item>
+    </BreakPoints>
+    <Watches>
+      <Item>
+        <Expression Value="s"/>
+      </Item>
+    </Watches>
+  </Debugging>
+</CONFIG>

@@ -1,0 +1,24 @@
+# Lazarus / Free Pascal build output
+/lib/
+*.o
+*.ppu
+*.or
+*.a
+*.compiled
+/LightOligo.exe
+/LightOligo.res
+/LightOligo.lps
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+/cfglog.txt
+/AUTOSAVE.EZD
+
+# Operating system metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
