@@ -183,6 +183,14 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="USynThread"/>
       </Unit>
+      <Unit>
+        <Filename Value="uwpreview.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="FormPreview"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="UWPreview"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

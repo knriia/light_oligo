@@ -1,22 +1,21 @@
 object Form4: TForm4
   Left = 1059
-  Height = 600
+  Height = 300
   Top = 259
-  Width = 800
+  Width = 400
   Caption = 'Form4'
-  ClientHeight = 600
-  ClientWidth = 800
-  Constraints.MinHeight = 600
-  Constraints.MinWidth = 800
-  DesignTimePPI = 192
+  ClientHeight = 300
+  ClientWidth = 400
+  Constraints.MinHeight = 300
+  Constraints.MinWidth = 400
   Position = poMainFormCenter
   LCLVersion = '4.0.0.4'
   OnCreate = FormCreate
   object ChNCharsInLayers: TChart
     Left = 0
-    Height = 600
+    Height = 300
     Top = 0
-    Width = 800
+    Width = 400
     AxisList = <    
       item
         Intervals.Count = 10

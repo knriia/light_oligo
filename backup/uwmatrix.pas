@@ -60,8 +60,8 @@ begin
   B_LoadFile.Caption:=MyInterface.ReadString('Matrix','B_LoadFile','LoadFile');
 
   //значения
-  SE_NCols.Value:=MyIni.ReadInteger('Program','SE_NCols',20);
-  SE_NRows.Value:=MyIni.ReadInteger('Program','SE_NRows',20);
+  SE_NCols.Value:=MyIni.ReadInteger('Matrix','SE_NCols',20);
+  SE_NRows.Value:=MyIni.ReadInteger('Matrix','SE_NRows',20);
 
   NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
 end;

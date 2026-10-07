@@ -237,6 +237,7 @@ object Form7: TForm7
         Height = 32
         Top = 66
         Width = 137
+        Anchors = [akTop, akRight]
         Caption = 'L_LasRepeats'
       end
       object SE_LasTIme: TSpinEdit
@@ -250,7 +251,7 @@ object Form7: TForm7
         Value = 10
       end
       object L_LasTime: TLabel
-        Left = 79
+        Left = 72
         Height = 32
         Top = 136
         Width = 107

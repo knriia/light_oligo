@@ -1,20 +1,19 @@
 object Form6: TForm6
-  Left = 1171
-  Height = 262
-  Top = 525
-  Width = 548
+  Left = -647
+  Height = 131
+  Top = 992
+  Width = 274
   Caption = 'Form6'
-  ClientHeight = 262
-  ClientWidth = 548
-  DesignTimePPI = 192
+  ClientHeight = 131
+  ClientWidth = 274
   Position = poMainFormCenter
-  LCLVersion = '4.0.0.4'
+  LCLVersion = '4.4.0.0'
   OnCreate = FormCreate
   object BB_Ok: TBitBtn
-    Left = 304
-    Height = 60
-    Top = 160
-    Width = 150
+    Left = 152
+    Height = 30
+    Top = 80
+    Width = 75
     Default = True
     DefaultCaption = True
     Kind = bkOK
@@ -23,20 +22,20 @@ object Form6: TForm6
     OnClick = BB_OkClick
   end
   object LE_String: TLabeledEdit
-    Left = 128
-    Height = 40
-    Top = 88
-    Width = 304
-    EditLabel.Height = 32
-    EditLabel.Width = 304
+    Left = 64
+    Height = 23
+    Top = 44
+    Width = 152
+    EditLabel.Height = 15
+    EditLabel.Width = 152
     EditLabel.Caption = 'LE_String'
     TabOrder = 1
   end
   object BB_Cancel: TBitBtn
-    Left = 88
-    Height = 60
-    Top = 160
-    Width = 150
+    Left = 44
+    Height = 30
+    Top = 80
+    Width = 75
     Cancel = True
     Caption = 'Cancel'
     Kind = bkCancel

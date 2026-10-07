@@ -70,10 +70,10 @@ begin
   L_LenOfRNDSeq.Caption:=MyInterface.ReadString('OligoArray','L_LenOfRNDSeq','Length');
   L_Seq.Caption:=MyInterface.ReadString('OligoArray','L_Seq','Sequence');
 
-  E_ConstSeq.Text:=MyIni.ReadString('Program','E_ConstSeq','AAATTTGGGCCC');
-  SE_NOligoCol.Value:=MyIni.ReadInteger('Program','SE_NOligoCol',10);
-  SE_NOligoRow.Value:=MyIni.ReadInteger('Program','SE_NOligoRow',10);
-  SE_LenOfRNDSeq.Value:=MyIni.ReadInteger('Program','SE_LenOfRNDSeq',10);
+  E_ConstSeq.Text:=MyIni.ReadString('OligoArray','E_ConstSeq','AAATTTGGGCCC');
+  SE_NOligoCol.Value:=MyIni.ReadInteger('OligoArray','SE_NOligoCol',10);
+  SE_NOligoRow.Value:=MyIni.ReadInteger('OligoArray','SE_NOligoRow',10);
+  SE_LenOfRNDSeq.Value:=MyIni.ReadInteger('OligoArray','SE_LenOfRNDSeq',10);
 end;
 
 procedure TForm3.RG_FillClick(Sender: TObject);

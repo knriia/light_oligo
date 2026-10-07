@@ -1,0 +1,204 @@
+object DispenserStationForm: TDispenserStationForm
+  Left = -1440
+  Height = 600
+  Top = 249
+  Width = 1320
+  Caption = 'Syringe Pump'
+  ClientHeight = 600
+  ClientWidth = 1320
+  Position = poScreenCenter
+  LCLVersion = '4.4.0.0'
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  object ConnectionPanel: TPanel
+    Left = 0
+    Height = 40
+    Top = 0
+    Width = 1320
+    Align = alTop
+    BevelOuter = bvNone
+    ClientHeight = 40
+    ClientWidth = 1320
+    TabOrder = 0
+    object LabelPorts: TLabel
+      Left = 24
+      Height = 15
+      Top = 12
+      Width = 62
+      Caption = 'COM-порт:'
+    end
+    object ComboBoxPorts: TComboBox
+      Left = 112
+      Height = 23
+      Top = 8
+      Width = 180
+      ItemHeight = 15
+      TabOrder = 0
+      OnChange = ComboBoxPortsChange
+    end
+    object btnScanPorts: TButton
+      Left = 304
+      Height = 25
+      Top = 7
+      Width = 96
+      Caption = 'Обновить'
+      TabOrder = 1
+      OnClick = btnScanPortsClick
+    end
+    object btnConnect: TButton
+      Left = 412
+      Height = 25
+      Top = 7
+      Width = 120
+      Caption = 'Подключить'
+      TabOrder = 2
+      OnClick = btnConnectClick
+    end
+    object btnConfiguration: TButton
+      Left = 544
+      Height = 25
+      Top = 7
+      Width = 120
+      Caption = 'Конфигуратор'
+      TabOrder = 3
+      OnClick = btnConfigurationClick
+    end
+  end
+  object TablePanel: TPanel
+    Left = 0
+    Height = 370
+    Top = 40
+    Width = 1320
+    Align = alClient
+    BevelOuter = bvNone
+    ClientHeight = 370
+    ClientWidth = 1320
+    TabOrder = 1
+    object ScrollBoxDispensers: TScrollBox
+      Left = 0
+      Height = 370
+      Top = 0
+      Width = 1320
+      HorzScrollBar.Page = 296
+      VertScrollBar.Page = 71
+      Align = alClient
+      ClientHeight = 366
+      ClientWidth = 1316
+      TabOrder = 0
+      object LabelEmpty: TLabel
+        Left = 16
+        Height = 15
+        Top = 56
+        Width = 280
+        Caption = 'Добавьте дозаторы через кнопку «Конфигуратор».'
+      end
+    end
+  end
+  object BatchPanel: TPanel
+    Left = 0
+    Height = 40
+    Top = 410
+    Width = 1320
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 40
+    ClientWidth = 1320
+    TabOrder = 2
+    object btnFillSelected: TButton
+      Left = 12
+      Height = 25
+      Top = 7
+      Width = 90
+      Caption = 'Наполнить'
+      TabOrder = 0
+      OnClick = btnFillSelectedClick
+    end
+    object btnEmptySelected: TButton
+      Left = 112
+      Height = 25
+      Top = 7
+      Width = 90
+      Caption = 'Опустошить'
+      TabOrder = 1
+      OnClick = btnEmptySelectedClick
+    end
+    object btnAspirateSelected: TButton
+      Left = 212
+      Height = 25
+      Top = 7
+      Width = 100
+      Caption = 'Набрать'
+      TabOrder = 2
+      OnClick = btnAspirateSelectedClick
+    end
+    object btnDispenseSelected: TButton
+      Left = 322
+      Height = 25
+      Top = 7
+      Width = 100
+      Caption = 'Дозировать'
+      TabOrder = 3
+      OnClick = btnDispenseSelectedClick
+    end
+    object btnStopAll: TButton
+      Left = 432
+      Height = 25
+      Top = 7
+      Width = 110
+      Caption = 'Остановить все'
+      TabOrder = 4
+      OnClick = btnStopAllClick
+    end
+    object btnInitializeAll: TButton
+      Left = 552
+      Height = 25
+      Top = 7
+      Width = 150
+      Caption = 'Инициализировать все'
+      TabOrder = 5
+      OnClick = btnInitializeAllClick
+    end
+  end
+  object LogPanel: TPanel
+    Left = 0
+    Height = 125
+    Top = 452
+    Width = 1320
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 125
+    ClientWidth = 1320
+    Constraints.MinHeight = 10
+    TabOrder = 3
+    object MemoLog: TMemo
+      Left = 0
+      Height = 125
+      Top = 0
+      Width = 1320
+      Align = alClient
+      ScrollBars = ssAutoVertical
+      TabOrder = 0
+    end
+  end
+  object LogSplitter: TSplitter
+    Cursor = crVSplit
+    Left = 0
+    Height = 2
+    Top = 450
+    Width = 1320
+    Align = alBottom
+    AutoSnap = False
+    MinSize = 10
+    ResizeAnchor = akBottom
+    OnCanResize = LogSplitterCanResize
+  end
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 23
+    Top = 577
+    Width = 1320
+    Panels = <>
+    SimpleText = 'Отключено'
+  end
+end

@@ -125,6 +125,7 @@ end;
 
 procedure TForm5.FormCreate(Sender: TObject);
 begin
+  // интерфейс
     Form5.Caption:=MyInterface.ReadString('LaserParam','Form5','Laser Parameters');
     L_PenNo.Caption:=MyInterface.ReadString('LaserParam','L_PenNo','Pen No');
     L_MarkLoop.Caption:=MyInterface.ReadString('LaserParam','L_MarkLoop','Mark Loops');
@@ -148,7 +149,7 @@ begin
     B_GetPen.Caption:=MyInterface.ReadString('LaserParam','B_GetPen','GetPen');
     B_SetPen.Caption:=MyInterface.ReadString('LaserParam','B_SetPen','SetPen');
 
-    {TODO: ДОбавить значения из MyIni}
+  // параметры
     SE_PenNo.Value:=MyIni.ReadInteger('LaserParam','SE_PenNo',10);
     SE_MarkLoop.Value:=MyIni.ReadInteger('LaserParam','SE_MarkLoop',1);
     FSE_MarkSpeed.Value:=MyIni.ReadFloat('LaserParam','FSE_MarkSpeed',500);

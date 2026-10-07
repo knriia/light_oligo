@@ -7,8 +7,8 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Spin, Windows, Graphics, Grids, Buttons, TAGraph, TAMultiSeries, TASeries,
-  TAPolygonSeries, TATools, StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper,
-  UWLayerChart, Dilutor, UWLasPen, MyGlobals, IniFiles, UWBlock, USynThread;
+  StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper, UWLayerChart, Dilutor,
+  UWLasPen, MyGlobals, IniFiles, UWBlock, USynThread, UWPreview;
 
 
 type
@@ -46,17 +46,11 @@ type
     B_Preview: TButton;
     B_Matrix: TButton;
     B_CreateEZD: TButton;
-    Chart1: TChart;
-    BS_Series: TBubbleSeries;
     CB_AutoCenter: TCheckBox;
     CB_ShowSubstrate: TCheckBox;
     Chart2: TChart;
     BS_Syringes: TBarSeries;
     BS_Liquids: TBarSeries;
-    ChartToolset1: TChartToolset;
-    ChartToolset1PanDragTool1: TPanDragTool;
-    ChartToolset1ZoomDragTool1: TZoomDragTool;
-    ChartToolset1ZoomMouseWheelTool1: TZoomMouseWheelTool;
     ComboBox1: TComboBox;
     FSE_DispSpeed: TFloatSpinEdit;
     FSE_VolLoad: TFloatSpinEdit;
@@ -76,8 +70,6 @@ type
     L_Flow: TLabel;
     OD_File: TOpenDialog;
     Panel5: TPanel;
-    P_MatrixChart: TPanel;
-    PS_Series: TPolygonSeries;
     FSE_XBias: TFloatSpinEdit;
     FSE_Step: TFloatSpinEdit;
     FSE_GroupStep: TFloatSpinEdit;
@@ -155,7 +147,6 @@ type
       Shift: TShiftState);
     procedure SG_OligoArrSetEditText(Sender: TObject; ACol, ARow: Integer;
       const Value: string);
-    procedure Splitter1Moved(Sender: TObject);
     procedure Tmr_CloserTimer(Sender: TObject);
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
@@ -230,6 +221,7 @@ begin
   B_SaveOligs.Caption:=MyInterface.ReadString('Oligo','B_SaveOligs','Save Oligs');
   B_SliceOligoArr.Caption:=MyInterface.ReadString('Oligo','B_SliceOligoArr','Slice');
   B_SetLasPen2.Caption:=MyInterface.ReadString('Oligo','B_SetLasPen2','SetLasPen');
+  B_SetGeomParam.Caption:=MyInterface.ReadString('Oligo','B_SetGeomParam','SetGeomParam');
   B_CreateArrEzd.Caption:=MyInterface.ReadString('Oligo','B_CreateArrEzd','EZD Files');
 
   GB_EditProtocolTree.Caption:=MyInterface.ReadString('Protocol','GB_EditProtocolTree','Protocol');
@@ -272,12 +264,6 @@ end;
 procedure TForm1.FormResize(Sender: TObject);
 begin
   Panel2.Height:=Form1.Height div 8;
-  Chart1.Width:=Chart1.Height;
-end;
-
-procedure TForm1.Splitter1Moved(Sender: TObject);
-begin
-    Chart1.Width:=Chart1.Height;
 end;
 
 procedure TForm1.ShowRez(aFunName: String; aRez: integer);
@@ -543,7 +529,12 @@ var
    numPoints: integer;
    TmpP: TPoint;
 begin
-  PS_Series.Clear;
+  if not Assigned(FormPreview) then
+  begin
+    FormPreview:=TFormPreview.Create(Application);
+    FormPreview.Caption:=MyInterface.ReadString('Manual','B_Preview','Preview');
+  end;
+  FormPreview.ClearPreview;
 
   if CB_ShowSubstrate.Checked then // если нужно показать контур подложки
   begin
@@ -552,7 +543,7 @@ begin
     for i:=0 to numPoints-1 do
     begin
       Angle:=2*Pi*i/numPoints; // Угол в радианах
-      PS_Series.AddXY(SubRadius*Cos(Angle), SubRadius*Sin(Angle),'',clBlue);
+      FormPreview.AddSubstratePoint(SubRadius*Cos(Angle), SubRadius*Sin(Angle));
     end
   end;
 
@@ -575,18 +566,19 @@ begin
 
   // заполняем серию спотами из матрицы
   mySpotR:=SE_SpotSize.Value/2000;  // переход от диаметра в мкм к радиусу в мм
-  BS_Series.Clear;
   for i:=0 to Length(MyMatrix)-1 do
     for j:=0 to Length(MyMatrix[i])-1 do
     begin
       if myMatrix[i,j]<>0 then
        begin
-         if myGroup=0 then
-          BS_Series.AddXY(j*myStep+BiasX, -i*myStep+BiasY, mySpotR,'', clRed)
-         else
-          BS_Series.AddXY(j*myStep+myGStep*(j div myGroup)+BiasX, -i*myStep-myGStep*(i div myGroup)+BiasY , mySpotR,'', clRed);
+        if myGroup=0 then
+          FormPreview.AddSpot(j*myStep+BiasX, -i*myStep+BiasY, mySpotR)
+        else
+          FormPreview.AddSpot(j*myStep+myGStep*(j div myGroup)+BiasX,
+            -i*myStep-myGStep*(i div myGroup)+BiasY, mySpotR);
        end;
     end;
+  FormPreview.ShowPreview;
 end;
 
 procedure TForm1.B_PumpStInitClick(Sender: TObject);

@@ -1,0 +1,22 @@
+unit DispenserLimits;
+
+{$mode objfpc}{$H+}
+
+interface
+
+const
+  MIN_DISPENSER_VALUE = 1;
+  MAX_DISPENSER_VALUE = 15;
+  MAX_DISPENSERS = 15;
+  MIN_CHANNEL_COUNT = 2;
+  MIN_CHANNEL_NUMBER = 1;
+  MAX_NON_DISTRIBUTIVE_CHANNEL_COUNT = 2;
+  MAX_CHANNEL_COUNT = 12;
+  MIN_SPEED = 1;
+  MAX_SPEED = 6000;
+  DEFAULT_START_SPEED = 900;
+  MAX_START_SPEED = 1000;
+
+implementation
+
+end.
