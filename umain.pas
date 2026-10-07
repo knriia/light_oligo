@@ -8,7 +8,8 @@ uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Spin, Windows, Graphics, Grids, Buttons,
   StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper, UWLayerChart, Dilutor,
-  UDispenserStationHost, DispenserLayout, UWLasPen, MyGlobals, IniFiles, UWBlock, USynThread, UWPreview;
+  UDispenserStationHost, DispenserLayout, ManualControlsLayout, UWLasPen,
+  MyGlobals, IniFiles, UWBlock, USynThread, UWPreview;
 
 
 type
@@ -365,6 +366,7 @@ end;
 procedure TForm1.UpdateManualControlsWidth;
 var
   ManualWidth, ManualHeight: Integer;
+  ManualLayout: TManualControlsLayout;
 begin
   if not Assigned(Panel1) or not Assigned(PageControl1) or
      not Assigned(TS_Manual) or not Assigned(Panel3) or
@@ -384,9 +386,22 @@ begin
     Exit;
 
   Panel3.SetBounds(0, 0, ManualWidth, ManualHeight);
-  GB_Array.Width := Panel3.ClientWidth - 2;
-  GB_Laser.Width := Panel3.ClientWidth - 2;
-  GB_PumpStation.Width := Panel3.ClientWidth - 2;
+  ManualLayout := BuildManualControlsLayout(Panel3.ClientWidth, ManualHeight,
+    GB_Array.Height, GB_Laser.Height);
+  GB_Array.SetBounds(ManualLayout.ArrayBounds.Left,
+    ManualLayout.ArrayBounds.Top,
+    ManualLayout.ArrayBounds.Right - ManualLayout.ArrayBounds.Left,
+    ManualLayout.ArrayBounds.Bottom - ManualLayout.ArrayBounds.Top);
+  GB_Laser.SetBounds(ManualLayout.LaserBounds.Left,
+    ManualLayout.LaserBounds.Top,
+    ManualLayout.LaserBounds.Right - ManualLayout.LaserBounds.Left,
+    ManualLayout.LaserBounds.Bottom - ManualLayout.LaserBounds.Top);
+  GB_PumpStation.SetBounds(ManualLayout.PumpStationBounds.Left,
+    ManualLayout.PumpStationBounds.Top,
+    ManualLayout.PumpStationBounds.Right -
+      ManualLayout.PumpStationBounds.Left,
+    ManualLayout.PumpStationBounds.Bottom -
+      ManualLayout.PumpStationBounds.Top);
 
   if Assigned(GB_MarkEZDDLL) and Assigned(GB_EzCAD) then
   begin
@@ -454,12 +469,18 @@ end;
 
 procedure TForm1.CollapseExpand(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
+var
+  GroupBox: TGroupBox;
 begin
   {переделать. В create добавить запись высоты в тэг}
-  if (Y < 0) and ((Sender as TGroupBox).Height > 19) then
-    (Sender as TGroupBox).Height := 19
+  GroupBox := Sender as TGroupBox;
+  if (Y < 0) and (GroupBox.Height > 19) then
+    GroupBox.Height := 19
   else
-    (Sender as TGroupBox).Height := (Sender as TGroupBox).Tag;
+    GroupBox.Height := GroupBox.Tag;
+
+  if (GroupBox = GB_Array) or (GroupBox = GB_Laser) then
+    UpdateManualControlsWidth();
 end;
 
 procedure TForm1.Tmr_CloserTimer(Sender: TObject);
