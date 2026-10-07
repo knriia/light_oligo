@@ -1,7 +1,7 @@
 object Form1: TForm1
-  Left = 517
+  Left = -962
   Height = 600
-  Top = 201
+  Top = 32
   Width = 850
   Caption = 'Form1'
   ClientHeight = 600
@@ -9,25 +9,25 @@ object Form1: TForm1
   Constraints.MinHeight = 600
   Constraints.MinWidth = 800
   Position = poDesktopCenter
-  LCLVersion = '4.0.0.4'
+  LCLVersion = '4.4.0.0'
   OnClose = FormClose
   OnCreate = FormCreate
   OnResize = FormResize
   object Panel1: TPanel
     Left = 0
-    Height = 523
+    Height = 600
     Top = 0
-    Width = 850
-    Align = alClient
+    Width = 562
+    Align = alLeft
     Caption = 'Panel1'
-    ClientHeight = 523
-    ClientWidth = 850
+    ClientHeight = 600
+    ClientWidth = 562
     TabOrder = 0
     object PageControl1: TPageControl
       Left = 1
-      Height = 521
+      Height = 598
       Top = 1
-      Width = 848
+      Width = 422
       ActivePage = TS_Manual
       Align = alClient
       TabIndex = 3
@@ -614,7 +614,7 @@ object Form1: TForm1
           Height = 493
           Top = 0
           Width = 344
-          Align = alLeft
+          Align = alClient
           ClientHeight = 493
           ClientWidth = 344
           TabOrder = 0
@@ -692,6 +692,7 @@ object Form1: TForm1
                 Height = 25
                 Top = 0
                 Width = 85
+                Anchors = [akTop, akRight]
                 Caption = 'B_SendF2'
                 TabOrder = 2
                 OnClick = B_SendF2Click
@@ -724,6 +725,7 @@ object Form1: TForm1
               Height = 25
               Top = 0
               Width = 90
+              Anchors = [akTop, akRight]
               Caption = 'B_Preview'
               TabOrder = 1
               OnClick = B_PreviewClick
@@ -742,7 +744,7 @@ object Form1: TForm1
               Height = 15
               Top = 53
               Width = 44
-              Anchors = [akTop, akRight]
+              Anchors = [akTop, akLeft]
               Caption = 'L_Group'
             end
             object FSE_Step: TFloatSpinEdit
@@ -761,7 +763,7 @@ object Form1: TForm1
               Height = 15
               Top = 31
               Width = 34
-              Anchors = [akTop, akRight]
+              Anchors = [akTop, akLeft]
               Caption = 'L_Step'
             end
             object FSE_GroupStep: TFloatSpinEdit
@@ -780,7 +782,7 @@ object Form1: TForm1
               Height = 15
               Top = 77
               Width = 42
-              Anchors = [akTop, akRight]
+              Anchors = [akTop, akLeft]
               Caption = 'L_GStep'
             end
             object FSE_XBias: TFloatSpinEdit
@@ -788,6 +790,7 @@ object Form1: TForm1
               Height = 23
               Top = 51
               Width = 50
+              Anchors = [akTop]
               Increment = 0.01
               MaxValue = 100
               MinValue = -100
@@ -798,7 +801,7 @@ object Form1: TForm1
               Height = 15
               Top = 53
               Width = 39
-              Anchors = [akTop, akRight]
+              Anchors = [akTop]
               Caption = 'L_BiasX'
             end
             object L_BiasY: TLabel
@@ -806,7 +809,7 @@ object Form1: TForm1
               Height = 15
               Top = 77
               Width = 39
-              Anchors = [akTop, akRight]
+              Anchors = [akTop]
               Caption = 'L_BiasY'
             end
             object FSE_YBias: TFloatSpinEdit
@@ -814,6 +817,7 @@ object Form1: TForm1
               Height = 23
               Top = 75
               Width = 50
+              Anchors = [akTop]
               Increment = 0.01
               MaxValue = 100
               MinValue = -100
@@ -847,7 +851,7 @@ object Form1: TForm1
               Height = 15
               Top = 121
               Width = 55
-              Anchors = [akTop, akRight]
+              Anchors = [akTop, akLeft]
               Caption = 'L_SpotSize'
             end
             object CB_ShowSubstrate: TCheckBox
@@ -867,6 +871,7 @@ object Form1: TForm1
               Height = 23
               Top = 121
               Width = 50
+              Anchors = [akTop]
               MaxValue = 100
               MinValue = 10
               TabOrder = 10
@@ -882,303 +887,45 @@ object Form1: TForm1
             end
           end
           object GB_PumpStation: TGroupBox
-            Tag = 228
             Left = 1
             Height = 228
             Top = 264
             Width = 342
-            Align = alTop
+            Align = alClient
             Caption = 'GB_PumpStation'
             ClientHeight = 208
             ClientWidth = 338
             TabOrder = 2
-            OnMouseDown = CollapseExpand
-            object Panel5: TPanel
-              Left = 0
-              Height = 112
-              Top = 0
-              Width = 338
-              Align = alTop
-              ClientHeight = 112
-              ClientWidth = 338
-              TabOrder = 0
-              object Chart2: TChart
-                Left = 1
-                Height = 80
-                Top = 1
-                Width = 336
-                AxisList = <                
-                  item
-                    Marks.LabelBrush.Style = bsClear
-                    Minors = <>
-                    Title.LabelFont.Orientation = 900
-                    Title.LabelBrush.Style = bsClear
-                  end                
-                  item
-                    Intervals.Options = [aipUseMaxLength, aipUseMinLength, aipUseNiceSteps, aipInteger]
-                    Alignment = calBottom
-                    Marks.LabelBrush.Style = bsClear
-                    Minors = <>
-                    Title.LabelBrush.Style = bsClear
-                  end>
-                Title.Text.Strings = (
-                  'TAChart'
-                )
-                Align = alTop
-                object BS_Liquids: TBarSeries
-                  BarBrush.Color = clRed
-                  BarShape = bsCylindrical
-                end
-                object BS_Syringes: TBarSeries
-                  BarBrush.Color = clRed
-                  BarShape = bsCylindrical
-                end
-              end
-              object B_PumpStInit: TButton
-                Left = 11
-                Height = 25
-                Top = 83
-                Width = 85
-                Caption = 'B_PumpStInit'
-                TabOrder = 1
-                OnClick = B_PumpStInitClick
-              end
-              object B_PumpClose: TButton
-                Left = 247
-                Height = 25
-                Top = 83
-                Width = 85
-                Caption = 'B_PumpClose'
-                TabOrder = 2
-              end
-              object ComboBox1: TComboBox
-                Left = 154
-                Height = 23
-                Top = 84
-                Width = 76
-                ItemHeight = 15
-                ItemIndex = 0
-                Items.Strings = (
-                  'Syringe1'
-                  'Syringe2'
-                  'Syringe3'
-                  'Syringe4'
-                  'Syringe5'
-                  'Syringe6'
-                  'Syringe7'
-                  'Syringe8'
-                )
-                TabOrder = 3
-                Text = 'Syringe1'
-              end
-              object L_Syringe: TLabel
-                Left = 97
-                Height = 15
-                Top = 87
-                Width = 50
-                Anchors = [akTop, akRight]
-                Caption = 'L_Syringe'
-              end
-            end
-            object GB_Syringe: TGroupBox
-              Left = 0
-              Height = 96
-              Top = 112
-              Width = 338
-              Align = alClient
-              Caption = 'GB_Syringe'
-              ClientHeight = 76
-              ClientWidth = 334
-              TabOrder = 1
-              object RG_Valve: TRadioGroup
-                Left = 94
-                Height = 75
-                Top = -6
-                Width = 72
-                AutoFill = True
-                Caption = 'RG_Valve'
-                ChildSizing.LeftRightSpacing = 6
-                ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
-                ChildSizing.EnlargeVertical = crsHomogenousChildResize
-                ChildSizing.ShrinkHorizontal = crsScaleChilds
-                ChildSizing.ShrinkVertical = crsScaleChilds
-                ChildSizing.Layout = cclLeftToRightThenTopToBottom
-                ChildSizing.ControlsPerLine = 1
-                ClientHeight = 55
-                ClientWidth = 68
-                Items.Strings = (
-                  'C-ON'
-                  'C-OFF'
-                  'BYPASS'
-                )
-                TabOrder = 0
-              end
-              object B_Load: TButton
-                Left = 224
-                Height = 25
-                Top = 19
-                Width = 52
-                Caption = 'B_Load'
-                TabOrder = 1
-              end
-              object B_Dispense: TButton
-                Left = 224
-                Height = 25
-                Top = 45
-                Width = 52
-                Caption = 'B_Dispense'
-                TabOrder = 2
-              end
-              object B_Empty: TButton
-                Left = 8
-                Height = 25
-                Top = 45
-                Width = 84
-                Caption = 'B_Empty'
-                TabOrder = 3
-              end
-              object FSE_VolLoad: TFloatSpinEdit
-                Left = 170
-                Height = 23
-                Top = 20
-                Width = 50
-                DecimalPlaces = 1
-                TabOrder = 4
-              end
-              object FSE_VolDisp: TFloatSpinEdit
-                Left = 170
-                Height = 23
-                Top = 46
-                Width = 50
-                DecimalPlaces = 1
-                TabOrder = 5
-              end
-              object B_FullLoad: TButton
-                Left = 9
-                Height = 25
-                Top = 19
-                Width = 83
-                Caption = 'B_FullLoad'
-                TabOrder = 6
-              end
-              object FSE_LoadSpeed: TFloatSpinEdit
-                Left = 280
-                Height = 23
-                Top = 20
-                Width = 50
-                DecimalPlaces = 0
-                TabOrder = 7
-              end
-              object FSE_DispSpeed: TFloatSpinEdit
-                Left = 280
-                Height = 23
-                Top = 46
-                Width = 50
-                DecimalPlaces = 0
-                TabOrder = 8
-              end
-              object L_Volume: TLabel
-                Left = 171
-                Height = 31
-                Top = -11
-                Width = 51
-                AutoSize = False
-                Caption = 'L_Volume'
-                Font.Height = 16
-                ParentFont = False
-                WordWrap = True
-              end
-              object L_Flow: TLabel
-                Left = 282
-                Height = 31
-                Top = -11
-                Width = 46
-                Anchors = [akTop, akRight]
-                AutoSize = False
-                Caption = 'L_Flow'
-                Font.Height = 16
-                ParentFont = False
-                WordWrap = True
-              end
-            end
-          end
-        end
-        object P_MatrixChart: TPanel
-          Left = 344
-          Height = 493
-          Top = 0
-          Width = 496
-          Align = alClient
-          Caption = 'P_MatrixChart'
-          ClientHeight = 493
-          ClientWidth = 496
-          TabOrder = 1
-          object Chart1: TChart
-            Left = 1
-            Height = 491
-            Top = 1
-            Width = 379
-            AxisList = <            
-              item
-                Grid.Visible = False
-                Intervals.Options = [aipUseCount, aipUseMaxLength, aipUseMinLength, aipUseNiceSteps]
-                Marks.LabelBrush.Style = bsClear
-                Minors = <>
-                Title.LabelFont.Orientation = 900
-                Title.LabelBrush.Style = bsClear
-              end            
-              item
-                Grid.Visible = False
-                Intervals.Count = 1
-                Intervals.Options = [aipGraphCoords, aipUseCount, aipUseMaxLength, aipUseMinLength, aipUseNiceSteps]
-                Alignment = calBottom
-                Marks.LabelBrush.Style = bsClear
-                Minors = <>
-                Title.LabelBrush.Style = bsClear
-              end>
-            Title.Text.Strings = (
-              'TAChart'
-            )
-            Toolset = ChartToolset1
-            Align = alLeft
-            object BS_Series: TBubbleSeries
-              BubbleBrush.Color = clRed
-              BubblePen.Color = clRed
-              BubblePen.Width = 2
-            end
-            object PS_Series: TPolygonSeries
-              Pen.Color = clBlue
-            end
           end
         end
       end
     end
   end
   object Splitter1: TSplitter
-    Cursor = crVSplit
-    Left = 0
-    Height = 5
-    Top = 523
-    Width = 850
-    Align = alBottom
-    ResizeAnchor = akBottom
+    Cursor = crHSplit
+    Left = 562
+    Height = 600
+    Top = 0
+    Width = 5
+    Align = alLeft
+    ResizeAnchor = akLeft
     OnMoved = Splitter1Moved
   end
   object Panel2: TPanel
-    Left = 0
-    Height = 72
-    Top = 528
-    Width = 850
-    Align = alBottom
+    Left = 567
+    Height = 600
+    Top = 0
+    Width = 283
+    Align = alClient
     Caption = 'Panel2'
-    ClientHeight = 72
-    ClientWidth = 850
+    ClientHeight = 600
+    ClientWidth = 283
     TabOrder = 2
     object Memo1: TMemo
       Left = 1
-      Height = 70
+      Height = 598
       Top = 1
-      Width = 848
+      Width = 281
       Align = alClient
       ScrollBars = ssAutoBoth
       TabOrder = 0
@@ -1201,20 +948,6 @@ object Form1: TForm1
   object SDD_Dir: TSelectDirectoryDialog
     Left = 664
     Top = 544
-  end
-  object ChartToolset1: TChartToolset
-    Left = 352
-    Top = 548
-    object ChartToolset1ZoomMouseWheelTool1: TZoomMouseWheelTool
-      ZoomFactor = 1.1
-    end
-    object ChartToolset1ZoomDragTool1: TZoomDragTool
-      Shift = [ssLeft]
-      Brush.Style = bsClear
-    end
-    object ChartToolset1PanDragTool1: TPanDragTool
-      Shift = [ssRight]
-    end
   end
   object SD_File: TSaveDialog
     Left = 720

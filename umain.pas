@@ -6,9 +6,9 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
-  Spin, Windows, Graphics, Grids, Buttons, TAGraph, TAMultiSeries, TASeries,
-  TAPolygonSeries, TATools, StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper,
-  UWLayerChart, Dilutor, UWLasPen, MyGlobals, IniFiles, UWBlock, USynThread;
+  Spin, Windows, Graphics, Grids, Buttons,
+  StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper, UWLayerChart, Dilutor,
+  UDispenserStationHost, DispenserLayout, UWLasPen, MyGlobals, IniFiles, UWBlock, USynThread, UWPreview;
 
 
 type
@@ -30,12 +30,6 @@ type
     B_AddBlockInProtocol: TButton;
     B_SaveProtocolLayer: TButton;
     B_LoadProtocolLayer: TButton;
-    B_FullLoad: TButton;
-    B_Empty: TButton;
-    B_Load: TButton;
-    B_Dispense: TButton;
-    B_PumpClose: TButton;
-    B_PumpStInit: TButton;
     B_CreateArrEzd: TButton;
     B_CloseEzCAD: TButton;
     B_SetLasPen: TButton;
@@ -46,38 +40,17 @@ type
     B_Preview: TButton;
     B_Matrix: TButton;
     B_CreateEZD: TButton;
-    Chart1: TChart;
-    BS_Series: TBubbleSeries;
     CB_AutoCenter: TCheckBox;
     CB_ShowSubstrate: TCheckBox;
-    Chart2: TChart;
-    BS_Syringes: TBarSeries;
-    BS_Liquids: TBarSeries;
-    ChartToolset1: TChartToolset;
-    ChartToolset1PanDragTool1: TPanDragTool;
-    ChartToolset1ZoomDragTool1: TZoomDragTool;
-    ChartToolset1ZoomMouseWheelTool1: TZoomMouseWheelTool;
-    ComboBox1: TComboBox;
-    FSE_DispSpeed: TFloatSpinEdit;
-    FSE_VolLoad: TFloatSpinEdit;
-    FSE_VolDisp: TFloatSpinEdit;
-    FSE_LoadSpeed: TFloatSpinEdit;
     GB_PumpStation: TGroupBox;
     GB_MarkEZDDLL: TGroupBox;
     GB_EzCAD: TGroupBox;
-    GB_Syringe: TGroupBox;
     GB_EditProtocolTree: TGroupBox;
     GB_Files: TGroupBox;
     GB_SynthControl: TGroupBox;
     L_MoveArrows: TLabel;
-    L_Volume: TLabel;
-    L_Syringe: TLabel;
     L_SubstrD: TLabel;
-    L_Flow: TLabel;
     OD_File: TOpenDialog;
-    Panel5: TPanel;
-    P_MatrixChart: TPanel;
-    PS_Series: TPolygonSeries;
     FSE_XBias: TFloatSpinEdit;
     FSE_Step: TFloatSpinEdit;
     FSE_GroupStep: TFloatSpinEdit;
@@ -97,7 +70,6 @@ type
     Panel2: TPanel;
     Panel3: TPanel;
     Panel4: TPanel;
-    RG_Valve: TRadioGroup;
     SD_File: TSaveDialog;
     SDD_Dir: TSelectDirectoryDialog;
     SE_Group: TSpinEdit;
@@ -131,7 +103,6 @@ type
     procedure B_OpenEZCADClick(Sender: TObject);
     procedure B_PauseClick(Sender: TObject);
     procedure B_PreviewClick(Sender: TObject);
-    procedure B_PumpStInitClick(Sender: TObject);
     procedure B_RemoveNodeClick(Sender: TObject);
     procedure B_SaveOligsClick(Sender: TObject);
     procedure B_SaveProtocolLayerClick(Sender: TObject);
@@ -144,6 +115,7 @@ type
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
+    procedure Splitter1Moved(Sender: TObject);
     procedure CollapseExpand(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure SB_DownNodeClick(Sender: TObject);
@@ -155,13 +127,20 @@ type
       Shift: TShiftState);
     procedure SG_OligoArrSetEditText(Sender: TObject; ACol, ARow: Integer;
       const Value: string);
-    procedure Splitter1Moved(Sender: TObject);
     procedure Tmr_CloserTimer(Sender: TObject);
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
+    FDispenserStation: TDispenserStationForm;
+    FLogWidthRatio: Double;
+    FLogWidthCustomized: Boolean;
+    FApplyingLogLayout: Boolean;
+    FPreviousClientWidth: Integer;
+    FPreviousLogWidth: Integer;
+    procedure UpdateManualControlsWidth;
+    procedure UpdateMinimumWindowWidth;
+    procedure DispenserStationLogMessage(Sender: TObject; const Msg: string);
     Procedure DisplayOligoArrInGrid(anArr: TOligoArr);
     procedure AutoSizeGridColumn(Grid : TStringGrid; column : integer);
-    Procedure DisplayPumpStation();
     procedure LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
   public
     Procedure ShowRez(aFunName: String; aRez:integer);
@@ -176,12 +155,22 @@ implementation
 
 {$R *.lfm}
 
+const
+  STATION_PANEL_CHROME = 24;
+  MIN_LOG_PANEL_WIDTH = 220;
+
 { TForm1 }
 
 {ОБЩИЕ ПОДПРОГРАММЫ}
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+  FLogWidthRatio := 1 / 3;
+  FLogWidthCustomized := False;
+  FApplyingLogLayout := False;
+  FPreviousClientWidth := 0;
+  FPreviousLogWidth := 0;
+
   //интерфейс
   MyInterface:=TIniFile.Create(GetCurrentDir+'\Interface.ini');
 
@@ -212,17 +201,6 @@ begin
   B_CloseEZCAD.Caption:=MyInterface.ReadString('Manual','B_CloseEZCAD','CloseEZCAD');
   B_SendF2.Caption:=MyInterface.ReadString('Manual','B_SendF2','Mark');
   GB_PumpStation.Caption:=MyInterface.ReadString('Manual','GB_PumpStation','PumpStation');
-  B_PumpStInit.Caption:=MyInterface.ReadString('Manual','B_PumpStInit','Initialization');
-  B_PumpClose.Caption:=MyInterface.ReadString('Manual','B_PumpClose','Disconnect');
-  L_Syringe.Caption:=MyInterface.ReadString('Manual','L_Syringe','Syringe');
-  GB_Syringe.Caption:=MyInterface.ReadString('Manual','GB_Syringe','Syringe');
-  RG_Valve.Caption:=MyInterface.ReadString('Manual','RG_Valve','Valve');
-  B_FullLoad.Caption:=MyInterface.ReadString('Manual','B_FullLoad','FullLoad');
-  B_Empty.Caption:=MyInterface.ReadString('Manual','B_Empty','Empty');
-  L_Volume.Caption:=MyInterface.ReadString('Manual','L_Volume','Volume, ul');
-  L_Flow.Caption:=MyInterface.ReadString('Manual','L_Flow','Flow, ul/s');
-  B_Load.Caption:=MyInterface.ReadString('Manual','B_Load','Load');
-  B_Dispense.Caption:=MyInterface.ReadString('Manual','B_Dispense','Dispense');
 
   GB_OligControl.Caption:=MyInterface.ReadString('Oligo','GB_OligControl','Oligonucleotides');
   B_CreateOligoArr.Caption:=MyInterface.ReadString('Oligo','B_CreateOligoArr','OligoArray');
@@ -264,21 +242,158 @@ begin
   //для экранов с включенным масштабированием
   GB_Laser.Tag:=GB_Laser.Height;
   GB_Array.Tag:=GB_Array.Height;
-  GB_PumpStation.Tag:=GB_PumpStation.Height;
-
-  DisplayPumpStation();
+  FDispenserStation := TDispenserStationForm.Create(Self);
+  FDispenserStation.BorderStyle := bsNone;
+  FDispenserStation.Parent := GB_PumpStation;
+  FDispenserStation.Align := alClient;
+  FDispenserStation.AttachLogSink(@DispenserStationLogMessage);
+  FDispenserStation.Show;
   Randomize();
+  UpdateMinimumWindowWidth();
+  UpdateManualControlsWidth();
 end;
 
 procedure TForm1.FormResize(Sender: TObject);
+var
+  LogRatio: Double;
+  LogWidth: Integer;
+  MaxLogWidth: Integer;
+  MinimumPanelWidth: Integer;
+  MinimumClientWidth: Integer;
+  IsShrinking: Boolean;
 begin
-  Panel2.Height:=Form1.Height div 8;
-  Chart1.Width:=Chart1.Height;
-end;
+  if (ClientWidth <= 0) or not Assigned(Splitter1) or
+     not Assigned(Panel1) or not Assigned(Panel2) then
+    Exit;
 
+  MinimumPanelWidth := MAIN_WINDOW_MIN_WIDTH + STATION_PANEL_CHROME;
+  MinimumClientWidth := MinimumPanelWidth + Splitter1.Width +
+    MIN_LOG_PANEL_WIDTH;
+  if ClientWidth < MinimumClientWidth then
+    Exit;
+
+  IsShrinking := (FPreviousClientWidth > 0) and
+    (ClientWidth < FPreviousClientWidth);
+  if IsShrinking and (FPreviousLogWidth > 0) then
+    LogWidth := FPreviousLogWidth
+  else
+  begin
+    if FLogWidthCustomized then
+      LogRatio := FLogWidthRatio
+    else
+      LogRatio := 1 / 3;
+    LogWidth := Round(ClientWidth * LogRatio);
+  end;
+
+  MaxLogWidth := ClientWidth - Splitter1.Width - MinimumPanelWidth;
+  if LogWidth < MIN_LOG_PANEL_WIDTH then
+    LogWidth := MIN_LOG_PANEL_WIDTH
+  else if LogWidth > MaxLogWidth then
+    LogWidth := MaxLogWidth;
+
+  FApplyingLogLayout := True;
+  try
+    Panel1.Width := ClientWidth - Splitter1.Width - LogWidth;
+  finally
+    FApplyingLogLayout := False;
+  end;
+
+  FPreviousClientWidth := ClientWidth;
+  FPreviousLogWidth := Panel2.Width;
+  UpdateManualControlsWidth();
+end;
 procedure TForm1.Splitter1Moved(Sender: TObject);
 begin
-    Chart1.Width:=Chart1.Height;
+  if FApplyingLogLayout or (ClientWidth <= 0) then
+    Exit;
+
+  FLogWidthRatio := Panel2.Width / ClientWidth;
+  FLogWidthCustomized := True;
+  FPreviousClientWidth := ClientWidth;
+  FPreviousLogWidth := Panel2.Width;
+  UpdateMinimumWindowWidth();
+  UpdateManualControlsWidth();
+end;
+procedure TForm1.UpdateMinimumWindowWidth;
+const
+  FORM_NONCLIENT_CHROME_FALLBACK = 24;
+var
+  LogRatio: Double;
+  RequiredPanelWidth: Integer;
+  RequiredClientWidth: Integer;
+  RequiredFormWidth: Integer;
+  FormChromeWidth: Integer;
+begin
+  if not Assigned(Splitter1) or not Assigned(Panel1) or
+     not Assigned(Panel2) then
+    Exit;
+
+  RequiredPanelWidth := MAIN_WINDOW_MIN_WIDTH + STATION_PANEL_CHROME;
+  Panel2.Constraints.MinWidth := MIN_LOG_PANEL_WIDTH;
+  RequiredClientWidth := RequiredPanelWidth + Splitter1.Width +
+    MIN_LOG_PANEL_WIDTH;
+
+  FormChromeWidth := Width - ClientWidth;
+  if FormChromeWidth < FORM_NONCLIENT_CHROME_FALLBACK then
+    FormChromeWidth := FORM_NONCLIENT_CHROME_FALLBACK;
+  RequiredFormWidth := RequiredClientWidth + FormChromeWidth;
+  Constraints.MinWidth := RequiredFormWidth;
+
+  if Panel1.Width < RequiredPanelWidth then
+  begin
+    if FLogWidthCustomized then
+      LogRatio := FLogWidthRatio
+    else
+      LogRatio := 1 / 3;
+
+    if LogRatio < 0 then
+      LogRatio := 0
+    else if LogRatio >= 1 then
+      LogRatio := 0.99;
+
+    RequiredClientWidth := Trunc((RequiredPanelWidth + Splitter1.Width) /
+      (1 - LogRatio));
+    if RequiredClientWidth * (1 - LogRatio) <
+       RequiredPanelWidth + Splitter1.Width then
+      Inc(RequiredClientWidth);
+
+    RequiredFormWidth := RequiredClientWidth + FormChromeWidth;
+    if Width < RequiredFormWidth then
+      Width := RequiredFormWidth;
+  end;
+end;
+procedure TForm1.UpdateManualControlsWidth;
+var
+  ManualWidth, ManualHeight: Integer;
+begin
+  if not Assigned(Panel1) or not Assigned(PageControl1) or
+     not Assigned(TS_Manual) or not Assigned(Panel3) or
+     not Assigned(GB_Array) or not Assigned(GB_Laser) or
+     not Assigned(GB_PumpStation) then
+    Exit;
+
+  if (Panel1.ClientWidth <= 2) or (Panel1.ClientHeight <= 2) then
+    Exit;
+
+  PageControl1.SetBounds(1, 1, Panel1.ClientWidth - 2,
+    Panel1.ClientHeight - 2);
+
+  ManualWidth := TS_Manual.ClientWidth;
+  ManualHeight := TS_Manual.ClientHeight;
+  if (ManualWidth <= 0) or (ManualHeight <= 0) then
+    Exit;
+
+  Panel3.SetBounds(0, 0, ManualWidth, ManualHeight);
+  GB_Array.Width := Panel3.ClientWidth - 2;
+  GB_Laser.Width := Panel3.ClientWidth - 2;
+  GB_PumpStation.Width := Panel3.ClientWidth - 2;
+
+  if Assigned(GB_MarkEZDDLL) and Assigned(GB_EzCAD) then
+  begin
+    GB_EzCAD.Left := GB_MarkEZDDLL.Width;
+    GB_EzCAD.Width := GB_Laser.ClientWidth - GB_EzCAD.Left;
+  end;
+
 end;
 
 procedure TForm1.ShowRez(aFunName: String; aRez: integer);
@@ -379,28 +494,6 @@ end;
 Grid.ColWidths[column]:= Max + Grid.GridLineWidth + 5;
 end;
 
-procedure TForm1.DisplayPumpStation();
-var
-  i: integer;
-begin
-  if Length(MyPumpSt)<>0 then
-   begin
-     BS_Syringes.Clear;
-     BS_Liquids.Clear;
-     for i:=1 to length(MyPumpSt) do
-       BS_Syringes.AddXY(i,100,MyPumpSt[i].fLabel,clWhite);
-       BS_Liquids.AddXY(i,MyPumpSt[i].fVolume*100/MyPumpSt[i].fSyringeVolume,'',clBlack);
-   end
-  else
-  begin
-    for i:=1 to 8 do
-    begin
-      BS_Syringes.AddXY(i,100,'Syr'+IntToStr(i),clWhite);
-      BS_Liquids.AddXY(i,Random(100),'',clBlack);
-    end;
-  end;
-end;
-
 procedure TForm1.LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
 // Загрузка содержимого файла в ноду TreeView
 var
@@ -438,8 +531,22 @@ end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
+  if Assigned(FDispenserStation) and
+     not FDispenserStation.CanCloseFromHost then
+  begin
+    CloseAction := caNone;
+    Exit;
+  end;
+
   MyInterface.Free;
   MyIni.Free;
+end;
+
+procedure TForm1.DispenserStationLogMessage(Sender: TObject;
+  const Msg: string);
+begin
+  Memo1.Lines.Add(Msg);
+  Memo1.SelStart := Length(Memo1.Text);
 end;
 
 {ВКЛАДКА Manual}
@@ -544,7 +651,12 @@ var
    numPoints: integer;
    TmpP: TPoint;
 begin
-  PS_Series.Clear;
+  if not Assigned(FormPreview) then
+  begin
+    FormPreview:=TFormPreview.Create(Application);
+    FormPreview.Caption:=MyInterface.ReadString('Manual','B_Preview','Preview');
+  end;
+  FormPreview.ClearPreview;
 
   if CB_ShowSubstrate.Checked then // если нужно показать контур подложки
   begin
@@ -553,7 +665,7 @@ begin
     for i:=0 to numPoints-1 do
     begin
       Angle:=2*Pi*i/numPoints; // Угол в радианах
-      PS_Series.AddXY(SubRadius*Cos(Angle), SubRadius*Sin(Angle),'',clBlue);
+      FormPreview.AddSubstratePoint(SubRadius*Cos(Angle), SubRadius*Sin(Angle));
     end
   end;
 
@@ -576,44 +688,19 @@ begin
 
   // заполняем серию спотами из матрицы
   mySpotR:=SE_SpotSize.Value/2000;  // переход от диаметра в мкм к радиусу в мм
-  BS_Series.Clear;
   for i:=0 to Length(MyMatrix)-1 do
     for j:=0 to Length(MyMatrix[i])-1 do
     begin
       if myMatrix[i,j]<>0 then
        begin
-         if myGroup=0 then
-          BS_Series.AddXY(j*myStep+BiasX, -i*myStep+BiasY, mySpotR,'', clRed)
-         else
-          BS_Series.AddXY(j*myStep+myGStep*(j div myGroup)+BiasX, -i*myStep-myGStep*(i div myGroup)+BiasY , mySpotR,'', clRed);
+        if myGroup=0 then
+          FormPreview.AddSpot(j*myStep+BiasX, -i*myStep+BiasY, mySpotR)
+        else
+          FormPreview.AddSpot(j*myStep+myGStep*(j div myGroup)+BiasX,
+            -i*myStep-myGStep*(i div myGroup)+BiasY, mySpotR);
        end;
     end;
-end;
-
-procedure TForm1.B_PumpStInitClick(Sender: TObject);
-// Подключение и инициализация шприцевой станции
-var
-  NumOfSyr: Integer;
-  rez: integer;
-  i: integer;
-begin
-{  //Поключение
-  rez:=PumpStation.Connect(MyInterface.ReadString('PumpStation','COMPort','COM1'));
-  ShowRez('PumpStation.Connect',rez);
-  if rez=0 then
-   begin
-      // заполняем запись по всем шприцевым дозаторам
-      NumOfSyr:=MyInterface.ReadInteger('PumpStation','NumOfSyr',8);
-      SetLength(MyPumpSt,NumOfSyr);
-      for i:=0 to NumOfSyr-1 do
-      begin
-        MyPumpSt[i].SyrVolume:=MyInterface.ReadFloat('PumpStation','Syringe'+IntoStr(i+1), 250.0);
-        MyPumpSt[i].SyrName:=MyInterface.ReadFloat('PumpStation','SyrName'+IntoStr(i+1), 'Syr'+IntoStr(i+1));
-      end;
-      // инициализируем станцию (клапаны в C-OFF, шприцы вверх)
-      PumpStation.Initializaton(MyPumpSt);
-      DisplayPumpStation();
-   end;        }
+  FormPreview.ShowPreview;
 end;
 
 procedure TForm1.B_SendF2Click(Sender: TObject);

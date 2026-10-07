@@ -40,7 +40,7 @@ begin
   BB_Cancel.Caption:=MyInterface.ReadString('AddBlock','BB_Cancel','Cancel');
   BB_Ok.Caption:=MyInterface.ReadString('AddBlock','BB_Ok','OK');
 
-  LE_String.Text:=MyIni.ReadString('Program','LE_String','BlockName');
+  LE_String.Text:=MyIni.ReadString('AddBlock','LE_String','BlockName');
 end;
 
 procedure TForm6.BB_OkClick(Sender: TObject);

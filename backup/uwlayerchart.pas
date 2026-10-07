@@ -26,7 +26,7 @@ var
   Form4: TForm4;
 
 implementation
-uses Unit1;
+uses UMain;
 
 {$R *.lfm}
 

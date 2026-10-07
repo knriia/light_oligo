@@ -1103,54 +1103,6 @@ object Form1: TForm1
             end
           end
         end
-        object P_MatrixChart: TPanel
-          Left = 344
-          Height = 493
-          Top = 0
-          Width = 496
-          Align = alClient
-          Caption = 'P_MatrixChart'
-          ClientHeight = 493
-          ClientWidth = 496
-          TabOrder = 1
-          object Chart1: TChart
-            Left = 1
-            Height = 491
-            Top = 1
-            Width = 379
-            AxisList = <            
-              item
-                Grid.Visible = False
-                Intervals.Options = [aipUseCount, aipUseMaxLength, aipUseMinLength, aipUseNiceSteps]
-                Marks.LabelBrush.Style = bsClear
-                Minors = <>
-                Title.LabelFont.Orientation = 900
-                Title.LabelBrush.Style = bsClear
-              end            
-              item
-                Grid.Visible = False
-                Intervals.Count = 1
-                Intervals.Options = [aipGraphCoords, aipUseCount, aipUseMaxLength, aipUseMinLength, aipUseNiceSteps]
-                Alignment = calBottom
-                Marks.LabelBrush.Style = bsClear
-                Minors = <>
-                Title.LabelBrush.Style = bsClear
-              end>
-            Title.Text.Strings = (
-              'TAChart'
-            )
-            Toolset = ChartToolset1
-            Align = alLeft
-            object BS_Series: TBubbleSeries
-              BubbleBrush.Color = clRed
-              BubblePen.Color = clRed
-              BubblePen.Width = 2
-            end
-            object PS_Series: TPolygonSeries
-              Pen.Color = clBlue
-            end
-          end
-        end
       end
     end
   end
@@ -1162,7 +1114,6 @@ object Form1: TForm1
     Width = 850
     Align = alBottom
     ResizeAnchor = akBottom
-    OnMoved = Splitter1Moved
   end
   object Panel2: TPanel
     Left = 0
@@ -1201,20 +1152,6 @@ object Form1: TForm1
   object SDD_Dir: TSelectDirectoryDialog
     Left = 664
     Top = 544
-  end
-  object ChartToolset1: TChartToolset
-    Left = 352
-    Top = 548
-    object ChartToolset1ZoomMouseWheelTool1: TZoomMouseWheelTool
-      ZoomFactor = 1.1
-    end
-    object ChartToolset1ZoomDragTool1: TZoomDragTool
-      Shift = [ssLeft]
-      Brush.Style = bsClear
-    end
-    object ChartToolset1PanDragTool1: TPanDragTool
-      Shift = [ssRight]
-    end
   end
   object SD_File: TSaveDialog
     Left = 720

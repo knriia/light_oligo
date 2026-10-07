@@ -6,8 +6,10 @@
 *.a
 *.compiled
 /LightOligo.exe
+/LightOligo.dbg
 /LightOligo.res
 /LightOligo.lps
+/syringe_station/tests/configuration_tests.exe
 
 # Logs and temporary files
 *.log

@@ -1,0 +1,64 @@
+object ConfigurationForm: TConfigurationForm
+  Left = -1950
+  Height = 520
+  Top = 610
+  Width = 620
+  Caption = 'Конфигуратор дозаторов'
+  ClientHeight = 520
+  ClientWidth = 620
+  Position = poScreenCenter
+  LCLVersion = '4.4.0.0'
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  object ScrollBoxRows: TScrollBox
+    Left = 0
+    Height = 478
+    Top = 0
+    Width = 620
+    HorzScrollBar.Page = 1
+    VertScrollBar.Page = 1
+    Align = alClient
+    TabOrder = 0
+  end
+  object ButtonsPanel: TPanel
+    Left = 0
+    Height = 42
+    Top = 478
+    Width = 620
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 42
+    ClientWidth = 620
+    TabOrder = 1
+    object btnAddDispenser: TButton
+      Left = 12
+      Height = 25
+      Top = 8
+      Width = 150
+      Caption = 'Добавить дозатор'
+      TabOrder = 0
+      OnClick = btnAddDispenserClick
+    end
+    object btnGenerate: TButton
+      Left = 430
+      Height = 25
+      Top = 8
+      Width = 90
+      Anchors = [akTop, akRight]
+      Caption = 'Применить'
+      TabOrder = 1
+      OnClick = btnGenerateClick
+    end
+    object btnCancel: TButton
+      Left = 526
+      Height = 25
+      Top = 8
+      Width = 82
+      Anchors = [akTop, akRight]
+      Caption = 'Отмена'
+      ModalResult = 2
+      TabOrder = 2
+    end
+  end
+end
