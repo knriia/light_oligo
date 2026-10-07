@@ -56,6 +56,14 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="ManualControlsLayoutTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="../ManualControlsLayout.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="../FormWorkDispatcher.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
