@@ -213,18 +213,20 @@ begin
 
   FFillButton := TButton.Create(FPanel);
   FFillButton.Parent := FPanel;
-  FFillButton.Left := COL_FILL + (WIDTH_FILL - 90) div 2;
+  FFillButton.Font.Size := 8;
+  FFillButton.Left := COL_FILL;
   FFillButton.Top := (FPanel.Height - 25) div 2;
-  FFillButton.Width := 90;
+  FFillButton.Width := WIDTH_FILL;
   FFillButton.Height := 25;
   FFillButton.Caption := 'Наполнить';
   FFillButton.OnClick := @FillClicked;
 
   FEmptyButton := TButton.Create(FPanel);
   FEmptyButton.Parent := FPanel;
-  FEmptyButton.Left := COL_EMPTY + (WIDTH_EMPTY - 90) div 2;
+  FEmptyButton.Font.Size := 8;
+  FEmptyButton.Left := COL_EMPTY;
   FEmptyButton.Top := (FPanel.Height - 25) div 2;
-  FEmptyButton.Width := 90;
+  FEmptyButton.Width := WIDTH_EMPTY;
   FEmptyButton.Height := 25;
   FEmptyButton.Caption := 'Опустошить';
   FEmptyButton.OnClick := @EmptyClicked;
@@ -261,7 +263,7 @@ begin
     ChannelLabel.Height := 11;
     ChannelLabel.AutoSize := False;
     ChannelLabel.Alignment := taCenter;
-    ChannelLabel.Font.Size := 7;
+    ChannelLabel.Font.Size := 8;
     ChannelLabel.BorderStyle := sbsNone;
     ChannelLabel.Color := FValvePanel.Color;
     ChannelLabel.Caption := IntToStr(I);
@@ -281,18 +283,20 @@ begin
 
   FAspirateButton := TButton.Create(FPanel);
   FAspirateButton.Parent := FPanel;
-  FAspirateButton.Left := COL_ASPIRATE + (WIDTH_ASPIRATE - 80) div 2;
+  FAspirateButton.Font.Size := 8;
+  FAspirateButton.Left := COL_ASPIRATE + (WIDTH_ASPIRATE - 60) div 2;
   FAspirateButton.Top := (FPanel.Height - 25) div 2;
-  FAspirateButton.Width := 80;
+  FAspirateButton.Width := 60;
   FAspirateButton.Height := 25;
   FAspirateButton.Caption := 'Набрать';
   FAspirateButton.OnClick := @AspirateClicked;
 
   FDispenseButton := TButton.Create(FPanel);
   FDispenseButton.Parent := FPanel;
-  FDispenseButton.Left := COL_DISPENSE + (WIDTH_DISPENSE - 90) div 2;
+  FDispenseButton.Font.Size := 8;
+  FDispenseButton.Left := COL_DISPENSE + (WIDTH_DISPENSE - 78) div 2;
   FDispenseButton.Top := (FPanel.Height - 25) div 2;
-  FDispenseButton.Width := 90;
+  FDispenseButton.Width := 78;
   FDispenseButton.Height := 25;
   FDispenseButton.Caption := 'Дозировать';
   FDispenseButton.OnClick := @DispenseClicked;
@@ -340,27 +344,29 @@ begin
 
   FCurrentProgressBar := TVolumeProgressBar.Create(FPanel);
   FCurrentProgressBar.Parent := FPanel;
-  FCurrentProgressBar.Left := COL_CURRENT + (WIDTH_CURRENT - 140) div 2;
+  FCurrentProgressBar.Left := COL_CURRENT;
   FCurrentProgressBar.Top := (FPanel.Height - 20) div 2;
-  FCurrentProgressBar.Width := 140;
+  FCurrentProgressBar.Width := WIDTH_CURRENT;
   FCurrentProgressBar.Height := 20;
   FCurrentProgressBar.Max := FConfig.Volume;
   FCurrentProgressBar.UnitCaption := 'мкл';
 
   FStopButton := TButton.Create(FPanel);
   FStopButton.Parent := FPanel;
+  FStopButton.Font.Size := 8;
   FStopButton.Top := (FPanel.Height - 25) div 2;
-  FStopButton.Width := 82;
+  FStopButton.Width := 48;
   FStopButton.Height := 25;
-  FStopButton.Caption := 'Остановить';
+  FStopButton.Caption := 'Стоп';
   FStopButton.OnClick := @StopClicked;
 
   FInitializeButton := TButton.Create(FPanel);
   FInitializeButton.Parent := FPanel;
+  FInitializeButton.Font.Size := 8;
   FInitializeButton.Top := (FPanel.Height - 25) div 2;
-  FInitializeButton.Width := 112;
+  FInitializeButton.Width := 54;
   FInitializeButton.Height := 25;
-  FInitializeButton.Caption := 'Инициализировать';
+  FInitializeButton.Caption := 'Иниц.';
   FInitializeButton.OnClick := @InitializeClicked;
 
   UpdateBypassControls;
