@@ -51,7 +51,7 @@ uses
 constructor TDispenserConfig.Create;
 begin
   Number := 1;
-  Name := 'Дозатор 1';
+  Name := 'A';
   Address := 1;
   Volume := 250;
   ChannelCount := 2;

@@ -127,6 +127,7 @@ var
     HeaderLabel.Height := 16;
     HeaderLabel.AutoSize := False;
     HeaderLabel.Alignment := taCenter;
+    HeaderLabel.Font.Size := 8;
     HeaderLabel.Caption := ACaption;
     FHeaderLabels[NextColumn] := HeaderLabel;
     if NextColumn <> High(TDispenserColumn) then
@@ -154,11 +155,11 @@ begin
   AddHeader('Байпас');
   AddHeader('Набрать');
   AddHeader('Дозировать');
-  AddHeader('Объём набора (мкл)');
+  AddHeader('Набор, мкл');
   AddHeader('Скорость, мкл/с');
-  AddHeader('Текущий объём (мкл)');
-  AddHeader('Остановить');
-  AddHeader('Инициализировать');
+  AddHeader('Объём, мкл');
+  AddHeader('Стоп');
+  AddHeader('Иниц.');
 end;
 
 procedure TDispenserTable.ScrollBoxResize(Sender: TObject);

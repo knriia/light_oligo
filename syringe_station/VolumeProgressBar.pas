@@ -160,7 +160,7 @@ begin
   if FKnown then
     DisplayText := Format('%d / %d %s', [FPosition, FMax, FUnitCaption])
   else
-    DisplayText := 'не инициализирован';
+    DisplayText := 'не иниц.';
   TextLeft := (ClientWidth - Canvas.TextWidth(DisplayText)) div 2;
   TextTop := (ClientHeight - Canvas.TextHeight(DisplayText)) div 2;
 

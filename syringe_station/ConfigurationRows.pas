@@ -194,7 +194,7 @@ begin
     Config := TDispenserConfig.Create;
   try
     Config.Number := GetNextFreeNumber;
-    Config.Name := 'Дозатор ' + IntToStr(Config.Number);
+    Config.Name := Chr(Ord('A') + Config.Number - 1);
     Config.Address := Config.Number;
     Row := TConfigRow.Create(FScrollBox, FRows.Count, Config, True, @DeleteRow,
       @MoveUp, @MoveDown, @NotifyChanged, FConnected, FRuntimeStates);
