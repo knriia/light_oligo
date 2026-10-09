@@ -18,7 +18,7 @@ object Form1: TForm1
     Height = 600
     Top = 0
     Width = 562
-    Align = alLeft
+    Align = alClient
     Caption = 'Panel1'
     ClientHeight = 600
     ClientWidth = 562
@@ -619,13 +619,13 @@ object Form1: TForm1
           ClientWidth = 344
           TabOrder = 0
           object GB_Laser: TGroupBox
-            Tag = 168
+            Tag = 175
             Left = 172
-            Height = 168
+            Height = 175
             Top = 1
             Width = 171
             Caption = 'GB_Laser'
-            ClientHeight = 148
+            ClientHeight = 155
             ClientWidth = 167
             TabOrder = 0
             OnMouseDown = CollapseExpand
@@ -699,20 +699,20 @@ object Form1: TForm1
             end
           end
           object GB_Array: TGroupBox
-            Tag = 168
+            Tag = 175
             Left = 1
-            Height = 168
+            Height = 175
             Top = 1
             Width = 171
             Caption = 'GB_Array'
-            ClientHeight = 148
+            ClientHeight = 155
             ClientWidth = 167
             TabOrder = 1
             OnMouseDown = CollapseExpand
             object B_Matrix: TButton
               Left = 52
               Height = 25
-              Top = 0
+              Top = 125
               Width = 90
               Caption = 'B_Matrix'
               TabOrder = 0
@@ -721,7 +721,7 @@ object Form1: TForm1
             object B_Preview: TButton
               Left = 216
               Height = 25
-              Top = 0
+              Top = 125
               Width = 90
               Anchors = [akTop, akRight]
               Caption = 'B_Preview'
@@ -731,7 +731,7 @@ object Form1: TForm1
             object SE_Group: TSpinEdit
               Left = 92
               Height = 23
-              Top = 51
+              Top = 26
               Width = 50
               MaxValue = 100
               TabOrder = 2
@@ -740,7 +740,7 @@ object Form1: TForm1
             object L_Group: TLabel
               Left = 42
               Height = 15
-              Top = 53
+              Top = 28
               Width = 44
               Anchors = [akTop, akLeft]
               Caption = 'L_Group'
@@ -748,7 +748,7 @@ object Form1: TForm1
             object FSE_Step: TFloatSpinEdit
               Left = 92
               Height = 23
-              Top = 27
+              Top = 2
               Width = 50
               Increment = 0.01
               MaxValue = 10
@@ -759,7 +759,7 @@ object Form1: TForm1
             object L_Step: TLabel
               Left = 52
               Height = 15
-              Top = 31
+              Top = 6
               Width = 34
               Anchors = [akTop, akLeft]
               Caption = 'L_Step'
@@ -767,7 +767,7 @@ object Form1: TForm1
             object FSE_GroupStep: TFloatSpinEdit
               Left = 92
               Height = 23
-              Top = 75
+              Top = 50
               Width = 50
               Increment = 0.01
               MaxValue = 10
@@ -778,7 +778,7 @@ object Form1: TForm1
             object L_GStep: TLabel
               Left = 44
               Height = 15
-              Top = 77
+              Top = 52
               Width = 42
               Anchors = [akTop, akLeft]
               Caption = 'L_GStep'
@@ -786,7 +786,7 @@ object Form1: TForm1
             object FSE_XBias: TFloatSpinEdit
               Left = 256
               Height = 23
-              Top = 51
+              Top = 26
               Width = 50
               Anchors = [akTop]
               Increment = 0.01
@@ -797,7 +797,7 @@ object Form1: TForm1
             object L_BiasX: TLabel
               Left = 213
               Height = 15
-              Top = 53
+              Top = 28
               Width = 39
               Anchors = [akTop]
               Caption = 'L_BiasX'
@@ -805,7 +805,7 @@ object Form1: TForm1
             object L_BiasY: TLabel
               Left = 213
               Height = 15
-              Top = 77
+              Top = 52
               Width = 39
               Anchors = [akTop]
               Caption = 'L_BiasY'
@@ -813,7 +813,7 @@ object Form1: TForm1
             object FSE_YBias: TFloatSpinEdit
               Left = 256
               Height = 23
-              Top = 75
+              Top = 50
               Width = 50
               Anchors = [akTop]
               Increment = 0.01
@@ -822,21 +822,29 @@ object Form1: TForm1
               TabOrder = 6
             end
             object CB_AutoCenter: TCheckBox
-              Left = 204
+              Left = 283
               Height = 19
-              Top = 25
-              Width = 99
+              Top = 0
+              Width = 20
               Alignment = taLeftJustify
               Anchors = [akTop, akRight]
-              Caption = 'CB_AutoCenter'
+              Caption = ''
               Checked = True
               State = cbChecked
               TabOrder = 7
             end
+            object L_AutoCenter: TLabel
+              Left = 0
+              Height = 15
+              Top = 2
+              Width = 100
+              AutoSize = True
+              Caption = 'L_AutoCenter'
+            end
             object SE_SpotSize: TSpinEdit
               Left = 92
               Height = 23
-              Top = 121
+              Top = 96
               Width = 50
               Increment = 5
               MaxValue = 100
@@ -847,27 +855,35 @@ object Form1: TForm1
             object L_SpotSize: TLabel
               Left = 31
               Height = 15
-              Top = 121
+              Top = 96
               Width = 55
               Anchors = [akTop, akLeft]
               Caption = 'L_SpotSize'
             end
             object CB_ShowSubstrate: TCheckBox
-              Left = 187
+              Left = 283
               Height = 19
-              Top = 99
-              Width = 116
+              Top = 74
+              Width = 20
               Alignment = taLeftJustify
               Anchors = [akTop, akRight]
-              Caption = 'CB_ShowSubstrate'
+              Caption = ''
               Checked = True
               State = cbChecked
               TabOrder = 9
             end
+            object L_ShowSubstrate: TLabel
+              Left = 0
+              Height = 15
+              Top = 76
+              Width = 100
+              AutoSize = True
+              Caption = 'L_ShowSubstrate'
+            end
             object SE_SubstrateDiameter: TSpinEdit
               Left = 256
               Height = 23
-              Top = 121
+              Top = 96
               Width = 50
               Anchors = [akTop]
               MaxValue = 100
@@ -878,7 +894,7 @@ object Form1: TForm1
             object L_SubstrD: TLabel
               Left = 199
               Height = 15
-              Top = 123
+              Top = 98
               Width = 52
               Anchors = [akTop, akRight]
               Caption = 'L_SubstrD'
@@ -896,36 +912,20 @@ object Form1: TForm1
           end
         end
       end
-    end
-  end
-  object Splitter1: TSplitter
-    Cursor = crHSplit
-    Left = 562
-    Height = 600
-    Top = 0
-    Width = 5
-    Align = alLeft
-    ResizeAnchor = akLeft
-    OnMoved = Splitter1Moved
-  end
-  object Panel2: TPanel
-    Left = 567
-    Height = 600
-    Top = 0
-    Width = 283
-    Align = alClient
-    Caption = 'Panel2'
-    ClientHeight = 600
-    ClientWidth = 283
-    TabOrder = 2
-    object Memo1: TMemo
-      Left = 1
-      Height = 598
-      Top = 1
-      Width = 281
-      Align = alClient
-      ScrollBars = ssAutoBoth
-      TabOrder = 0
+      object TS_Log: TTabSheet
+        Caption = 'TS_Log'
+        ClientHeight = 493
+        ClientWidth = 840
+        object Memo1: TMemo
+          Left = 0
+          Height = 493
+          Top = 0
+          Width = 840
+          Align = alClient
+          ScrollBars = ssAutoBoth
+          TabOrder = 0
+        end
+      end
     end
   end
   object Tmr_Closer: TTimer
