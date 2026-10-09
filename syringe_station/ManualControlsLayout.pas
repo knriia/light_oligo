@@ -14,8 +14,33 @@ type
     PumpStationBounds: TRect;
   end;
 
+  TManualArrayVerticalLayout = record
+    StepFieldTop: Integer;
+    StepLabelTop: Integer;
+    GroupFieldTop: Integer;
+    GroupLabelTop: Integer;
+    GroupStepFieldTop: Integer;
+    GroupStepLabelTop: Integer;
+    SpotSizeFieldTop: Integer;
+    SpotSizeLabelTop: Integer;
+    AutoCenterTop: Integer;
+    AutoCenterLabelTop: Integer;
+    BiasXFieldTop: Integer;
+    BiasXLabelTop: Integer;
+    BiasYFieldTop: Integer;
+    BiasYLabelTop: Integer;
+    ShowSubstrateTop: Integer;
+    ShowSubstrateLabelTop: Integer;
+    SubstrateDiameterFieldTop: Integer;
+    SubstrateDiameterLabelTop: Integer;
+    ActionButtonTop: Integer;
+  end;
+
 function BuildManualControlsLayout(AClientWidth, AClientHeight,
   AArrayHeight, ALaserHeight: Integer): TManualControlsLayout;
+function BuildManualArrayVerticalLayout(AVerticalShift, AGroupClientHeight,
+  AActionButtonHeight, AActionButtonBottomMargin: Integer):
+  TManualArrayVerticalLayout;
 
 implementation
 
@@ -60,6 +85,35 @@ begin
 
   Result.PumpStationBounds := Rect(1, StationTop,
     1 + ContentWidth, StationTop + StationHeight);
+end;
+
+function BuildManualArrayVerticalLayout(AVerticalShift, AGroupClientHeight,
+  AActionButtonHeight, AActionButtonBottomMargin: Integer):
+  TManualArrayVerticalLayout;
+begin
+  Result.StepFieldTop := 27 - AVerticalShift;
+  Result.StepLabelTop := 31 - AVerticalShift;
+  Result.GroupFieldTop := 51 - AVerticalShift;
+  Result.GroupLabelTop := 53 - AVerticalShift;
+  Result.GroupStepFieldTop := 75 - AVerticalShift;
+  Result.GroupStepLabelTop := 77 - AVerticalShift;
+  Result.SpotSizeFieldTop := 121 - AVerticalShift;
+  Result.SpotSizeLabelTop := 121 - AVerticalShift;
+  Result.AutoCenterTop := 25 - AVerticalShift;
+  Result.AutoCenterLabelTop := 25 - AVerticalShift;
+  Result.BiasXFieldTop := 51 - AVerticalShift;
+  Result.BiasXLabelTop := 53 - AVerticalShift;
+  Result.BiasYFieldTop := 75 - AVerticalShift;
+  Result.BiasYLabelTop := 77 - AVerticalShift;
+  Result.ShowSubstrateTop := 99 - AVerticalShift;
+  Result.ShowSubstrateLabelTop := 99 - AVerticalShift;
+  Result.SubstrateDiameterFieldTop := 121 - AVerticalShift;
+  Result.SubstrateDiameterLabelTop := 123 - AVerticalShift;
+
+  Result.ActionButtonTop := AGroupClientHeight - AActionButtonHeight -
+    AActionButtonBottomMargin;
+  if Result.ActionButtonTop < 0 then
+    Result.ActionButtonTop := 0;
 end;
 
 end.

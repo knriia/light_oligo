@@ -51,6 +51,8 @@ type
     GB_SynthControl: TGroupBox;
     L_MoveArrows: TLabel;
     L_SubstrD: TLabel;
+    L_AutoCenter: TLabel;
+    L_ShowSubstrate: TLabel;
     OD_File: TOpenDialog;
     FSE_XBias: TFloatSpinEdit;
     FSE_Step: TFloatSpinEdit;
@@ -68,7 +70,6 @@ type
     Memo1: TMemo;
     PageControl1: TPageControl;
     Panel1: TPanel;
-    Panel2: TPanel;
     Panel3: TPanel;
     Panel4: TPanel;
     SD_File: TSaveDialog;
@@ -78,7 +79,6 @@ type
     SE_SubstrateDiameter: TSpinEdit;
     SB_UpNode: TSpeedButton;
     SB_DownNode: TSpeedButton;
-    Splitter1: TSplitter;
     SG_OligoArr: TStringGrid;
     Splitter2: TSplitter;
     TV_Synthesis: TTreeView;
@@ -88,6 +88,7 @@ type
     TV_ProtocolLayer: TTreeView;
     TS_Protocol: TTabSheet;
     TS_Manual: TTabSheet;
+    TS_Log: TTabSheet;
     TS_Sequences: TTabSheet;
     procedure B_AddBlockInProtocolClick(Sender: TObject);
     procedure B_AddOperInProtocolClick(Sender: TObject);
@@ -116,7 +117,6 @@ type
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
-    procedure Splitter1Moved(Sender: TObject);
     procedure CollapseExpand(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure SB_DownNodeClick(Sender: TObject);
@@ -132,13 +132,11 @@ type
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
     FDispenserStation: TDispenserStationForm;
-    FLogWidthRatio: Double;
-    FLogWidthCustomized: Boolean;
-    FApplyingLogLayout: Boolean;
-    FPreviousClientWidth: Integer;
-    FPreviousLogWidth: Integer;
     procedure UpdateManualControlsWidth;
+    procedure UpdateManualArrayControlsLayout;
+    procedure UpdateManualLaserControlsLayout;
     procedure UpdateMinimumWindowWidth;
+    procedure ToggleManualOptionLabel(Sender: TObject);
     procedure DispenserStationLogMessage(Sender: TObject; const Msg: string);
     Procedure DisplayOligoArrInGrid(anArr: TOligoArr);
     procedure AutoSizeGridColumn(Grid : TStringGrid; column : integer);
@@ -158,7 +156,6 @@ implementation
 
 const
   STATION_PANEL_CHROME = 24;
-  MIN_LOG_PANEL_WIDTH = 220;
 
 { TForm1 }
 
@@ -166,12 +163,6 @@ const
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-  FLogWidthRatio := 1 / 3;
-  FLogWidthCustomized := False;
-  FApplyingLogLayout := False;
-  FPreviousClientWidth := 0;
-  FPreviousLogWidth := 0;
-
   //интерфейс
   MyInterface:=TIniFile.Create(GetCurrentDir+'\Interface.ini');
 
@@ -180,6 +171,7 @@ begin
   TS_Sequences.Caption:=MyInterface.ReadString('Main','TS_Sequences','Sequence');
   TS_Protocol.Caption:=MyInterface.ReadString('Main','TS_Protocol','Protocol');
   TS_Synthesis.Caption:=MyInterface.ReadString('Main','TS_Synthesis','Synthesis');
+  TS_Log.Caption:=MyInterface.ReadString('Main','TS_Log','Лог');
 
   GB_Array.Caption:=MyInterface.ReadString('Manual','GB_Array','Array');
   B_Matrix.Caption:=MyInterface.ReadString('Manual','B_Matrix','Matrix');
@@ -188,10 +180,16 @@ begin
   L_GStep.Caption:=MyInterface.ReadString('Manual','L_GStep','GroupStep, mm');
   L_SpotSize.Caption:=MyInterface.ReadString('Manual','L_SpotSize','SpotSize, um');
   B_Preview.Caption:=MyInterface.ReadString('Manual','B_Preview','Preview');
-  CB_AutoCenter.Caption:=MyInterface.ReadString('Manual','CB_AutoCenter','AutoCenter');
+  L_AutoCenter.Caption:=MyInterface.ReadString('Manual','CB_AutoCenter','AutoCenter');
+  CB_AutoCenter.Caption:='';
+  L_AutoCenter.FocusControl:=CB_AutoCenter;
+  L_AutoCenter.OnClick:=@ToggleManualOptionLabel;
   L_BiasX.Caption:=MyInterface.ReadString('Manual','L_BiasX','BiasX, mm');
   L_BiasY.Caption:=MyInterface.ReadString('Manual','L_BiasY','BiasY, mm');
-  CB_ShowSubstrate.Caption:=MyInterface.ReadString('Manual','CB_ShowSubstrate','Substrate');
+  L_ShowSubstrate.Caption:=MyInterface.ReadString('Manual','CB_ShowSubstrate','Substrate');
+  CB_ShowSubstrate.Caption:='';
+  L_ShowSubstrate.FocusControl:=CB_ShowSubstrate;
+  L_ShowSubstrate.OnClick:=@ToggleManualOptionLabel;
   L_SubstrD.Caption:=MyInterface.ReadString('Manual','L_SubstrD','SubstrDiam, mm');
   GB_Laser.Caption:=MyInterface.ReadString('Manual','GB_Laser','Laser');
   GB_MarkEZDDLL.Caption:=MyInterface.ReadString('Manual','GB_MarkEZDDLL','DLL');
@@ -255,113 +253,30 @@ begin
 end;
 
 procedure TForm1.FormResize(Sender: TObject);
-var
-  LogRatio: Double;
-  LogWidth: Integer;
-  MaxLogWidth: Integer;
-  MinimumPanelWidth: Integer;
-  MinimumClientWidth: Integer;
-  IsShrinking: Boolean;
 begin
-  if (ClientWidth <= 0) or not Assigned(Splitter1) or
-     not Assigned(Panel1) or not Assigned(Panel2) then
-    Exit;
-
-  MinimumPanelWidth := MAIN_WINDOW_MIN_WIDTH + STATION_PANEL_CHROME;
-  MinimumClientWidth := MinimumPanelWidth + Splitter1.Width +
-    MIN_LOG_PANEL_WIDTH;
-  if ClientWidth < MinimumClientWidth then
-    Exit;
-
-  IsShrinking := (FPreviousClientWidth > 0) and
-    (ClientWidth < FPreviousClientWidth);
-  if IsShrinking and (FPreviousLogWidth > 0) then
-    LogWidth := FPreviousLogWidth
-  else
-  begin
-    if FLogWidthCustomized then
-      LogRatio := FLogWidthRatio
-    else
-      LogRatio := 1 / 3;
-    LogWidth := Round(ClientWidth * LogRatio);
-  end;
-
-  MaxLogWidth := ClientWidth - Splitter1.Width - MinimumPanelWidth;
-  if LogWidth < MIN_LOG_PANEL_WIDTH then
-    LogWidth := MIN_LOG_PANEL_WIDTH
-  else if LogWidth > MaxLogWidth then
-    LogWidth := MaxLogWidth;
-
-  FApplyingLogLayout := True;
-  try
-    Panel1.Width := ClientWidth - Splitter1.Width - LogWidth;
-  finally
-    FApplyingLogLayout := False;
-  end;
-
-  FPreviousClientWidth := ClientWidth;
-  FPreviousLogWidth := Panel2.Width;
   UpdateManualControlsWidth();
 end;
-procedure TForm1.Splitter1Moved(Sender: TObject);
-begin
-  if FApplyingLogLayout or (ClientWidth <= 0) then
-    Exit;
 
-  FLogWidthRatio := Panel2.Width / ClientWidth;
-  FLogWidthCustomized := True;
-  FPreviousClientWidth := ClientWidth;
-  FPreviousLogWidth := Panel2.Width;
-  UpdateMinimumWindowWidth();
-  UpdateManualControlsWidth();
-end;
 procedure TForm1.UpdateMinimumWindowWidth;
 const
   FORM_NONCLIENT_CHROME_FALLBACK = 24;
 var
-  LogRatio: Double;
   RequiredPanelWidth: Integer;
   RequiredClientWidth: Integer;
   RequiredFormWidth: Integer;
   FormChromeWidth: Integer;
 begin
-  if not Assigned(Splitter1) or not Assigned(Panel1) or
-     not Assigned(Panel2) then
+  if not Assigned(Panel1) then
     Exit;
 
   RequiredPanelWidth := MAIN_WINDOW_MIN_WIDTH + STATION_PANEL_CHROME;
-  Panel2.Constraints.MinWidth := MIN_LOG_PANEL_WIDTH;
-  RequiredClientWidth := RequiredPanelWidth + Splitter1.Width +
-    MIN_LOG_PANEL_WIDTH;
+  RequiredClientWidth := RequiredPanelWidth;
 
   FormChromeWidth := Width - ClientWidth;
   if FormChromeWidth < FORM_NONCLIENT_CHROME_FALLBACK then
     FormChromeWidth := FORM_NONCLIENT_CHROME_FALLBACK;
   RequiredFormWidth := RequiredClientWidth + FormChromeWidth;
   Constraints.MinWidth := RequiredFormWidth;
-
-  if Panel1.Width < RequiredPanelWidth then
-  begin
-    if FLogWidthCustomized then
-      LogRatio := FLogWidthRatio
-    else
-      LogRatio := 1 / 3;
-
-    if LogRatio < 0 then
-      LogRatio := 0
-    else if LogRatio >= 1 then
-      LogRatio := 0.99;
-
-    RequiredClientWidth := Trunc((RequiredPanelWidth + Splitter1.Width) /
-      (1 - LogRatio));
-    if RequiredClientWidth * (1 - LogRatio) <
-       RequiredPanelWidth + Splitter1.Width then
-      Inc(RequiredClientWidth);
-
-    RequiredFormWidth := RequiredClientWidth + FormChromeWidth;
-    if Width < RequiredFormWidth then
-      Width := RequiredFormWidth;
-  end;
 end;
 procedure TForm1.UpdateManualControlsWidth;
 var
@@ -405,9 +320,218 @@ begin
 
   if Assigned(GB_MarkEZDDLL) and Assigned(GB_EzCAD) then
   begin
+    GB_MarkEZDDLL.Width := GB_Laser.ClientWidth div 2;
     GB_EzCAD.Left := GB_MarkEZDDLL.Width;
     GB_EzCAD.Width := GB_Laser.ClientWidth - GB_EzCAD.Left;
   end;
+
+  UpdateManualArrayControlsLayout();
+  UpdateManualLaserControlsLayout();
+
+end;
+
+procedure TForm1.UpdateManualArrayControlsLayout;
+const
+  LEFT_LABEL_WIDTH = 55;
+  LEFT_LABEL_TO_INPUT_GAP = 41;
+  RIGHT_COLUMN_WIDTH = 151;
+  RIGHT_LABEL_TO_INPUT_GAP = 41;
+  RIGHT_INPUT_RIGHT_MARGIN = 4;
+  CHECKBOX_INDICATOR_WIDTH = 20;
+  ARRAY_CONTENT_VERTICAL_SHIFT = 25;
+  ARRAY_ACTION_BUTTON_BOTTOM_MARGIN = 5;
+var
+  ArrayClientWidth: Integer;
+  ArrayLeftWidth: Integer;
+  ArrayRightWidth: Integer;
+  LeftInputOffset: Integer;
+  LeftColumnWidth: Integer;
+  LeftColumnLeft: Integer;
+  RightColumnLeft: Integer;
+  RightColumnOffset: Integer;
+  RightInputLeftOffset: Integer;
+  RightLabelWidth: Integer;
+  ArrayVerticalLayout: TManualArrayVerticalLayout;
+begin
+  if not Assigned(GB_Array) or not Assigned(B_Matrix) or
+     not Assigned(B_Preview) or not Assigned(L_Step) or
+     not Assigned(FSE_Step) or not Assigned(L_Group) or
+     not Assigned(SE_Group) or not Assigned(L_GStep) or
+     not Assigned(FSE_GroupStep) or not Assigned(L_SpotSize) or
+     not Assigned(SE_SpotSize) or not Assigned(L_BiasX) or
+     not Assigned(FSE_XBias) or not Assigned(L_BiasY) or
+     not Assigned(FSE_YBias) or not Assigned(CB_AutoCenter) or
+     not Assigned(L_AutoCenter) or not Assigned(CB_ShowSubstrate) or
+     not Assigned(L_ShowSubstrate) or not Assigned(L_SubstrD) or
+     not Assigned(SE_SubstrateDiameter) then
+    Exit;
+
+  ArrayClientWidth := GB_Array.ClientWidth;
+  ArrayLeftWidth := ArrayClientWidth div 2;
+  ArrayRightWidth := ArrayClientWidth - ArrayLeftWidth;
+  LeftInputOffset := LEFT_LABEL_WIDTH + LEFT_LABEL_TO_INPUT_GAP;
+  LeftColumnWidth := LeftInputOffset + FSE_Step.Width;
+  if L_SpotSize.Width > LeftColumnWidth then
+    LeftColumnWidth := L_SpotSize.Width;
+  LeftColumnLeft := (ArrayLeftWidth - LeftColumnWidth) div 2;
+  if LeftColumnLeft < 0 then
+    LeftColumnLeft := 0;
+  RightInputLeftOffset := RIGHT_COLUMN_WIDTH -
+    RIGHT_INPUT_RIGHT_MARGIN - FSE_XBias.Width;
+  RightLabelWidth := RightInputLeftOffset - RIGHT_LABEL_TO_INPUT_GAP;
+  RightColumnOffset := (ArrayRightWidth - RIGHT_COLUMN_WIDTH) div 2;
+  if RightColumnOffset < 0 then
+    RightColumnOffset := 0;
+  RightColumnLeft := ArrayLeftWidth + RightColumnOffset;
+  ArrayVerticalLayout := BuildManualArrayVerticalLayout(
+    ARRAY_CONTENT_VERTICAL_SHIFT, GB_Array.ClientHeight, B_Matrix.Height,
+    ARRAY_ACTION_BUTTON_BOTTOM_MARGIN);
+
+  B_Matrix.Anchors := [akTop, akLeft];
+  B_Matrix.SetBounds(LeftColumnLeft +
+    (LeftColumnWidth - B_Matrix.Width) div 2, ArrayVerticalLayout.ActionButtonTop,
+    B_Matrix.Width, B_Matrix.Height);
+  B_Preview.Anchors := [akTop, akLeft];
+  B_Preview.SetBounds(RightColumnLeft +
+    (RIGHT_COLUMN_WIDTH - B_Preview.Width) div 2,
+    ArrayVerticalLayout.ActionButtonTop,
+    B_Preview.Width, B_Preview.Height);
+
+  L_Step.Anchors := [akTop, akLeft];
+  L_Step.SetBounds(LeftColumnLeft, ArrayVerticalLayout.StepLabelTop,
+    LEFT_LABEL_WIDTH, L_Step.Height);
+  FSE_Step.Anchors := [akTop, akLeft];
+  FSE_Step.SetBounds(LeftColumnLeft + LeftInputOffset,
+    ArrayVerticalLayout.StepFieldTop,
+    FSE_Step.Width, FSE_Step.Height);
+  L_Group.Anchors := [akTop, akLeft];
+  L_Group.SetBounds(LeftColumnLeft, ArrayVerticalLayout.GroupLabelTop,
+    LEFT_LABEL_WIDTH, L_Group.Height);
+  SE_Group.Anchors := [akTop, akLeft];
+  SE_Group.SetBounds(LeftColumnLeft + LeftInputOffset,
+    ArrayVerticalLayout.GroupFieldTop,
+    SE_Group.Width, SE_Group.Height);
+  L_GStep.Anchors := [akTop, akLeft];
+  L_GStep.SetBounds(LeftColumnLeft, ArrayVerticalLayout.GroupStepLabelTop,
+    LEFT_LABEL_WIDTH, L_GStep.Height);
+  FSE_GroupStep.Anchors := [akTop, akLeft];
+  FSE_GroupStep.SetBounds(LeftColumnLeft + LeftInputOffset,
+    ArrayVerticalLayout.GroupStepFieldTop,
+    FSE_GroupStep.Width, FSE_GroupStep.Height);
+  L_SpotSize.Anchors := [akTop, akLeft];
+  L_SpotSize.SetBounds(LeftColumnLeft,
+    ArrayVerticalLayout.SpotSizeLabelTop,
+    55, L_SpotSize.Height);
+  SE_SpotSize.Anchors := [akTop, akLeft];
+  SE_SpotSize.SetBounds(LeftColumnLeft + LeftInputOffset,
+    ArrayVerticalLayout.SpotSizeFieldTop,
+    SE_SpotSize.Width, SE_SpotSize.Height);
+
+  L_AutoCenter.Anchors := [akTop, akLeft];
+  L_AutoCenter.SetBounds(RightColumnLeft,
+    ArrayVerticalLayout.AutoCenterLabelTop, L_AutoCenter.Width,
+    L_AutoCenter.Height);
+  CB_AutoCenter.Anchors := [akTop, akLeft];
+  CB_AutoCenter.SetBounds(RightColumnLeft + RIGHT_COLUMN_WIDTH -
+    RIGHT_INPUT_RIGHT_MARGIN - CHECKBOX_INDICATOR_WIDTH,
+    ArrayVerticalLayout.AutoCenterTop,
+    CHECKBOX_INDICATOR_WIDTH,
+    CB_AutoCenter.Height);
+  L_BiasX.Anchors := [akTop, akLeft];
+  L_BiasX.SetBounds(RightColumnLeft,
+    ArrayVerticalLayout.BiasXLabelTop, RightLabelWidth,
+    L_BiasX.Height);
+  FSE_XBias.Anchors := [akTop, akLeft];
+  FSE_XBias.SetBounds(RightColumnLeft + RightInputLeftOffset,
+    ArrayVerticalLayout.BiasXFieldTop,
+    FSE_XBias.Width, FSE_XBias.Height);
+  L_BiasY.Anchors := [akTop, akLeft];
+  L_BiasY.SetBounds(RightColumnLeft,
+    ArrayVerticalLayout.BiasYLabelTop, RightLabelWidth,
+    L_BiasY.Height);
+  FSE_YBias.Anchors := [akTop, akLeft];
+  FSE_YBias.SetBounds(RightColumnLeft + RightInputLeftOffset,
+    ArrayVerticalLayout.BiasYFieldTop,
+    FSE_YBias.Width, FSE_YBias.Height);
+  L_ShowSubstrate.Anchors := [akTop, akLeft];
+  L_ShowSubstrate.SetBounds(RightColumnLeft,
+    ArrayVerticalLayout.ShowSubstrateLabelTop, L_ShowSubstrate.Width,
+    L_ShowSubstrate.Height);
+  CB_ShowSubstrate.Anchors := [akTop, akLeft];
+  CB_ShowSubstrate.SetBounds(RightColumnLeft + RIGHT_COLUMN_WIDTH -
+    RIGHT_INPUT_RIGHT_MARGIN - CHECKBOX_INDICATOR_WIDTH,
+    ArrayVerticalLayout.ShowSubstrateTop,
+    CHECKBOX_INDICATOR_WIDTH,
+    CB_ShowSubstrate.Height);
+  L_SubstrD.Anchors := [akTop, akLeft];
+  L_SubstrD.SetBounds(RightColumnLeft,
+    ArrayVerticalLayout.SubstrateDiameterLabelTop, RightLabelWidth,
+    L_SubstrD.Height);
+  SE_SubstrateDiameter.Anchors := [akTop, akLeft];
+  SE_SubstrateDiameter.SetBounds(RightColumnLeft + RightInputLeftOffset,
+    ArrayVerticalLayout.SubstrateDiameterFieldTop,
+    SE_SubstrateDiameter.Width, SE_SubstrateDiameter.Height);
+end;
+
+procedure TForm1.ToggleManualOptionLabel(Sender: TObject);
+begin
+  if Sender = L_AutoCenter then
+    CB_AutoCenter.Checked := not CB_AutoCenter.Checked
+  else if Sender = L_ShowSubstrate then
+    CB_ShowSubstrate.Checked := not CB_ShowSubstrate.Checked;
+end;
+
+procedure TForm1.UpdateManualLaserControlsLayout;
+const
+  BUTTON_GAP = 4;
+var
+  MarkButtonLeft: Integer;
+  MarkButtonTop: Integer;
+  MarkButtonsHeight: Integer;
+  EzCadButtonTop: Integer;
+  EzCadButtonsHeight: Integer;
+begin
+  if not Assigned(GB_MarkEZDDLL) or not Assigned(GB_EzCAD) or
+     not Assigned(B_SetLasPen) or not Assigned(B_CreateEZD) or
+     not Assigned(B_OpenEZCAD) or not Assigned(B_CloseEzCAD) or
+     not Assigned(B_SendF2) then
+    Exit;
+
+  MarkButtonsHeight := B_SetLasPen.Height + BUTTON_GAP +
+    B_CreateEZD.Height;
+  MarkButtonLeft := (GB_MarkEZDDLL.ClientWidth - B_SetLasPen.Width) div 2;
+  if MarkButtonLeft < 0 then
+    MarkButtonLeft := 0;
+  MarkButtonTop := (GB_MarkEZDDLL.ClientHeight - MarkButtonsHeight) div 2;
+  if MarkButtonTop < 0 then
+    MarkButtonTop := 0;
+
+  B_SetLasPen.Anchors := [akTop, akLeft];
+  B_SetLasPen.SetBounds(MarkButtonLeft, MarkButtonTop, B_SetLasPen.Width,
+    B_SetLasPen.Height);
+  B_CreateEZD.Anchors := [akTop, akLeft];
+  B_CreateEZD.SetBounds(MarkButtonLeft,
+    MarkButtonTop + B_SetLasPen.Height + BUTTON_GAP,
+    B_CreateEZD.Width, B_CreateEZD.Height);
+
+  EzCadButtonsHeight := B_OpenEZCAD.Height + BUTTON_GAP +
+    B_CloseEZCAD.Height + BUTTON_GAP + B_SendF2.Height;
+  EzCadButtonTop := (GB_EzCAD.ClientHeight - EzCadButtonsHeight) div 2;
+  if EzCadButtonTop < 0 then
+    EzCadButtonTop := 0;
+
+  B_OpenEZCAD.Anchors := [akTop, akLeft];
+  B_OpenEZCAD.SetBounds((GB_EzCAD.ClientWidth - B_OpenEZCAD.Width) div 2,
+    EzCadButtonTop, B_OpenEZCAD.Width, B_OpenEZCAD.Height);
+  B_CloseEzCAD.Anchors := [akTop, akLeft];
+  B_CloseEzCAD.SetBounds((GB_EzCAD.ClientWidth - B_CloseEzCAD.Width) div 2,
+    EzCadButtonTop + B_OpenEZCAD.Height + BUTTON_GAP,
+    B_CloseEzCAD.Width, B_CloseEzCAD.Height);
+  B_SendF2.Anchors := [akTop, akLeft];
+  B_SendF2.SetBounds((GB_EzCAD.ClientWidth - B_SendF2.Width) div 2,
+    EzCadButtonTop + B_OpenEZCAD.Height + BUTTON_GAP +
+      B_CloseEzCAD.Height + BUTTON_GAP,
+    B_SendF2.Width, B_SendF2.Height);
 
 end;
 

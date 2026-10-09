@@ -15,6 +15,8 @@ type
     procedure StartsStationAfterTallerControl;
     procedure MovesStationUpWhenBothControlsAreCollapsed;
     procedure ClampsStationHeightWhenClientIsTooShort;
+    procedure ShiftsArrayControlsUpWithoutChangingTheirSpacing;
+    procedure KeepsArrayActionButtonsFivePixelsAboveTheBottom;
   end;
 
 implementation
@@ -75,6 +77,44 @@ begin
 
   AssertEquals(169, Layout.PumpStationBounds.Top);
   AssertEquals(169, Layout.PumpStationBounds.Bottom);
+end;
+
+procedure TManualControlsLayoutTests.
+  ShiftsArrayControlsUpWithoutChangingTheirSpacing;
+var
+  Layout: TManualArrayVerticalLayout;
+begin
+  Layout := BuildManualArrayVerticalLayout(25, 155, 25, 5);
+
+  AssertEquals(2, Layout.StepFieldTop);
+  AssertEquals(6, Layout.StepLabelTop);
+  AssertEquals(26, Layout.GroupFieldTop);
+  AssertEquals(28, Layout.GroupLabelTop);
+  AssertEquals(96, Layout.SpotSizeFieldTop);
+  AssertEquals(Layout.StepFieldTop + 24, Layout.GroupFieldTop);
+  AssertEquals(Layout.GroupFieldTop + 24, Layout.GroupStepFieldTop);
+  AssertEquals(Layout.GroupStepFieldTop + 46, Layout.SpotSizeFieldTop);
+  AssertEquals(0, Layout.AutoCenterTop);
+  AssertEquals(Layout.AutoCenterTop, Layout.AutoCenterLabelTop);
+  AssertEquals(26, Layout.BiasXFieldTop);
+  AssertEquals(28, Layout.BiasXLabelTop);
+  AssertEquals(50, Layout.BiasYFieldTop);
+  AssertEquals(52, Layout.BiasYLabelTop);
+  AssertEquals(74, Layout.ShowSubstrateTop);
+  AssertEquals(Layout.ShowSubstrateTop, Layout.ShowSubstrateLabelTop);
+  AssertEquals(96, Layout.SubstrateDiameterFieldTop);
+  AssertEquals(98, Layout.SubstrateDiameterLabelTop);
+end;
+
+procedure TManualControlsLayoutTests.
+  KeepsArrayActionButtonsFivePixelsAboveTheBottom;
+var
+  Layout: TManualArrayVerticalLayout;
+begin
+  Layout := BuildManualArrayVerticalLayout(25, 155, 25, 5);
+
+  AssertEquals(125, Layout.ActionButtonTop);
+  AssertEquals(5, 155 - (Layout.ActionButtonTop + 25));
 end;
 
 initialization
