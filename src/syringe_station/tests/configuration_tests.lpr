@@ -5,7 +5,8 @@ program configuration_tests;
 uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
-  WorkDispatcherTests, ManualControlsLayoutTests, AppPathsTests;
+  WorkDispatcherTests, ManualControlsLayoutTests, AppPathsTests,
+  ProtocolFormatTests;
 
 var
   Application: TTestRunner;

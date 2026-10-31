@@ -5,7 +5,8 @@ unit SynthesisThread;
 interface
 
 uses
-  Classes, SysUtils, Windows, AppState, WinProcessUtils, SynthesisProtocol;
+  Classes, SysUtils, Windows, AppState, WinProcessUtils, SynthesisProtocol,
+  ProtocolFormat;
 
 type
 
@@ -80,10 +81,8 @@ begin
                   Synchronize(@OutLog);
                 end;
         dSyrSt: begin
-                  Sleep(100); {TODO: заменить на функцию работы шприца}
-                  OutS:='SyrSt='+MySynthProt[a,i].StrParam+'; Volume='+
-                               FloatTostr(MySynthProt[a,i].FloatParam)+
-                        '; Speed='+IntTostr(MySynthProt[a,i].IntParam)+';';
+                  Sleep(100); {TODO: заменить на запуск команды шприцевой станции}
+                  OutS:=SyringeStepSummary(MySynthProt[a,i].Syringe);
                   Synchronize(@OutLog);
                 end;
         dLaser: begin

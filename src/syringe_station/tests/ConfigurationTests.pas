@@ -75,13 +75,15 @@ type
     procedure RejectsOutputChannelMatchingIntakeChannel;
     procedure BroadcastsSharedValuesToSeveralDispensers;
     procedure ParsesDifferentValuesForEachDispenser;
-    procedure AcceptsDecimalComma;
+    procedure ExpressesFractionsInNanoliters;
     procedure RejectsUnknownDispenser;
     procedure RejectsMismatchedValueCount;
     procedure RejectsUnknownUnits;
     procedure RejectsSpeedAboveConfiguredMaximum;
     procedure RejectsVolumeBelowStepResolution;
-    procedure RejectsDuplicateCommandNumbers;
+    procedure RejectsDuplicateSyringeParameter;
+    procedure NumbersCommandsAcrossBlocks;
+    procedure RejectsLegacySyringeLine;
     procedure RejectsMissingFieldsAndEmptyProtocol;
   end;
 
@@ -153,7 +155,7 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure AutomationDirectoryIsInDataFolder;
+    procedure ProtocolsDirectoryIsInDataFolder;
     procedure CreatesProtocolsDirectoryWhenMissing;
     procedure RoundTripPreservesUtf8Scenario;
     procedure ReadsUtf8Bom;
@@ -217,6 +219,20 @@ type
 
 implementation
 
+// Протокол из одного блока с одной операцией SyrSt.
+function SyrStText(const ANames, AValves, AVolumes, AVolumeUnit, ASpeeds,
+  ASpeedUnit: string): string;
+begin
+  Result := 'Block=Test;' + LineEnding +
+    #9'SyrSt;' + LineEnding +
+    #9#9'Dispensers=' + ANames + ';' + LineEnding +
+    #9#9'Valves=' + AValves + ';' + LineEnding +
+    #9#9'Volumes=' + AVolumes + ';' + LineEnding +
+    #9#9'VolumeUnit=' + AVolumeUnit + ';' + LineEnding +
+    #9#9'Speeds=' + ASpeeds + ';' + LineEnding +
+    #9#9'SpeedUnit=' + ASpeedUnit + ';' + LineEnding;
+end;
+
 procedure TDispenserCommandTests.BuildsNonDistributiveChannelOneAspirate;
 begin
   AssertEquals('/1Iv900V6000P12000R',
@@ -279,7 +295,7 @@ var
 begin
   Result := TDispenserConfigList.Create;
   Config := Result.AddConfig;
-  Config.Name := 'Дозатор 1';
+  Config.Name := 'Д1';
   Config.Number := 1;
   Config.Address := 1;
   Config.Volume := 250;
@@ -289,7 +305,7 @@ begin
   Config.MaxFlowRate := 125;
 
   Config := Result.AddConfig;
-  Config.Name := 'Дозатор 2';
+  Config.Name := 'Д2';
   Config.Number := 2;
   Config.Address := 2;
   Config.Volume := 1000;
@@ -317,21 +333,14 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1";' + LineEnding +
-    '  valve_channels: "2";' + LineEnding +
-    '  volumes: "500";' + LineEnding +
-    '  volume_unit: "мкл";' + LineEnding +
-    '  speeds: "100";' + LineEnding +
-    '  speed_unit: "мкл/с"' + LineEnding +
-    '}';
+  Text := SyrStText('Д1', '2', '500', 'мкл', '100', 'мкл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
     try
       AssertEquals(1, Protocol.Count);
       AssertEquals(1, Protocol[0].Number);
-      AssertEquals('Дозатор 1', Protocol[0].Targets[0].Config.Name);
+      AssertEquals('Д1', Protocol[0].Targets[0].Config.Name);
       AssertEquals(2, Protocol[0].Targets[0].ValveChannel);
       AssertEquals(500000, Protocol[0].Targets[0].VolumeNanoLiters);
       AssertEquals(100000, Protocol[0].Targets[0].SpeedNanoLitersPerSecond);
@@ -355,14 +364,7 @@ begin
   Configurations := CreateConfigurations;
   Configurations[0].IntakeChannel := 2;
   Protocol := nil;
-  Text := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1";' + LineEnding +
-    '  valve_channels: "1";' + LineEnding +
-    '  volumes: "500";' + LineEnding +
-    '  volume_unit: "мкл";' + LineEnding +
-    '  speeds: "100";' + LineEnding +
-    '  speed_unit: "мкл/с"' + LineEnding +
-    '}';
+  Text := SyrStText('Д1', '1', '500', 'мкл', '100', 'мкл/с');
   try
     AssertTrue(Parse(Text, Configurations, Protocol, ErrorText));
     try
@@ -386,15 +388,8 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Дозатор 1";' + LineEnding +
-      '  valve_channels: "1";' + LineEnding +
-      '  volumes: "500";' + LineEnding +
-      '  volume_unit: "мкл";' + LineEnding +
-      '  speeds: "100";' + LineEnding +
-      '  speed_unit: "мкл/с"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
-    AssertTrue(Pos('Для дозатора "Дозатор 1" входной и выходной каналы совпадают',
+      SyrStText('Д1', '1', '500', 'мкл', '100', 'мкл/с'), Configurations, Protocol, ErrorText));
+    AssertTrue(Pos('Для дозатора "Д1" входной и выходной каналы совпадают',
       ErrorText) > 0);
   finally
     Protocol.Free;
@@ -412,14 +407,7 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := 'command_7: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1/Дозатор 2";' + LineEnding +
-    '  valve_channels: "2";' + LineEnding +
-    '  volumes: "500";' + LineEnding +
-    '  volume_unit: "мкл";' + LineEnding +
-    '  speeds: "100";' + LineEnding +
-    '  speed_unit: "мкл/с"' + LineEnding +
-    '}';
+  Text := SyrStText('Д1/Д2', '2', '500', 'мкл', '100', 'мкл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
@@ -449,14 +437,7 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1/Дозатор 2";' + LineEnding +
-    '  valve_channels: "2/4";' + LineEnding +
-    '  volumes: "500/250";' + LineEnding +
-    '  volume_unit: "мкл";' + LineEnding +
-    '  speeds: "100/50";' + LineEnding +
-    '  speed_unit: "мкл/с"' + LineEnding +
-    '}';
+  Text := SyrStText('Д1/Д2', '2/4', '500/250', 'мкл', '100/50', 'мкл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
@@ -474,7 +455,7 @@ begin
   end;
 end;
 
-procedure TAutomationProtocolTests.AcceptsDecimalComma;
+procedure TAutomationProtocolTests.ExpressesFractionsInNanoliters;
 var
   Configurations: TDispenserConfigList;
   Protocol: TAutomationProtocol;
@@ -484,14 +465,8 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1";' + LineEnding +
-    '  valve_channels: "2";' + LineEnding +
-    '  volumes: "0,5";' + LineEnding +
-    '  volume_unit: "мкл";' + LineEnding +
-    '  speeds: "0,5";' + LineEnding +
-    '  speed_unit: "мкл/с"' + LineEnding +
-    '}';
+  // Дробные значения не допускаются: 0,5 мкл записывается как 500 нл.
+  Text := SyrStText('Д1', '2', '500', 'нл', '500', 'нл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
@@ -518,14 +493,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Missing";' + LineEnding +
-      '  valve_channels: "1";' + LineEnding +
-      '  volumes: "10";' + LineEnding +
-      '  volume_unit: "мкл";' + LineEnding +
-      '  speeds: "10";' + LineEnding +
-      '  speed_unit: "мкл/с"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
+      SyrStText('Nop', '1', '10', 'мкл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('не найден', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -543,14 +511,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Дозатор 1/Дозатор 2";' + LineEnding +
-      '  valve_channels: "1/2";' + LineEnding +
-      '  volumes: "10/20/30";' + LineEnding +
-      '  volume_unit: "мкл";' + LineEnding +
-      '  speeds: "10";' + LineEnding +
-      '  speed_unit: "мкл/с"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
+      SyrStText('Д1/Д2', '1/2', '10/20/30', 'мкл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText <> '');
   finally
     Protocol.Free;
@@ -568,14 +529,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Дозатор 1";' + LineEnding +
-      '  valve_channels: "2";' + LineEnding +
-      '  volumes: "10";' + LineEnding +
-      '  volume_unit: "ul";' + LineEnding +
-      '  speeds: "10";' + LineEnding +
-      '  speed_unit: "мкл/с"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
+      SyrStText('Д1', '2', '10', 'ul', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('единица объёма', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -593,14 +547,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Дозатор 1";' + LineEnding +
-      '  valve_channels: "2";' + LineEnding +
-      '  volumes: "10";' + LineEnding +
-      '  volume_unit: "мкл";' + LineEnding +
-      '  speeds: "126";' + LineEnding +
-      '  speed_unit: "мкл/с"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
+      SyrStText('Д1', '2', '10', 'мкл', '126', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('максимальную', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -618,14 +565,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Дозатор 1";' + LineEnding +
-      '  valve_channels: "2";' + LineEnding +
-      '  volumes: "1";' + LineEnding +
-      '  volume_unit: "нл";' + LineEnding +
-      '  speeds: "10";' + LineEnding +
-      '  speed_unit: "мкл/с"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
+      SyrStText('Д1', '2', '1', 'нл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('разрешения шприца', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -633,27 +573,81 @@ begin
   end;
 end;
 
-procedure TAutomationProtocolTests.RejectsDuplicateCommandNumbers;
+procedure TAutomationProtocolTests.RejectsDuplicateSyringeParameter;
 var
   Configurations: TDispenserConfigList;
   Protocol: TAutomationProtocol;
   ErrorText: string;
-  Block: string;
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Block := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1";' + LineEnding +
-    '  valve_channels: "2";' + LineEnding +
-    '  volumes: "10";' + LineEnding +
-    '  volume_unit: "мкл";' + LineEnding +
-    '  speeds: "10";' + LineEnding +
-    '  speed_unit: "мкл/с"' + LineEnding +
-    '}';
   try
-    AssertFalse(Parse(Block + LineEnding + LineEnding + Block,
-      Configurations, Protocol, ErrorText));
+    AssertFalse(Parse(SyrStText('Д1', '2', '10', 'мкл', '10', 'мкл/с') +
+      #9#9'Valves=3;' + LineEnding, Configurations, Protocol, ErrorText));
     AssertTrue(Pos('повторяется', ErrorText) > 0);
+  finally
+    Protocol.Free;
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.NumbersCommandsAcrossBlocks;
+var
+  Configurations: TDispenserConfigList;
+  Protocol: TAutomationProtocol;
+  ErrorText: string;
+  Text: string;
+begin
+  Configurations := CreateConfigurations;
+  Protocol := nil;
+  // Второй блок с паузой и лазером: станция берёт только SyrSt.
+  Text := SyrStText('Д1', '2', '10', 'мкл', '10', 'мкл/с') +
+    'Block=Wash;' + LineEnding +
+    #9'Pause=5;' + LineEnding +
+    #9'Laser=1; Time=3;' + LineEnding +
+    #9'SyrSt;' + LineEnding +
+    #9#9'Dispensers=Д2;' + LineEnding +
+    #9#9'Valves=2;' + LineEnding +
+    #9#9'Volumes=20;' + LineEnding +
+    #9#9'VolumeUnit=мкл;' + LineEnding +
+    #9#9'Speeds=10;' + LineEnding +
+    #9#9'SpeedUnit=мкл/с;' + LineEnding;
+  try
+    AssertTrue(ErrorText, Parse(Text, Configurations, Protocol, ErrorText));
+    try
+      AssertEquals(2, Protocol.Count);
+      AssertEquals(2, Protocol[1].Number);
+      AssertEquals('Wash', Protocol[1].BlockName);
+      AssertEquals(1, Protocol[1].BlockIndex);
+      AssertEquals('Д2', Protocol[1].Targets[0].Config.Name);
+    finally
+      FreeAndNil(Protocol);
+    end;
+
+    // Запуск одного блока: только его операции SyrSt.
+    AssertTrue(ErrorText, ParseAutomationProtocol(Text, Configurations,
+      Protocol, ErrorText, 1));
+    AssertEquals(1, Protocol.Count);
+    AssertEquals('Wash', Protocol[0].BlockName);
+  finally
+    Protocol.Free;
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.RejectsLegacySyringeLine;
+var
+  Configurations: TDispenserConfigList;
+  Protocol: TAutomationProtocol;
+  ErrorText: string;
+begin
+  Configurations := CreateConfigurations;
+  Protocol := nil;
+  try
+    AssertFalse(Parse('Block=Old;' + LineEnding +
+      #9'SyrSt=A:Act; Volume=1000; Speed=10;' + LineEnding,
+      Configurations, Protocol, ErrorText));
+    AssertTrue(Pos('устаревшая запись SyrSt', ErrorText) > 0);
   finally
     Protocol.Free;
     Configurations.Free;
@@ -672,11 +666,11 @@ begin
     AssertFalse(Parse('', Configurations, Protocol, ErrorText));
     AssertTrue(Pos('нет команд', ErrorText) > 0);
     AssertFalse(Parse(
-      'command_1: {' + LineEnding +
-      '  dispenser_names: "Дозатор 1";' + LineEnding +
-      '  valve_channels: "1"' + LineEnding +
-      '}', Configurations, Protocol, ErrorText));
-    AssertTrue(ErrorText <> '');
+      'Block=Test;' + LineEnding +
+      #9'SyrSt;' + LineEnding +
+      #9#9'Dispensers=Д1;' + LineEnding +
+      #9#9'Valves=1;' + LineEnding, Configurations, Protocol, ErrorText));
+    AssertTrue(Pos('не заданы параметры', ErrorText) > 0);
   finally
     Protocol.Free;
     Configurations.Free;
@@ -2063,7 +2057,7 @@ begin
   FExecutableFileName := IncludeTrailingPathDelimiter(FDirectory) +
     'syringe_pump.exe';
   FProtocolsDirectory := IncludeTrailingPathDelimiter(FDirectory) +
-    'data' + PathDelim + 'automation';
+    'data' + PathDelim + 'protocols';
 end;
 
 procedure TAutomationDocumentStorageTests.TearDown;
@@ -2088,7 +2082,7 @@ begin
   AssertEquals(FProtocolsDirectory, Directory);
 end;
 
-procedure TAutomationDocumentStorageTests.AutomationDirectoryIsInDataFolder;
+procedure TAutomationDocumentStorageTests.ProtocolsDirectoryIsInDataFolder;
 begin
   AssertEquals(FProtocolsDirectory,
     GetProtocolsDirectory(FExecutableFileName));
@@ -2112,7 +2106,7 @@ begin
   FileName := IncludeTrailingPathDelimiter(FProtocolsDirectory) +
     'scenario.txt';
   Content := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Дозатор 1";' + LineEnding + '}';
+    '  dispenser_names: "Д1";' + LineEnding + '}';
   AssertTrue(WriteAutomationTextFile(FileName, Content, ErrorText));
   AssertTrue(ReadAutomationTextFile(FileName, LoadedContent, ErrorText));
   AssertEquals(Content, LoadedContent);
