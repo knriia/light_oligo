@@ -1,4 +1,4 @@
-unit UWMatrix;
+unit UMatrixForm;
 
 {$mode ObjFPC}{$H+}
 
@@ -6,13 +6,13 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Spin, Grids,
-  Buttons, LasFunc, MyGlobals;
+  Buttons, EzCadApi, MyGlobals;
 
 type
 
-  { TForm2 }
+  { TMatrixForm }
 
-  TForm2 = class(TForm)
+  TMatrixForm = class(TForm)
     B_LoadFile: TBitBtn;
     B_Clear: TButton;
     B_RND: TButton;
@@ -37,21 +37,21 @@ type
   end;
 
 var
-  Form2: TForm2;
+  MatrixForm: TMatrixForm;
 
 implementation
-uses UMain;
+uses UMainForm;
 
 
 
 {$R *.lfm}
 
-{ TForm2 }
+{ TMatrixForm }
 
-procedure TForm2.FormCreate(Sender: TObject);
+procedure TMatrixForm.FormCreate(Sender: TObject);
 begin
   // Интерфейс
-  Form2.Caption:=MyInterface.ReadString('Matrix','Form2','Matrix Creation');
+  MatrixForm.Caption:=MyInterface.ReadString('Matrix','MatrixForm','Matrix Creation');
   GB_Matrix.Caption:=MyInterface.ReadString('Matrix','GB_Matrix','Matrix');
   L_Columns.Caption:=MyInterface.ReadString('Matrix','L_Columns','Columns');
   L_Rows.Caption:=MyInterface.ReadString('Matrix','L_Rows','Rows');
@@ -66,7 +66,7 @@ begin
   NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
 end;
 
-procedure TForm2.B_ClearClick(Sender: TObject);
+procedure TMatrixForm.B_ClearClick(Sender: TObject);
 // Очищаем матрицу и вызываем отображение ее в StringGrid
 var
   i,j: integer;
@@ -81,32 +81,32 @@ begin
   DisplayMatrixInGrid(MyMatrix);
 end;
 
-procedure TForm2.B_LoadFileClick(Sender: TObject);
+procedure TMatrixForm.B_LoadFileClick(Sender: TObject);
 // копирование элементов из матрицы донора в матрицу акцептор
 var
   TmpPath: String;
   TmpMatrix: TMatrix;
 begin
-  Form1.OD_File.Filter:='Текстовый файл матрицы|*.txt';
-  Form1.OD_File.FilterIndex:=1;
-  Form1.OD_File.FileName:='';
-  if Form1.OD_File.Execute then
+  MainForm.OD_File.Filter:='Текстовый файл матрицы|*.txt';
+  MainForm.OD_File.FilterIndex:=1;
+  MainForm.OD_File.FileName:='';
+  if MainForm.OD_File.Execute then
   begin
   try
-    TmpPath:=Form1.OD_File.FileName;
+    TmpPath:=MainForm.OD_File.FileName;
     ReadMatrixFromFile(TmpPath, TmpMatrix);
     SE_NCols.Value:=Length(TmpMatrix);
     SE_NRows.Value:=Length(TmpMatrix[0]);
     NColsRowsChage(SE_NCols.Value, Length(TmpMatrix[0]));
     CopyMatrix(TmpMatrix, MyMatrix);
     DisplayMatrixInGrid(MyMatrix);
-    Form1.B_PreviewClick(Self);
+    MainForm.B_PreviewClick(Self);
   except
   end;
   end;
 end;
 
-procedure TForm2.B_RNDClick(Sender: TObject);
+procedure TMatrixForm.B_RNDClick(Sender: TObject);
 //Генерация слуйчайных значений (1 или 0) в матрице
 var
   i,j: integer;
@@ -120,20 +120,20 @@ begin
     end;
   end;
   DisplayMatrixInGrid(MyMatrix);
-  Form1.B_PreviewClick(Self);
+  MainForm.B_PreviewClick(Self);
 end;
 
-procedure TForm2.SE_NColsChange(Sender: TObject);
+procedure TMatrixForm.SE_NColsChange(Sender: TObject);
 begin
   NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
 end;
 
-procedure TForm2.SE_NRowsChange(Sender: TObject);
+procedure TMatrixForm.SE_NRowsChange(Sender: TObject);
 begin
   NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
 end;
 
-procedure TForm2.SG_MatrixKeyDown(Sender: TObject; var Key: Word;
+procedure TMatrixForm.SG_MatrixKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 // обработка нажатий клавиш. читаются только цифры 0-9 и backspace
 // можно применять к выделению
@@ -178,7 +178,7 @@ begin
 end;
 
 
-procedure TForm2.DisplayMatrixInGrid(aMatrix: TMatrix);
+procedure TMatrixForm.DisplayMatrixInGrid(aMatrix: TMatrix);
 // отображение матрицы в StringGrid
 var
   i, j: Integer;
@@ -202,7 +202,7 @@ begin
   end;
 end;
 
-procedure TForm2.NColsRowsChage(aNewNCol, aNewNRow: Integer);
+procedure TMatrixForm.NColsRowsChage(aNewNCol, aNewNRow: Integer);
 // изменение числа колонок или строк в матрице
 var
   i: integer;

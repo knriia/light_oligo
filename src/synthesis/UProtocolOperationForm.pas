@@ -1,4 +1,4 @@
-unit UWOper;
+unit UProtocolOperationForm;
 
 {$mode ObjFPC}{$H+}
 
@@ -12,9 +12,9 @@ uses
 
 type
 
-  { TForm7 }
+  { TProtocolOperationForm }
 
-  TForm7 = class(TForm)
+  TProtocolOperationForm = class(TForm)
     BB_Ok: TBitBtn;
     BB_Cancel: TBitBtn;
     ChB_Vac: TCheckBox;
@@ -49,21 +49,21 @@ type
   end;
 
 var
-  Form7: TForm7;
+  ProtocolOperationForm: TProtocolOperationForm;
 
 implementation
-uses UMain;
+uses UMainForm;
 
 {$R *.lfm}
 
-{ TForm3 }
+{ TOligoArrayForm }
 
-procedure TForm7.RG_OperatorClick(Sender: TObject);
+procedure TProtocolOperationForm.RG_OperatorClick(Sender: TObject);
 begin
   ShowHidePannels(RG_Operator.ItemIndex);
 end;
 
-procedure TForm7.ShowHidePannels(aValue: Integer);
+procedure TProtocolOperationForm.ShowHidePannels(aValue: Integer);
 // В зависимости от RG_Operator.ItemIndex отображаем нужную панель
 begin
     case aValue of
@@ -105,7 +105,7 @@ begin
     end;
 end;
 
-procedure TForm7.BB_OkClick(Sender: TObject);
+procedure TProtocolOperationForm.BB_OkClick(Sender: TObject);
 begin
   case RG_Operator.ItemIndex of
     0:begin
@@ -148,9 +148,9 @@ begin
   end;
 end;
 
-procedure TForm7.FormCreate(Sender: TObject);
+procedure TProtocolOperationForm.FormCreate(Sender: TObject);
 begin
-  Form7.Caption:=MyInterface.ReadString('Operator','Form7','Add Operator');
+  ProtocolOperationForm.Caption:=MyInterface.ReadString('Operator','ProtocolOperationForm','Add Operator');
   RG_Operator.Caption:=MyInterface.ReadString('Operator','RG_Operator','Operator');
   RG_Operator.Items[0]:=MyInterface.ReadString('Operator','SyringeStation_RG','SyringeStation');
   RG_Operator.Items[1]:=MyInterface.ReadString('Operator','Vacuum_RG','Vacuum');

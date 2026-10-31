@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\laser;src\oligo;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\laser;src\oligo;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -126,72 +126,72 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\umain.pas"/>
+        <Filename Value="src\UMainForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form1"/>
+        <ComponentName Value="MainForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="UMain"/>
       </Unit>
       <Unit>
-        <Filename Value="src\lasfunc.pas"/>
+        <Filename Value="src\MyGlobals.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="LasFunc"/>
       </Unit>
       <Unit>
-        <Filename Value="src\uwmatrix.pas"/>
+        <Filename Value="src\laser\EzCadApi.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form2"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\laser\ULaserPenForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="LaserPenForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="UWMatrix"/>
       </Unit>
       <Unit>
-        <Filename Value="src\uwoligoarr.pas"/>
+        <Filename Value="src\oligo\UMatrixForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form3"/>
+        <ComponentName Value="MatrixForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="UWOligoArr"/>
       </Unit>
       <Unit>
-        <Filename Value="src\myglobals.pas"/>
+        <Filename Value="src\oligo\UOligoArrayForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="MyGlobals"/>
-      </Unit>
-      <Unit>
-        <Filename Value="src\uwlayerchart.pas"/>
-        <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form4"/>
+        <ComponentName Value="OligoArrayForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="UWLayerChart"/>
       </Unit>
       <Unit>
-        <Filename Value="src\dilutor.pas"/>
+        <Filename Value="src\oligo\ULayerChartForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="Dilutor"/>
-      </Unit>
-      <Unit>
-        <Filename Value="src\uwlaspen.pas"/>
-        <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form5"/>
+        <ComponentName Value="LayerChartForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="UWLasPen"/>
       </Unit>
       <Unit>
-        <Filename Value="src\usynthread.pas"/>
+        <Filename Value="src\oligo\UPreviewForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="USynThread"/>
-      </Unit>
-      <Unit>
-        <Filename Value="src\uwpreview.pas"/>
-        <IsPartOfProject Value="True"/>
-        <ComponentName Value="FormPreview"/>
+        <ComponentName Value="PreviewForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="UWPreview"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\SynthesisThread.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\UProtocolBlockForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ProtocolBlockForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\UProtocolOperationForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ProtocolOperationForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
         <Filename Value="src\syringe_station\AutomationDocumentStorage.pas"/>
@@ -321,7 +321,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\syringe_station"/>
+      <OtherUnitFiles Value="src;src\laser;src\oligo;src\synthesis;src\syringe_station"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

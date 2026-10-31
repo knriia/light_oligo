@@ -1,9 +1,9 @@
-object Form5: TForm5
+object LaserPenForm: TLaserPenForm
   Left = -1132
   Height = 330
   Top = 384
   Width = 425
-  Caption = 'Form5'
+  Caption = 'LaserPenForm'
   ClientHeight = 330
   ClientWidth = 425
   Constraints.MinHeight = 330

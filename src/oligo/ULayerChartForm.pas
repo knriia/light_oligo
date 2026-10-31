@@ -1,4 +1,4 @@
-unit UWLayerChart;
+unit ULayerChartForm;
 
 {$mode ObjFPC}{$H+}
 
@@ -10,9 +10,9 @@ uses
 
 type
 
-  { TForm4 }
+  { TLayerChartForm }
 
-  TForm4 = class(TForm)
+  TLayerChartForm = class(TForm)
     ChNCharsInLayers: TChart;
     LS_CharsInLayers: TLineSeries;
     procedure FormCreate(Sender: TObject);
@@ -23,19 +23,19 @@ type
   end;
 
 var
-  Form4: TForm4;
+  LayerChartForm: TLayerChartForm;
 
 implementation
-uses UMain;
+uses UMainForm;
 
 {$R *.lfm}
 
-{ TForm4 }
+{ TLayerChartForm }
 
 
-procedure TForm4.FormCreate(Sender: TObject);
+procedure TLayerChartForm.FormCreate(Sender: TObject);
 begin
-  Form4.Caption:=MyInterface.ReadString('LayerChart','Form4','Number of spots in a layer');
+  LayerChartForm.Caption:=MyInterface.ReadString('LayerChart','LayerChartForm','Number of spots in a layer');
   ChNCharsInLayers.AxisList.LeftAxis.Title.Caption:=MyInterface.ReadString('LayerChart','ChNCharsInLayersLeftAxis','Number of spots');
   ChNCharsInLayers.AxisList.BottomAxis.Title.Caption:=MyInterface.ReadString('LayerChart','ChNCharsInLayersBottomAxis','layer');
 end;

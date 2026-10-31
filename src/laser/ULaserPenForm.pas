@@ -1,4 +1,4 @@
-unit UWLasPen;
+unit ULaserPenForm;
 
 {$mode ObjFPC}{$H+}
 
@@ -6,13 +6,13 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Spin, SpinEx,
-  LasFunc, MyGlobals;
+  EzCadApi, MyGlobals;
 
 type
 
-  { TForm5 }
+  { TLaserPenForm }
 
-  TForm5 = class(TForm)
+  TLaserPenForm = class(TForm)
     B_SetPen: TButton;
     B_GetPen: TButton;
     CB_WobbleMode: TCheckBox;
@@ -64,16 +64,16 @@ type
   end;
 
 var
-  Form5: TForm5;
+  LaserPenForm: TLaserPenForm;
 
 implementation
-Uses UMain;
+Uses UMainForm;
 
 {$R *.lfm}
 
-{ TForm5 }
+{ TLaserPenForm }
 
-procedure TForm5.B_GetPenClick(Sender: TObject);
+procedure TLaserPenForm.B_GetPenClick(Sender: TObject);
 var
   rez: integer;
 begin
@@ -97,10 +97,10 @@ begin
                         MyLasPen.dWobbleDiameter,
                         MyLasPen.dWobbleDist);
   FillGUIFromLasPen(MyLasPen);
-  Form1.ShowRez('lmc1_GetPenParam2', rez);
+  MainForm.ShowRez('lmc1_GetPenParam2', rez);
 end;
 
-procedure TForm5.B_SetPenClick(Sender: TObject);
+procedure TLaserPenForm.B_SetPenClick(Sender: TObject);
 var
   rez: integer;
 begin
@@ -112,21 +112,21 @@ begin
                    MyLasPen.nJumpPosTC, MyLasPen.nJumpDistTC, MyLasPen.dPointTime,
                    MyLasPen.nSpiWave, MyLasPen.bWobbleMode, MyLasPen.dWobbleDiameter,
                    MyLasPen.dWobbleDist);
-  Form1.ShowRez('lmc1_SetPenParam2', rez);
+  MainForm.ShowRez('lmc1_SetPenParam2', rez);
 end;
 
-procedure TForm5.FormClose(Sender: TObject; var CloseAction: TCloseAction);
+procedure TLaserPenForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 var
   rez: integer;
 begin
   rez:=lmc1_Close;
-  Form1.ShowRez('lmc1_Close', rez);
+  MainForm.ShowRez('lmc1_Close', rez);
 end;
 
-procedure TForm5.FormCreate(Sender: TObject);
+procedure TLaserPenForm.FormCreate(Sender: TObject);
 begin
   // интерфейс
-    Form5.Caption:=MyInterface.ReadString('LaserParam','Form5','Laser Parameters');
+    LaserPenForm.Caption:=MyInterface.ReadString('LaserParam','LaserPenForm','Laser Parameters');
     L_PenNo.Caption:=MyInterface.ReadString('LaserParam','L_PenNo','Pen No');
     L_MarkLoop.Caption:=MyInterface.ReadString('LaserParam','L_MarkLoop','Mark Loops');
     L_MarkSpeed.Caption:=MyInterface.ReadString('LaserParam','L_MarkSpeed','MarkSpeed');
@@ -171,7 +171,7 @@ begin
     FSE_WobbleDist.Value:=MyIni.ReadFloat('LaserParam','FSE_WobbleDist',0);
 end;
 
-procedure TForm5.FillGUIFromLasPen(aPen: TLasPen2);
+procedure TLaserPenForm.FillGUIFromLasPen(aPen: TLasPen2);
 begin
     SE_PenNo.Value:=aPen.nPenNo;
     SE_MarkLoop.Value:=aPen.nMarkLoop;
@@ -194,7 +194,7 @@ begin
     FSE_WobbleDist.Value:=aPen.dWobbleDist;
 end;
 
-procedure TForm5.FillLasPenFromGUI(var aPen: TLasPen2);
+procedure TLaserPenForm.FillLasPenFromGUI(var aPen: TLasPen2);
 begin
     aPen.nPenNo:=SE_PenNo.Value;
     aPen.nMarkLoop:=SE_MarkLoop.Value;

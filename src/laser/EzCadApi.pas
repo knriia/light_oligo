@@ -1,4 +1,4 @@
-unit LasFunc;
+unit EzCadApi;
 
 {$mode ObjFPC}{$H+}
 

@@ -1,9 +1,9 @@
-object Form2: TForm2
+object MatrixForm: TMatrixForm
   Left = -1853
   Height = 400
   Top = 945
   Width = 500
-  Caption = 'Form2'
+  Caption = 'MatrixForm'
   ClientHeight = 400
   ClientWidth = 500
   Constraints.MinHeight = 300
