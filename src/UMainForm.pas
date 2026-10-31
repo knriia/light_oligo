@@ -1,4 +1,4 @@
-unit UMain;
+unit UMainForm;
 
 {$mode objfpc}{$H+}
 
@@ -7,16 +7,16 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Spin, Windows, Graphics, Grids, Buttons,
-  StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper, UWLayerChart,
-  UDispenserStationHost, DispenserLayout, ManualControlsLayout, UWLasPen,
-  MyGlobals, IniFiles, UWBlock, USynThread, UWPreview;
+  StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
+  UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
+  MyGlobals, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
 
 
 type
 
-  { TForm1 }
+  { TMainForm }
 
-  TForm1 = class(TForm)
+  TMainForm = class(TForm)
     B_SetGeomParam: TButton;
     B_SetLasPen2: TButton;
     B_SaveOligs: TButton;
@@ -146,7 +146,7 @@ type
   end;
 
 var
-  Form1: TForm1;
+  MainForm: TMainForm;
   MyInterface: TIniFile; // Только интерфейс
   MyIni: TIniFile; // Все значения
 
@@ -157,16 +157,16 @@ implementation
 const
   STATION_PANEL_CHROME = 24;
 
-{ TForm1 }
+{ TMainForm }
 
 {ОБЩИЕ ПОДПРОГРАММЫ}
 
-procedure TForm1.FormCreate(Sender: TObject);
+procedure TMainForm.FormCreate(Sender: TObject);
 begin
   //интерфейс
   MyInterface:=TIniFile.Create(ExtractFilePath(ParamStr(0))+'Interface.ini');
 
-  Form1.Caption:=MyInterface.ReadString('Main','Form1','LightOligo');
+  MainForm.Caption:=MyInterface.ReadString('Main','MainForm','LightOligo');
   TS_Manual.Caption:=MyInterface.ReadString('Main','TS_Manual','Manual');
   TS_Sequences.Caption:=MyInterface.ReadString('Main','TS_Sequences','Sequence');
   TS_Protocol.Caption:=MyInterface.ReadString('Main','TS_Protocol','Protocol');
@@ -252,12 +252,12 @@ begin
   UpdateManualControlsWidth();
 end;
 
-procedure TForm1.FormResize(Sender: TObject);
+procedure TMainForm.FormResize(Sender: TObject);
 begin
   UpdateManualControlsWidth();
 end;
 
-procedure TForm1.UpdateMinimumWindowWidth;
+procedure TMainForm.UpdateMinimumWindowWidth;
 const
   FORM_NONCLIENT_CHROME_FALLBACK = 24;
 var
@@ -278,7 +278,7 @@ begin
   RequiredFormWidth := RequiredClientWidth + FormChromeWidth;
   Constraints.MinWidth := RequiredFormWidth;
 end;
-procedure TForm1.UpdateManualControlsWidth;
+procedure TMainForm.UpdateManualControlsWidth;
 var
   ManualWidth, ManualHeight: Integer;
   ManualLayout: TManualControlsLayout;
@@ -330,7 +330,7 @@ begin
 
 end;
 
-procedure TForm1.UpdateManualArrayControlsLayout;
+procedure TMainForm.UpdateManualArrayControlsLayout;
 const
   LEFT_LABEL_WIDTH = 55;
   LEFT_LABEL_TO_INPUT_GAP = 41;
@@ -473,7 +473,7 @@ begin
     SE_SubstrateDiameter.Width, SE_SubstrateDiameter.Height);
 end;
 
-procedure TForm1.ToggleManualOptionLabel(Sender: TObject);
+procedure TMainForm.ToggleManualOptionLabel(Sender: TObject);
 begin
   if Sender = L_AutoCenter then
     CB_AutoCenter.Checked := not CB_AutoCenter.Checked
@@ -481,7 +481,7 @@ begin
     CB_ShowSubstrate.Checked := not CB_ShowSubstrate.Checked;
 end;
 
-procedure TForm1.UpdateManualLaserControlsLayout;
+procedure TMainForm.UpdateManualLaserControlsLayout;
 const
   BUTTON_GAP = 4;
 var
@@ -535,7 +535,7 @@ begin
 
 end;
 
-procedure TForm1.ShowRez(aFunName: String; aRez: integer);
+procedure TMainForm.ShowRez(aFunName: String; aRez: integer);
 begin
     case aRez of
    0:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Успех!');
@@ -563,7 +563,7 @@ begin
    end;
 end;
 
-procedure TForm1.Tmr_EzCADerTimer(Sender: TObject);
+procedure TMainForm.Tmr_EzCADerTimer(Sender: TObject);
 var
    S: string;
    h: HWND;
@@ -591,7 +591,7 @@ begin
    end;
 end;
 
-procedure TForm1.CollapseExpand(Sender: TObject; Button: TMouseButton;
+procedure TMainForm.CollapseExpand(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
   GroupBox: TGroupBox;
@@ -607,7 +607,7 @@ begin
     UpdateManualControlsWidth();
 end;
 
-procedure TForm1.Tmr_CloserTimer(Sender: TObject);
+procedure TMainForm.Tmr_CloserTimer(Sender: TObject);
 var
    S: string;
    h: HWND;
@@ -622,7 +622,7 @@ begin
    end;
 end;
 
-procedure TForm1.AutoSizeGridColumn(Grid: TStringGrid; column: integer);
+procedure TMainForm.AutoSizeGridColumn(Grid: TStringGrid; column: integer);
 
 // установка ширины столбца стринггрида по самой длинной последовательности
 var
@@ -639,7 +639,7 @@ end;
 Grid.ColWidths[column]:= Max + Grid.GridLineWidth + 5;
 end;
 
-procedure TForm1.LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
+procedure TMainForm.LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
 // Загрузка содержимого файла в ноду TreeView
 var
   FileLines: TStringList;
@@ -674,7 +674,7 @@ begin
   end;
 end;
 
-procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
+procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   if Assigned(FDispenserStation) and
      not FDispenserStation.CanCloseFromHost then
@@ -687,7 +687,7 @@ begin
   MyIni.Free;
 end;
 
-procedure TForm1.DispenserStationLogMessage(Sender: TObject;
+procedure TMainForm.DispenserStationLogMessage(Sender: TObject;
   const Msg: string);
 begin
   Memo1.Lines.Add(Msg);
@@ -696,7 +696,7 @@ end;
 
 {ВКЛАДКА Manual}
 
-procedure TForm1.B_CreateEZDClick(Sender: TObject);
+procedure TMainForm.B_CreateEZDClick(Sender: TObject);
 var
    rez: integer;
    path: string;
@@ -710,7 +710,7 @@ begin
 
    // запускаем таймер закрывающий сообщение об ошибке
    Tmr_Closer.Enabled:=true;
-   rez:=lmc1_Initial2(WideString(path), true, Form1.Handle);
+   rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
    ShowRez('lmc1_Initial2',rez);
 
    // открываем/создаем файл ezd
@@ -770,12 +770,12 @@ begin
    ShowRez('lmc1_Close',rez);
 end;
 
-procedure TForm1.B_MatrixClick(Sender: TObject);
+procedure TMainForm.B_MatrixClick(Sender: TObject);
 begin
-  Form2.Show;
+  MatrixForm.Show;
 end;
 
-procedure TForm1.B_OpenEZCADClick(Sender: TObject);
+procedure TMainForm.B_OpenEZCADClick(Sender: TObject);
 // Открываем приложение, по таймеру закрываем предупреждения об ошибках
 begin
  if GetProcessHandle('EzCad2.exe')=0 then
@@ -789,19 +789,19 @@ begin
    ShowMessage('Приложение EzCAD2.exe уже запущено!');
 end;
 
-procedure TForm1.B_PreviewClick(Sender: TObject);
+procedure TMainForm.B_PreviewClick(Sender: TObject);
 var
   SubRadius, Angle: Double;
    i,j: integer;
    numPoints: integer;
    TmpP: TPoint;
 begin
-  if not Assigned(FormPreview) then
+  if not Assigned(PreviewForm) then
   begin
-    FormPreview:=TFormPreview.Create(Application);
-    FormPreview.Caption:=MyInterface.ReadString('Manual','B_Preview','Preview');
+    PreviewForm:=TPreviewForm.Create(Application);
+    PreviewForm.Caption:=MyInterface.ReadString('Manual','B_Preview','Preview');
   end;
-  FormPreview.ClearPreview;
+  PreviewForm.ClearPreview;
 
   if CB_ShowSubstrate.Checked then // если нужно показать контур подложки
   begin
@@ -810,7 +810,7 @@ begin
     for i:=0 to numPoints-1 do
     begin
       Angle:=2*Pi*i/numPoints; // Угол в радианах
-      FormPreview.AddSubstratePoint(SubRadius*Cos(Angle), SubRadius*Sin(Angle));
+      PreviewForm.AddSubstratePoint(SubRadius*Cos(Angle), SubRadius*Sin(Angle));
     end
   end;
 
@@ -839,16 +839,16 @@ begin
       if myMatrix[i,j]<>0 then
        begin
         if myGroup=0 then
-          FormPreview.AddSpot(j*myStep+BiasX, -i*myStep+BiasY, mySpotR)
+          PreviewForm.AddSpot(j*myStep+BiasX, -i*myStep+BiasY, mySpotR)
         else
-          FormPreview.AddSpot(j*myStep+myGStep*(j div myGroup)+BiasX,
+          PreviewForm.AddSpot(j*myStep+myGStep*(j div myGroup)+BiasX,
             -i*myStep-myGStep*(i div myGroup)+BiasY, mySpotR);
        end;
     end;
-  FormPreview.ShowPreview;
+  PreviewForm.ShowPreview;
 end;
 
-procedure TForm1.B_SendF2Click(Sender: TObject);
+procedure TMainForm.B_SendF2Click(Sender: TObject);
 // Послать команду маркировки F2
 begin
  if GetProcessHandle('EzCad2.exe')<>0 then
@@ -860,7 +860,7 @@ begin
    ShowMessage('Приложение EzCAD2.exe не запущено!');
 end;
 
-procedure TForm1.B_SetLasPenClick(Sender: TObject);
+procedure TMainForm.B_SetLasPenClick(Sender: TObject);
 // Открываем окно задания параметров лазера(LasPen)
 var
    rez: integer;
@@ -873,12 +873,12 @@ begin
 
    // запускаем таймер закрывающий сообщение об ошибке
    Tmr_Closer.Enabled:=true;
-   rez:=lmc1_Initial2(WideString(path), true, Form1.Handle);
+   rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
    ShowRez('lmc1_Initial2',rez);
-   Form5.ShowModal;
+   LaserPenForm.ShowModal;
 end;
 
-procedure TForm1.B_CloseEzCADClick(Sender: TObject);
+procedure TMainForm.B_CloseEzCADClick(Sender: TObject);
 // Закрываем приложение
 var
   ProcH: THandle;
@@ -896,7 +896,7 @@ end;
 
 {ВКЛАДКА Sequence}
  
-procedure TForm1.DisplayOligoArrInGrid(anArr: TOligoArr);
+procedure TMainForm.DisplayOligoArrInGrid(anArr: TOligoArr);
 // отображение массива олигов в StringGride
 var
   i,j: Integer;
@@ -917,7 +917,7 @@ begin
   end;
 end;
 
-procedure TForm1.SG_OligoArrHeaderClick(Sender: TObject; IsColumn: Boolean;
+procedure TMainForm.SG_OligoArrHeaderClick(Sender: TObject; IsColumn: Boolean;
   Index: Integer);
 // Переключение отображения ячеек в SG_OligoArr
 var
@@ -949,7 +949,7 @@ begin
   end;
 end;
 
-procedure TForm1.SG_OligoArrKeyUp(Sender: TObject; var Key: Word;
+procedure TMainForm.SG_OligoArrKeyUp(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 // обработка Ctrl+V
 var
@@ -966,7 +966,7 @@ begin
   end;
 end;
 
-procedure TForm1.SG_OligoArrSetEditText(Sender: TObject; ACol, ARow: Integer;
+procedure TMainForm.SG_OligoArrSetEditText(Sender: TObject; ACol, ARow: Integer;
   const Value: string);
 // Запоминаем начальную ячейку выделения
 begin
@@ -974,7 +974,7 @@ begin
   EditedCell.Row:=ARow;
 end;
 
-procedure TForm1.SG_OligoArrEditingDone(Sender: TObject);
+procedure TMainForm.SG_OligoArrEditingDone(Sender: TObject);
 // изменение содержимого ячеики
 begin
 if (EditedCell.Row<>0) and (EditedCell.Col<>0) then
@@ -984,7 +984,7 @@ if (EditedCell.Row<>0) and (EditedCell.Col<>0) then
   end;
 end;
 
-procedure TForm1.B_LoadOligsClick(Sender: TObject);
+procedure TMainForm.B_LoadOligsClick(Sender: TObject);
 var
   F: TextFile;
  begin
@@ -1001,7 +1001,7 @@ var
   end;
  end;
 
-procedure TForm1.B_SaveOligsClick(Sender: TObject);
+procedure TMainForm.B_SaveOligsClick(Sender: TObject);
 {Сохранение массива в файл}
 var
   F: TextFile;
@@ -1032,13 +1032,13 @@ begin
   end;
 end;
 
-procedure TForm1.B_CreateOligoArrClick(Sender: TObject);
+procedure TMainForm.B_CreateOligoArrClick(Sender: TObject);
 // Вызывается окно задания массива
 // по заданным параметрам генерится массив (пустой, рандомный или предзаполненный)
 var
   i,j: integer;
 begin
-  Form3.ShowModal;
+  OligoArrayForm.ShowModal;
 
    if FillType<>-1 then
     begin
@@ -1068,7 +1068,7 @@ begin
     end;
 end;
 
-procedure TForm1.B_SliceOligoArrClick(Sender: TObject);
+procedure TMainForm.B_SliceOligoArrClick(Sender: TObject);
 // нарезка массива. Если массив не пустой, то выполняем его слайсинг, формируем файлы слоев и создаем слайс-таблицу
 var
   TmpOligoArr: TOligoArr;
@@ -1108,7 +1108,7 @@ begin
     // Слайсинг
     i:=0;
     SetLength(SliceTable,0);
-    Form4.LS_CharsInLayers.Clear;
+    LayerChartForm.LS_CharsInLayers.Clear;
     repeat
       SetLength(TmpMatrixLayer,0);
       CreateMatrixLayerFromOligoArr(TmpOligoArr, mySymbolSet, TmpMatrixLayer,
@@ -1121,30 +1121,30 @@ begin
         SliceTable[i].Letter:=MaxLetter;                                                                        //+1
         SliceTable[i].NumOfChar:=MaxCount;
         SliceTable[i].MatrixFile:=Path+'\Layer'+IntToStr(i+1)+'_'+MaxLetter+IntToStr(MaxCount)+'.txt';          //+1
-        Form4.LS_CharsInLayers.AddXY(SliceTable[i].LayerCount, SliceTable[i].NumOfChar, SliceTable[i].Letter);
+        LayerChartForm.LS_CharsInLayers.AddXY(SliceTable[i].LayerCount, SliceTable[i].NumOfChar, SliceTable[i].Letter);
         Inc(i);
       end;
     until (MaxCount=0) or (i>1000);
     SaveSliceStatistics(Path, SliceTable);
-    Form4.ShowModal;
+    LayerChartForm.ShowModal;
   end
   else
     ShowMessage('пустой массив!');
 end;
 
-procedure TForm1.B_SetLasPen2Click(Sender: TObject);
+procedure TMainForm.B_SetLasPen2Click(Sender: TObject);
 // Вызов настроек лазерного маркера
 begin
    B_SetLasPenClick(Self);
 end;
 
-procedure TForm1.B_SetGeomParamClick(Sender: TObject);
+procedure TMainForm.B_SetGeomParamClick(Sender: TObject);
 begin
   {TODO: Переделать на вкладке Manual окно задания массива и вызывать его отсюда}
   ShowMessage('Перейдите на вкладку Ручного управления'+#10#13+'и задайте геометрические параметры массива');
 end;
 
-procedure TForm1.B_CreateArrEzdClick(Sender: TObject);
+procedure TMainForm.B_CreateArrEzdClick(Sender: TObject);
 // Создаем файлы EZD
 var
   i: integer;
@@ -1160,7 +1160,7 @@ begin
     path:=ExtractFilePath(ParamStr(0)); // путь к директории с EzCAD
     TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
     Tmr_Closer.Enabled:=true;
-    rez:=lmc1_Initial2(WideString(path), true, Form1.Handle);
+    rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
     ShowRez('lmc1_Initial2',rez); // подключаемся к MarkEzd.dll
 
     for i:=0 to Length(SliceTable)-1 do
@@ -1221,7 +1221,7 @@ end;
 
 {ВКЛАДКА Protocol}
 
-procedure TForm1.B_LoadProtocolLayerClick(Sender: TObject);
+procedure TMainForm.B_LoadProtocolLayerClick(Sender: TObject);
 // Загрузка протокола из файла
 begin
   OD_File.Filter:='Протокол|*.pro';
@@ -1234,15 +1234,15 @@ begin
   end;
 end;
 
-procedure TForm1.B_AddBlockInProtocolClick(Sender: TObject);
+procedure TMainForm.B_AddBlockInProtocolClick(Sender: TObject);
 // Добавляем корневой блок в протокол
 begin
-  Form6.ShowModal;
-  if Form6.ModalResult=mrOK then
+  ProtocolBlockForm.ShowModal;
+  if ProtocolBlockForm.ModalResult=mrOK then
     TV_ProtocolLayer.Items.Add(nil,'Block='+MyBlockName+';');
 end;
 
-procedure TForm1.B_AddOperInProtocolClick(Sender: TObject);
+procedure TMainForm.B_AddOperInProtocolClick(Sender: TObject);
 // Добавляем оператор в протокол. В форме формируем функцию в записи, а здесь из нее создаем ноду
 var
   tmpNode: TTreeNode;
@@ -1254,8 +1254,8 @@ begin
     Exit;
   end;
 
-  Form7.ShowModal;
-    if Form7.ModalResult=mrOk then
+  ProtocolOperationForm.ShowModal;
+    if ProtocolOperationForm.ModalResult=mrOk then
     begin
       case TV_ProtocolLayer.Selected.Level of   // задаем ноду 0 уровня независимо от глубины вложения
         0 :tmpNode:=TV_ProtocolLayer.Selected;
@@ -1277,7 +1277,7 @@ begin
     end;
 end;
 
-procedure TForm1.B_RemoveNodeClick(Sender: TObject);
+procedure TMainForm.B_RemoveNodeClick(Sender: TObject);
 begin
    if(TV_ProtocolLayer.Selected = nil) then
    begin
@@ -1288,7 +1288,7 @@ begin
    TV_ProtocolLayer.Selected.Delete;
 end;
 
-procedure TForm1.B_SaveProtocolLayerClick(Sender: TObject);
+procedure TMainForm.B_SaveProtocolLayerClick(Sender: TObject);
 // Сохраняем протокол в файл
 begin
   SD_File.Filter:='Протокол|*.pro';
@@ -1302,7 +1302,7 @@ begin
   end;
 end;
 
-procedure TForm1.SB_UpNodeClick(Sender: TObject);
+procedure TMainForm.SB_UpNodeClick(Sender: TObject);
 // перемещение ноды вверх по дереву
 var
   SelectedNode, PrevNode: TTreeNode;
@@ -1325,7 +1325,7 @@ begin
   end;
 end;
 
-procedure TForm1.SB_DownNodeClick(Sender: TObject);
+procedure TMainForm.SB_DownNodeClick(Sender: TObject);
 // Перемещение ноды вниз по дереву
 var
   SelectedNode, NextNode: TTreeNode;
@@ -1351,7 +1351,7 @@ end;
 
 {ВКЛАДКА Synthesis}
 
-procedure TForm1.B_LoadProtToSynthClick(Sender: TObject);
+procedure TMainForm.B_LoadProtToSynthClick(Sender: TObject);
 // Загрузить файлы протоколов
 var
   TmpLet: String;
@@ -1389,7 +1389,7 @@ begin
   end;
 end;
 
- procedure TForm1.B_LoadLayersClick(Sender: TObject);
+ procedure TMainForm.B_LoadLayersClick(Sender: TObject);
 // Загрузить файлы слоев
 var
   rez: integer;
@@ -1427,7 +1427,7 @@ begin
   end;
 end;
 
-procedure TForm1.B_ClearAllClick(Sender: TObject);
+procedure TMainForm.B_ClearAllClick(Sender: TObject);
 // Очистить протоколы и файлы
 var
   i: integer;
@@ -1444,10 +1444,10 @@ begin
   TV_Synthesis.Items.Clear;
 end;
 
-procedure TForm1.B_StartClick(Sender: TObject);
+procedure TMainForm.B_StartClick(Sender: TObject);
 //запуск синтеза
 var
-  MyThread: TSynThread; // Поток, в котором будет проходить весь синтез
+  MyThread: TSynthesisThread; // Поток, в котором будет проходить весь синтез
   i: integer;
   s: String;
   arrWrongLet: array of String;
@@ -1499,14 +1499,14 @@ begin
   if IsCorrect then
   begin
     IsStarted:=true;
-    MyThread:=TSynTHread.Create(false);
+    MyThread:=TSynthesisThread.Create(false);
   end
   else ShowMessage('');
 
 
 end;
 
-procedure TForm1.B_PauseClick(Sender: TObject);
+procedure TMainForm.B_PauseClick(Sender: TObject);
 begin
   IsStarted:=false;
   Memo1.Lines.Add('Synthesis aborted');

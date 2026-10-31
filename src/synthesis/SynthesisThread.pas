@@ -1,17 +1,17 @@
-unit USynThread;
+unit SynthesisThread;
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, Windows, MyGlobals, LasFunc, JwaTlHelp32, JwaPsApi;
+  Classes, SysUtils, Windows, MyGlobals, EzCadApi, JwaTlHelp32, JwaPsApi;
 
 type
 
-  { TSynThread }
+  { TSynthesisThread }
 
-  TSynThread = class(TThread)
+  TSynthesisThread = class(TThread)
   protected
     procedure OutLog;
     procedure TrigTimer;
@@ -20,7 +20,7 @@ type
 
 
 implementation
-uses UMain;
+uses UMainForm;
 
 var
   OutS: String;
@@ -28,19 +28,19 @@ var
 
 
 
-procedure TSynThread.OutLog;
+procedure TSynthesisThread.OutLog;
 begin
   OutS:=TimeToStr(Time())+': '+OutS;
-  Form1.Memo1.Lines.Add(OutS);
+  MainForm.Memo1.Lines.Add(OutS);
   WriteLN(F, OutS);
 end;
 
-procedure TSynThread.TrigTimer;
+procedure TSynthesisThread.TrigTimer;
 begin
-  Form1.Tmr_EzCADer.Enabled:=true;
+  MainForm.Tmr_EzCADer.Enabled:=true;
 end;
 
-procedure TSynThread.Execute;
+procedure TSynthesisThread.Execute;
 var
   ProcH: THandle;
   sl,i,j,a: integer;

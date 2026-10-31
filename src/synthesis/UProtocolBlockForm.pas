@@ -1,4 +1,4 @@
-unit UWBlock;
+unit UProtocolBlockForm;
 
 {$mode ObjFPC}{$H+}
 
@@ -10,9 +10,9 @@ uses
 
 type
 
-  { TForm6 }
+  { TProtocolBlockForm }
 
-  TForm6 = class(TForm)
+  TProtocolBlockForm = class(TForm)
     BB_Ok: TBitBtn;
     BB_Cancel: TBitBtn;
     LE_String: TLabeledEdit;
@@ -25,17 +25,17 @@ type
   end;
 
 var
-  Form6: TForm6;
+  ProtocolBlockForm: TProtocolBlockForm;
 
 implementation
-uses UMain;
+uses UMainForm;
 {$R *.lfm}
 
-{ TForm6 }
+{ TProtocolBlockForm }
 
-procedure TForm6.FormCreate(Sender: TObject);
+procedure TProtocolBlockForm.FormCreate(Sender: TObject);
 begin
-  Form6.Caption:=MyInterface.ReadString('AddBlock','Form6','AddBlock');
+  ProtocolBlockForm.Caption:=MyInterface.ReadString('AddBlock','ProtocolBlockForm','AddBlock');
   LE_String.EditLabel.Caption:=MyInterface.ReadString('AddBlock','LE_String','Add BlockName');
   BB_Cancel.Caption:=MyInterface.ReadString('AddBlock','BB_Cancel','Cancel');
   BB_Ok.Caption:=MyInterface.ReadString('AddBlock','BB_Ok','OK');
@@ -43,7 +43,7 @@ begin
   LE_String.Text:=MyIni.ReadString('AddBlock','LE_String','BlockName');
 end;
 
-procedure TForm6.BB_OkClick(Sender: TObject);
+procedure TProtocolBlockForm.BB_OkClick(Sender: TObject);
 begin
    MyBlockName:=LE_String.Text;
    ModalResult:=mrOk;

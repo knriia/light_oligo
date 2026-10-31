@@ -1,4 +1,4 @@
-unit UWOligoArr;
+unit UOligoArrayForm;
 
 {$mode ObjFPC}{$H+}
 
@@ -15,9 +15,9 @@ const
 
 type
 
-  { TForm3 }
+  { TOligoArrayForm }
 
-  TForm3 = class(TForm)
+  TOligoArrayForm = class(TForm)
     BB_CreateArr: TBitBtn;
     BB_CancelArr: TBitBtn;
     E_ConstSeq: TEdit;
@@ -42,22 +42,22 @@ type
   end;
 
 var
-  Form3: TForm3;
+  OligoArrayForm: TOligoArrayForm;
   RND_Length: integer;
   ConstSeqStr: String;
   OligoArrCol, OligoArrRow, FillType: Integer;
 
 implementation
 uses
-  UMain;
+  UMainForm;
 
 {$R *.lfm}
 
-{ TForm3 }
+{ TOligoArrayForm }
 
-procedure TForm3.FormCreate(Sender: TObject);
+procedure TOligoArrayForm.FormCreate(Sender: TObject);
 begin
-  Form3.Caption:=MyInterface.ReadString('OligoArray','Form3','OligoArray');
+  OligoArrayForm.Caption:=MyInterface.ReadString('OligoArray','OligoArrayForm','OligoArray');
   L_SetOligoSize.Caption:=MyInterface.ReadString('OligoArray','L_SetOligoSize','Set OligoArray size');
   L_ArrColumns.Caption:=MyInterface.ReadString('OligoArray','L_ArrColumns','Number of Columns');
   L_ArrRows.Caption:=MyInterface.ReadString('OligoArray','L_ArrRows','Number of Rows');
@@ -76,7 +76,7 @@ begin
   SE_LenOfRNDSeq.Value:=MyIni.ReadInteger('OligoArray','SE_LenOfRNDSeq',10);
 end;
 
-procedure TForm3.RG_FillClick(Sender: TObject);
+procedure TOligoArrayForm.RG_FillClick(Sender: TObject);
 begin
   case RG_Fill.ItemIndex of
   0: ShowFillElements(RG_FILL_EMPTY);
@@ -86,14 +86,14 @@ begin
 
 end;
 
-procedure TForm3.FormShow(Sender: TObject);
+procedure TOligoArrayForm.FormShow(Sender: TObject);
 begin
   RND_Length:=0;
   ConstSeqStr:='';
   RG_FillClick(Self);
 end;
 
-procedure TForm3.BB_CreateArrClick(Sender: TObject);
+procedure TOligoArrayForm.BB_CreateArrClick(Sender: TObject);
 begin
   OligoArrCol:=SE_NOligoCol.Value;
   OligoArrRow:=SE_NOligoRow.Value;
@@ -113,12 +113,12 @@ begin
   end;
 end;
 
-procedure TForm3.BB_CancelArrClick(Sender: TObject);
+procedure TOligoArrayForm.BB_CancelArrClick(Sender: TObject);
 begin
     FillType:=-1;
 end;
 
-procedure TForm3.ShowFillElements(aFillType: integer);
+procedure TOligoArrayForm.ShowFillElements(aFillType: integer);
 begin
   case aFillType of
   0: begin  // пустой массив, всё прячем

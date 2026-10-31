@@ -1,4 +1,4 @@
-object FormPreview: TFormPreview
+object PreviewForm: TPreviewForm
   Left = 400
   Height = 700
   Top = 200

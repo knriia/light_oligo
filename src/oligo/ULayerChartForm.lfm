@@ -1,9 +1,9 @@
-object Form4: TForm4
+object LayerChartForm: TLayerChartForm
   Left = -601
   Height = 300
   Top = 588
   Width = 400
-  Caption = 'Form4'
+  Caption = 'LayerChartForm'
   ClientHeight = 300
   ClientWidth = 400
   Constraints.MinHeight = 300

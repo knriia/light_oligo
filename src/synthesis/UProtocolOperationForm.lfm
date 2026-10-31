@@ -1,9 +1,9 @@
-object Form7: TForm7
+object ProtocolOperationForm: TProtocolOperationForm
   Left = -996
   Height = 188
   Top = 821
   Width = 360
-  Caption = 'Form7'
+  Caption = 'ProtocolOperationForm'
   ClientHeight = 188
   ClientWidth = 360
   Position = poMainFormCenter

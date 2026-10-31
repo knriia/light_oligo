@@ -1,4 +1,4 @@
-unit UWPreview;
+unit UPreviewForm;
 
 {$mode objfpc}{$H+}
 
@@ -9,7 +9,7 @@ uses
   TAMultiSeries, TAPolygonSeries, TATools;
 
 type
-  TFormPreview = class(TForm)
+  TPreviewForm = class(TForm)
     Chart1: TChart;
     BS_Series: TBubbleSeries;
     PS_Series: TPolygonSeries;
@@ -27,39 +27,39 @@ type
   end;
 
 var
-  FormPreview: TFormPreview;
+  PreviewForm: TPreviewForm;
 
 implementation
 
 {$R *.lfm}
 
-procedure TFormPreview.FormClose(Sender: TObject; var CloseAction: TCloseAction);
+procedure TPreviewForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   CloseAction:=caHide;
 end;
 
-procedure TFormPreview.FormResize(Sender: TObject);
+procedure TPreviewForm.FormResize(Sender: TObject);
 begin
   Chart1.Width:=Chart1.Height;
 end;
 
-procedure TFormPreview.ClearPreview;
+procedure TPreviewForm.ClearPreview;
 begin
   BS_Series.Clear;
   PS_Series.Clear;
 end;
 
-procedure TFormPreview.AddSpot(AX, AY, ARadius: Double);
+procedure TPreviewForm.AddSpot(AX, AY, ARadius: Double);
 begin
   BS_Series.AddXY(AX, AY, ARadius, '', clRed);
 end;
 
-procedure TFormPreview.AddSubstratePoint(AX, AY: Double);
+procedure TPreviewForm.AddSubstratePoint(AX, AY: Double);
 begin
   PS_Series.AddXY(AX, AY, '', clBlue);
 end;
 
-procedure TFormPreview.ShowPreview;
+procedure TPreviewForm.ShowPreview;
 begin
   Chart1.ZoomFull;
   Show;

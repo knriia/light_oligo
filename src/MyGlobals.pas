@@ -5,7 +5,7 @@ unit MyGlobals;
 interface
 
 uses
-  Classes, SysUtils, Windows, JwaTlHelp32, JwaPsApi, StrUtils, Grids, LasFunc;
+  Classes, SysUtils, Windows, JwaTlHelp32, JwaPsApi, StrUtils, Grids, EzCadApi;
 
 type
   TCell = record
@@ -106,7 +106,7 @@ var
   IsStarted: Boolean=false;          // Состояние работы потока. Если надо остановить синтез.
 
 implementation
-uses UMain;
+uses UMainForm;
 
 
 {WinAPI функции}
@@ -715,7 +715,7 @@ begin
     try
       AssignFile(F,aProtFile);
       Reset(F);
-      Form1.Memo1.Lines.Add('Загрузка протокола из файла: '+aProtFile);
+      MainForm.Memo1.Lines.Add('Загрузка протокола из файла: '+aProtFile);
       while not EOF(F) do
       begin
         ReadLN(F,S);
@@ -735,27 +735,27 @@ begin
              'Block':  begin
                         aProt[High(aProt)].Func:=dName;
                         aProt[High(aProt)].StrParam:=SubParts[1];
-                        Form1.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Block='+
+                        MainForm.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Block='+
                                               aProt[High(aProt)].StrParam);
                        end;
              'Pause':  begin
                         aProt[High(aProt)].Func:=dPause;
                         if TryStrToInt(SubParts[1],i)
                         then  aProt[High(aProt)].IntParam:=i;
-                        Form1.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Pause='+
+                        MainForm.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Pause='+
                                               IntToStr(aProt[High(aProt)].IntParam));
                       end;
 
              'Vacuum': begin
                         aProt[High(aProt)].Func:=dVac;
                         aProt[High(aProt)].BoolParam:=StrToBool(SubParts[1]);
-                        Form1.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Vacuum='+
+                        MainForm.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Vacuum='+
                                               BoolToStr(aProt[High(aProt)].BoolParam));
                        end;
              'Comment':begin
                         aProt[High(aProt)].Func:=dName;
                         aProt[High(aProt)].StrParam:=trim(SubParts[1]);
-                        Form1.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Comment='+
+                        MainForm.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Comment='+
                                               aProt[High(aProt)].StrParam);
                        end;
            end;
@@ -780,7 +780,7 @@ begin
                SubParts:=trim(Parts[1]).Split('='); // в этой части хранится время на слой;
                if TryStrToFloat(trim(SubParts[1]),d) then aProt[High(aProt)].FloatParam:=d;
 
-               Form1.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Laser='+IntToStr(aProt[High(aProt)].IntParam)+
+               MainForm.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' Laser='+IntToStr(aProt[High(aProt)].IntParam)+
                                        '; time='+FloatToStr(aProt[High(aProt)].FloatParam)+';');
              end
              else
@@ -811,7 +811,7 @@ begin
                SubParts:=trim(Parts[2]).Split('='); // в этой части хранится скорость, это integer;
                if TryStrToInt(trim(SubParts[1]),i) then aProt[High(aProt)].IntParam:=i;
 
-               Form1.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' SyrSt='+aProt[High(aProt)].StrParam+'; V='+
+               MainForm.Memo1.Lines.Add(IntToStr(High(aProt)+1)+' SyrSt='+aProt[High(aProt)].StrParam+'; V='+
                                      FloatToStr(aProt[High(aProt)].FloatParam)+'; S='+
                                      IntToStr(aProt[High(aProt)].IntParam)+';');
              end
@@ -830,7 +830,7 @@ begin
 
       end;
       Result:=0;
-      Form1.Memo1.Lines.Add('Протокол успешно загружен!'+#10#13);
+      MainForm.Memo1.Lines.Add('Протокол успешно загружен!'+#10#13);
     finally
       CloseFile(F);
     end;

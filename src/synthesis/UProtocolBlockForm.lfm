@@ -1,9 +1,9 @@
-object Form6: TForm6
+object ProtocolBlockForm: TProtocolBlockForm
   Left = -647
   Height = 131
   Top = 992
   Width = 274
-  Caption = 'Form6'
+  Caption = 'ProtocolBlockForm'
   ClientHeight = 131
   ClientWidth = 274
   Position = poMainFormCenter
