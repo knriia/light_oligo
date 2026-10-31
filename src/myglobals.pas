@@ -5,7 +5,7 @@ unit MyGlobals;
 interface
 
 uses
-  Classes, SysUtils, Windows, JwaTlHelp32, JwaPsApi, StrUtils, Grids, LasFunc, Dilutor;
+  Classes, SysUtils, Windows, JwaTlHelp32, JwaPsApi, StrUtils, Grids, LasFunc;
 
 type
   TCell = record
@@ -98,7 +98,6 @@ var
   ArrOfSpots: TArrOfTPoint;          // линейный массив маркируемых точек
   SliceTable: TArrSliceStruc;        // массив записей о слайсах
   MyLasPen: TLasPen2;                // Запись с параметрами маркера
-  MyPumpSt: array of TPump;          // Шприцевая станция
 
   MyOper: TOperRec;
   MyBlockName: String;
