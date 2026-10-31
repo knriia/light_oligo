@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Spin, Grids,
-  Buttons, EzCadApi, MyGlobals;
+  Buttons, EzCadApi, AppState, CommonUtils, OligoMatrix;
 
 type
 

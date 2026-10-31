@@ -5,7 +5,7 @@ unit SynthesisThread;
 interface
 
 uses
-  Classes, SysUtils, Windows, MyGlobals, EzCadApi, JwaTlHelp32, JwaPsApi;
+  Classes, SysUtils, Windows, AppState, WinProcessUtils, SynthesisProtocol;
 
 type
 

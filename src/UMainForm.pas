@@ -9,7 +9,8 @@ uses
   Spin, Windows, Graphics, Grids, Buttons,
   StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
-  MyGlobals, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
+  AppState, CommonUtils, WinProcessUtils, OligoMatrix, OligoArray,
+  OligoSlices, SynthesisProtocol, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
 
 
 type
@@ -1374,7 +1375,7 @@ begin
         Exit;
     end;
 
-    rez:=ParceProtocolFile(TmpLayProt,OD_File.FileName);
+    rez:=ParceProtocolFile(TmpLayProt,OD_File.FileName,Memo1.Lines);
       if rez=0 then
         begin
           SetLength(MySynthProt,Length(MySynthProt)+1); // увеличиваем массив на 1 протокол буквы

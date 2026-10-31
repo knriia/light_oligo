@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Buttons, ExtCtrls,
-  StdCtrls, Spin, MyGlobals;
+  StdCtrls, Spin, AppState, SynthesisProtocol;
 
 
 
