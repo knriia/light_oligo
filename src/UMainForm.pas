@@ -10,7 +10,7 @@ uses
   StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
   AppState, CommonUtils, WinProcessUtils, OligoMatrix, OligoArray,
-  OligoSlices, SynthesisProtocol, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
+  OligoSlices, SynthesisProtocol, ProtocolFormat, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
 
 
 type
@@ -1257,6 +1257,7 @@ procedure TMainForm.B_AddOperInProtocolClick(Sender: TObject);
 // Добавляем оператор в протокол. В форме формируем функцию в записи, а здесь из нее создаем ноду
 var
   tmpNode: TTreeNode;
+  ParamLine: String;
 begin
   if TV_ProtocolLayer.Selected= nil
   then
@@ -1275,9 +1276,13 @@ begin
       end;
 
       case MyOper.Func of
-           dSyrSt: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+'; '+
-                                             'Volume='+FloatToStr(MyOper.FloatParam)+'; '+
-                                               'Speed='+IntToStr(MyOper.IntParam)+';');
+           dSyrSt: begin
+                     // операция SyrSt, её параметры - вложенными строками
+                     tmpNode:=TV_ProtocolLayer.Items.AddChild(tmpNode, KEY_SYRINGE+';');
+                     for ParamLine in SyringeStepParamLines(MyOper.Syringe) do
+                       TV_ProtocolLayer.Items.AddChild(tmpNode, ParamLine);
+                     tmpNode.Expand(False);
+                   end;
              dVac: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+BoolToStr(MyOper.BoolParam)+'; ');
 
              dLaser: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+IntToStr(MyOper.IntParam)+'; '

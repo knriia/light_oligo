@@ -323,6 +323,10 @@ var
 begin
   if CurrentCommand = nil then
     Exit;
+  if CurrentCommand.BlockName <> '' then
+    Log(Format('Команда %d: блок "%s", строка %d протокола.',
+      [CurrentCommand.Number, CurrentCommand.BlockName,
+      CurrentCommand.LineNumber]));
   SetLength(FRemainingSteps, Length(CurrentCommand.Targets));
   SetLength(FLoadedSteps, Length(CurrentCommand.Targets));
   for I := 0 to High(CurrentCommand.Targets) do

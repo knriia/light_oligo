@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Buttons, ExtCtrls,
-  StdCtrls, Spin, AppState, SynthesisProtocol;
+  StdCtrls, Spin, AppState, SynthesisProtocol, ProtocolFormat;
 
 
 
@@ -17,24 +17,25 @@ type
   TProtocolOperationForm = class(TForm)
     BB_Ok: TBitBtn;
     BB_Cancel: TBitBtn;
+    CB_SyrSpeedUnit: TComboBox;
+    CB_SyrVolumeUnit: TComboBox;
     ChB_Vac: TCheckBox;
-    FSE_SyrVolume: TFloatSpinEdit;
     GB_SyrSt: TGroupBox;
     GB_Vac: TGroupBox;
     GB_Laser: TGroupBox;
     GB_Pause: TGroupBox;
     GB_Comment: TGroupBox;
     L_LasTime: TLabel;
-    L_SyrVol: TLabel;
-    L_Flow: TLabel;
     L_Pause: TLabel;
     L_LasRepeats: TLabel;
     LE_Comment: TLabeledEdit;
     LE_SyrNames: TLabeledEdit;
+    LE_SyrSpeeds: TLabeledEdit;
+    LE_SyrValves: TLabeledEdit;
+    LE_SyrVolumes: TLabeledEdit;
     Panel1: TPanel;
     Panel2: TPanel;
     RG_Operator: TRadioGroup;
-    SE_Flow: TSpinEdit;
     SE_LasTIme: TSpinEdit;
     SE_Pause: TSpinEdit;
     SE_LasRepeats: TSpinEdit;
@@ -106,19 +107,28 @@ begin
 end;
 
 procedure TProtocolOperationForm.BB_OkClick(Sender: TObject);
+var
+  ErrorText: String;
 begin
   case RG_Operator.ItemIndex of
     0:begin
-        if LE_SyrNames.Text='' then
+        MyOper:=Default(TOperRec);
+        MyOper.Func:=dSyrSt;
+        MyOper.Syringe.Dispensers:=Trim(LE_SyrNames.Text);
+        MyOper.Syringe.Valves:=Trim(LE_SyrValves.Text);
+        MyOper.Syringe.Volumes:=Trim(LE_SyrVolumes.Text);
+        MyOper.Syringe.VolumeUnit:=CB_SyrVolumeUnit.Text;
+        MyOper.Syringe.Speeds:=Trim(LE_SyrSpeeds.Text);
+        MyOper.Syringe.SpeedUnit:=CB_SyrSpeedUnit.Text;
+        MyOper.StrParam:=KEY_SYRINGE;
+        // Имена дозаторов и лимиты проверяет станция при запуске;
+        // здесь проверяем, что запись заполнена и согласована.
+        if not CheckSyringeStep(MyOper.Syringe, ErrorText) then
           begin
-            ShowMessage('Введите название шприца!');
-            ModalResult:=mrCancel;
+            ShowMessage(ErrorText);
+            ModalResult:=mrNone; // окно остаётся открытым для исправления
             Exit;
           end;
-        MyOper.Func:=dSyrSt;
-        MyOper.FloatParam:=FSE_SyrVolume.Value;
-        MyOper.IntParam:=SE_Flow.Value;
-        MyOper.StrParam:='SyrSt='+LE_SyrNames.Text;
       end;
     1:begin
         MyOper.Func:=dVac;
@@ -149,6 +159,8 @@ begin
 end;
 
 procedure TProtocolOperationForm.FormCreate(Sender: TObject);
+var
+  i: Integer;
 begin
   ProtocolOperationForm.Caption:=MyInterface.ReadString('Operator','ProtocolOperationForm','Add Operator');
   RG_Operator.Caption:=MyInterface.ReadString('Operator','RG_Operator','Operator');
@@ -160,9 +172,14 @@ begin
   BB_Cancel.Caption:=MyInterface.ReadString('Operator','BB_Cancel','Cancel');
   BB_Ok.Caption:=MyInterface.ReadString('Operator','BB_Ok','Ok');
   GB_SyrSt.Caption:=MyInterface.ReadString('Operator','GB_SyrSt','Syringe Station');
-  LE_SyrNames.EditLabel.Caption:=MyInterface.ReadString('Operator','LE_SyrNames','Syringe Name');
-  L_SyrVol.Caption:=MyInterface.ReadString('Operator','L_SyrVol','Volume, ul');
-  L_Flow.Caption:=MyInterface.ReadString('Operator','L_Flow','Flow, ul/s');
+  LE_SyrNames.EditLabel.Caption:=MyInterface.ReadString('Operator','LE_SyrNames','Dispensers');
+  LE_SyrValves.EditLabel.Caption:=MyInterface.ReadString('Operator','LE_SyrValves','Valves');
+  LE_SyrVolumes.EditLabel.Caption:=MyInterface.ReadString('Operator','LE_SyrVolumes','Volumes');
+  LE_SyrSpeeds.EditLabel.Caption:=MyInterface.ReadString('Operator','LE_SyrSpeeds','Speeds');
+  for i:=Low(VOLUME_UNITS) to High(VOLUME_UNITS) do
+    CB_SyrVolumeUnit.Items.Add(VOLUME_UNITS[i]);
+  for i:=Low(SPEED_UNITS) to High(SPEED_UNITS) do
+    CB_SyrSpeedUnit.Items.Add(SPEED_UNITS[i]);
   GB_Vac.Caption:=MyInterface.ReadString('Operator','GB_Vac','Vacuum');
   ChB_Vac.Caption:=MyInterface.ReadString('Operator','ChB_Vac','On/Off');
   GB_Laser.Caption:=MyInterface.ReadString('Operator','GB_Laser','Laser');
@@ -179,8 +196,15 @@ begin
   LE_Comment.Text:=MyIni.ReadString('Operators','LE_Comment','');
   SE_Pause.Value:=MyIni.ReadInteger('Operators', 'SE_Pause', 1);
   LE_SyrNames.Text:=MyIni.ReadString('Operators','LE_SyrNames','W');
-  FSE_SyrVolume.Value:=MyIni.ReadFloat('Operators','FSE_SyrVolume',250);
-  SE_Flow.Value:=MyIni.ReadInteger('Operators', 'SE_Flow', 10);
+  LE_SyrValves.Text:=MyIni.ReadString('Operators','LE_SyrValves','2');
+  LE_SyrVolumes.Text:=MyIni.ReadString('Operators','LE_SyrVolumes','100');
+  LE_SyrSpeeds.Text:=MyIni.ReadString('Operators','LE_SyrSpeeds','10');
+  CB_SyrVolumeUnit.ItemIndex:=CB_SyrVolumeUnit.Items.IndexOf(
+    MyIni.ReadString('Operators','CB_SyrVolumeUnit','мкл'));
+  if CB_SyrVolumeUnit.ItemIndex<0 then CB_SyrVolumeUnit.ItemIndex:=1;
+  CB_SyrSpeedUnit.ItemIndex:=CB_SyrSpeedUnit.Items.IndexOf(
+    MyIni.ReadString('Operators','CB_SyrSpeedUnit','мкл/с'));
+  if CB_SyrSpeedUnit.ItemIndex<0 then CB_SyrSpeedUnit.ItemIndex:=1;
   SE_LasRepeats.Value:=MyIni.ReadInteger('Operators', 'SE_LasRepeats', 1);
   SE_LasTIme.Value:=MyIni.ReadInteger('Operators', 'SE_LasTIme', 3);
 end;

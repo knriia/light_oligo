@@ -828,7 +828,8 @@ begin
   InitializationTargetDescriptions := TStringList.Create;
   try
     if not ParseAutomationProtocol(FAutomationPage.ProtocolText,
-      FConfigurations, Protocol, ErrorText) then
+      FConfigurations, Protocol, ErrorText,
+      FAutomationPage.RequestedBlockIndex) then
     begin
       ShowOperationWarning('Не удалось запустить протокол: ' + ErrorText);
       Exit;

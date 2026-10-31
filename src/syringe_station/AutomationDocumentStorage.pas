@@ -24,8 +24,9 @@ uses
 
 function GetProtocolsDirectory(const AExecutableFileName: string): string;
 begin
-  // Сценарии станции лежат в data\automation рядом с exe.
-  Result := AutomationDir(AExecutableFileName);
+  // Станция работает с теми же протоколами синтеза, что и главное окно:
+  // data\protocols рядом с exe.
+  Result := DataSubDir(PROTOCOLS_FOLDER, AExecutableFileName);
 end;
 
 function EnsureProtocolsDirectory(const AExecutableFileName: string;

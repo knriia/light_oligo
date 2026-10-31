@@ -206,7 +206,7 @@ var
 begin
   Result := TDispenserConfigList.Create;
   Config := Result.AddConfig;
-  Config.Name := 'Pump A';
+  Config.Name := 'PA';
   Config.Number := 1;
   Config.Address := 1;
   Config.Volume := 250;
@@ -216,7 +216,7 @@ begin
   Config.MaxFlowRate := 125;
 
   Config := Result.AddConfig;
-  Config.Name := 'Pump B';
+  Config.Name := 'PB';
   Config.Number := 2;
   Config.Address := 2;
   Config.Volume := 1000;
@@ -252,14 +252,14 @@ end;
 function TAutomationProtocolRunnerTests.BuildProtocolText(const ANames,
   AChannels, AVolumes, AVolumeUnit, ASpeeds, ASpeedUnit: string): string;
 begin
-  Result := 'command_1: {' + LineEnding +
-    '  dispenser_names: "' + ANames + '";' + LineEnding +
-    '  valve_channels: "' + AChannels + '";' + LineEnding +
-    '  volumes: "' + AVolumes + '";' + LineEnding +
-    '  volume_unit: "' + AVolumeUnit + '";' + LineEnding +
-    '  speeds: "' + ASpeeds + '";' + LineEnding +
-    '  speed_unit: "' + ASpeedUnit + '"' + LineEnding +
-    '}';
+  Result := 'Block=Test;' + LineEnding +
+    #9'SyrSt;' + LineEnding +
+    #9#9'Dispensers=' + ANames + ';' + LineEnding +
+    #9#9'Valves=' + AChannels + ';' + LineEnding +
+    #9#9'Volumes=' + AVolumes + ';' + LineEnding +
+    #9#9'VolumeUnit=' + AVolumeUnit + ';' + LineEnding +
+    #9#9'Speeds=' + ASpeeds + ';' + LineEnding +
+    #9#9'SpeedUnit=' + ASpeedUnit + ';' + LineEnding;
 end;
 
 procedure TAutomationProtocolRunnerTests.RunUntilFinished(
@@ -294,7 +294,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A/Pump B', '2/3', '500', 'мкл',
+    AssertTrue(Parse(BuildProtocolText('PA/PB', '2/3', '500', 'мкл',
       '100', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -353,7 +353,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A', '1', '250', 'мкл', '100',
+    AssertTrue(Parse(BuildProtocolText('PA', '1', '250', 'мкл', '100',
       'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -388,7 +388,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A', '2', '500', 'мкл', '100',
+    AssertTrue(Parse(BuildProtocolText('PA', '2', '500', 'мкл', '100',
       'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -423,7 +423,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A', '2', '250', 'мкл', '100',
+    AssertTrue(Parse(BuildProtocolText('PA', '2', '250', 'мкл', '100',
       'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -461,7 +461,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A', '2', '250', 'мкл', '100',
+    AssertTrue(Parse(BuildProtocolText('PA', '2', '250', 'мкл', '100',
       'мкл/с'), Configurations, Protocol, ErrorText));
     AssertFalse(Runner.Start(Protocol, ErrorText));
     AssertTrue(ErrorText <> '');
@@ -491,7 +491,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A/Pump B', '2', '100', 'мкл',
+    AssertTrue(Parse(BuildProtocolText('PA/PB', '2', '100', 'мкл',
       '100', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -527,7 +527,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A', '2', '250', 'мкл', '100',
+    AssertTrue(Parse(BuildProtocolText('PA', '2', '250', 'мкл', '100',
       'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -562,7 +562,7 @@ begin
   Runner := TAutomationProtocolRunner.Create(Controller, RuntimeStates);
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A/Pump B', '2/3', '100/100',
+    AssertTrue(Parse(BuildProtocolText('PA/PB', '2/3', '100/100',
       'мкл', '100/100', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;
@@ -605,7 +605,7 @@ begin
   OperationCoordinator := nil;
   Protocol := nil;
   try
-    AssertTrue(Parse(BuildProtocolText('Pump A', '2', '100', 'мкл', '100',
+    AssertTrue(Parse(BuildProtocolText('PA', '2', '100', 'мкл', '100',
       'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText, Runner.Start(Protocol, ErrorText));
     Protocol := nil;

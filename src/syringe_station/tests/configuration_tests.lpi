@@ -73,7 +73,7 @@
     <Version Value="11"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..;../../common;../../oligo;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
+      <OtherUnitFiles Value="..;../../common;../../oligo;../../synthesis;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Target>

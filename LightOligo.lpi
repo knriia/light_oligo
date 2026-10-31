@@ -161,6 +161,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\synthesis\ProtocolFormat.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\synthesis\SynthesisProtocol.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
