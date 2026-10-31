@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, Controls, StdCtrls, ExtCtrls, Dialogs, Spin,
   LCLType, DispenserConfig, DispenserConfigValidator, DispenserLimits,
-  DispenserResolution, DispenserRuntimeState;
+  DispenserResolution, DispenserRuntimeState, ProtocolFormat;
 
 type
   TConfigRow = class
@@ -231,6 +231,11 @@ begin
   AddLabel('Имя', 12, 76, 130);
   EditName := AddEdit(AConfig.Name, FIELD_LEFT, 72, FIELD_WIDTH);
   ConfigureEditable(EditName);
+  EditName.MaxLength := MAX_DISPENSER_NAME_LENGTH;
+  EditName.Hint := 'До ' + IntToStr(MAX_DISPENSER_NAME_LENGTH) +
+    ' символов: латинские буквы, цифры и точка.' + LineEnding +
+    'По этому имени дозатор указывается в протоколе (поле «Дозаторы»).';
+  EditName.ShowHint := True;
   EditName.OnChange := @Changed;
 
   AddLabel('Объём шприца (мкл)', 12, 108, 130);

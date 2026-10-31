@@ -149,7 +149,7 @@ procedure TProtocolFormatTests.AcceptsValidSyringeStep;
 begin
   AssertEquals('', StepError(MakeStep('A', '2', '100', '10')));
   AssertEquals('', StepError(MakeStep('Act/A.1/W', '2', '100/50/25', '10')));
-  AssertEquals('', StepError(MakeStep('Д1/Ox', '2/3', '100', '10/20')));
+  AssertEquals('', StepError(MakeStep('P1/Ox', '2/3', '100', '10/20')));
 end;
 
 procedure TProtocolFormatTests.RejectsLongOrInvalidNames;
@@ -161,6 +161,11 @@ begin
     StepError(MakeStep('A-1', '2', '1', '1'))) > 0);
   AssertTrue(Pos('недопустимый символ ":"',
     StepError(MakeStep('A:Act', '2', '1', '1'))) > 0);
+  // Только латиница: русская "А" запрещена, хотя выглядит как латинская.
+  AssertTrue(Pos('недопустимый символ "А"',
+    StepError(MakeStep('А1', '2', '1', '1'))) > 0);
+  AssertTrue(Pos('латинские буквы',
+    StepError(MakeStep('Д1', '2', '1', '1'))) > 0);
 end;
 
 procedure TProtocolFormatTests.RejectsNonDigitNumbers;
