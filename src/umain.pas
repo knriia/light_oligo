@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Spin, Windows, Graphics, Grids, Buttons,
-  StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper, UWLayerChart, Dilutor,
+  StrUtils, LasFunc, UWMatrix, UWOligoArr, UWOper, UWLayerChart,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, UWLasPen,
   MyGlobals, IniFiles, UWBlock, USynThread, UWPreview;
 
@@ -164,7 +164,7 @@ const
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   //интерфейс
-  MyInterface:=TIniFile.Create(GetCurrentDir+'\Interface.ini');
+  MyInterface:=TIniFile.Create(ExtractFilePath(ParamStr(0))+'Interface.ini');
 
   Form1.Caption:=MyInterface.ReadString('Main','Form1','LightOligo');
   TS_Manual.Caption:=MyInterface.ReadString('Main','TS_Manual','Manual');
@@ -227,7 +227,7 @@ begin
   B_Pause.Caption:=MyInterface.ReadString('Synthesis','B_Pause','Pause');
 
   // значения
-  MyIni:=TIniFile.Create(GetCurrentDir+'\ProgConfig.ini');
+  MyIni:=TIniFile.Create(ExtractFilePath(ParamStr(0))+'ProgConfig.ini');
   FSE_Step.Value:=MyIni.ReadFloat('Program','FSE_Step',0.1);
   SE_Group.Value:=MyIni.ReadInteger('Program','SE_Group',10);
   FSE_GroupStep.Value:=MyIni.ReadFloat('Program','FSE_GroupStep',0.1);
