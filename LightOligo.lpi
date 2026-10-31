@@ -137,6 +137,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\common\AppPaths.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\common\CommonUtils.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

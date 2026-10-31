@@ -32,10 +32,12 @@ Desktop.ini
 
 # Files the application writes next to the exe
 /bin/Arr.ezd
-# Working folder for syringe station scenarios
+# All user data: arrays, matrices, slices, protocols, scenarios, settings
+/bin/data/
+# Old location of station scenarios (moved to bin/data/automation on start)
 /bin/protocols/
 
-# Working data: sliced layers, saved arrays and matrices
+# Working data kept outside the app folder
 /arr/
 /data/
 *.csv

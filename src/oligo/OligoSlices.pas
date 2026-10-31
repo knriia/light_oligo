@@ -28,10 +28,15 @@ Function LoadSliceFile(var aSliceTable: TArrSliceStruc; aSliceFile: String): int
 
 implementation
 
+uses
+  AppPaths;
+
 procedure SaveSliceStatistics(aDir: String;
   const aTable: array of TSliceStruc; aFileType: word=0);
 // Сохранение статистики слайсинга
 //aFileType=0 - txt, aFileType=1 ezd
+// Файлы слоёв из папки aDir записываются только по имени, чтобы папку
+// с результатами нарезки можно было переносить.
 var
    i: integer;
    s: String;
@@ -61,13 +66,13 @@ end;
           s:=IntToStr(aTable[i].LayerCount)+
           #9+aTable[i].Letter+
           #9+IntToStr(aTable[i].NumOfChar)+
-          #9+aTable[i].MatrixFile;
+          #9+MakePathRelative(aDir, aTable[i].MatrixFile);
           WriteLN(f,S);
          end;
       1: begin
           s:=IntToStr(aTable[i].LayerCount)+
           #9+aTable[i].Letter+
-          #9+aTable[i].EZDFile;
+          #9+MakePathRelative(aDir, aTable[i].EZDFile);
           WriteLN(f,S);
          end;
     end;
@@ -83,6 +88,7 @@ var
   S: String;
   Parts: TStringArray;
 begin
+  Result:=-1;
   if FileExists(aSliceFile) then
   begin
     try
@@ -105,7 +111,10 @@ begin
         SetLength(aSliceTable, Length(aSliceTable)+1); //увеличиваем размер на 1
         TryStrToInt(Parts[0], aSliceTable[High(aSliceTable)].LayerCount);
         aSliceTable[High(aSliceTable)].Letter:=trim(Parts[1]);
-        aSliceTable[High(aSliceTable)].EZDFile:=trim(Parts[2]);
+        // Имя файла ищем рядом с файлом слоёв; старые файлы с полными
+        // путями читаются как раньше.
+        aSliceTable[High(aSliceTable)].EZDFile:=
+          ResolvePath(ExtractFileDir(aSliceFile), trim(Parts[2]));
       end;
       Result:=0;
     finally

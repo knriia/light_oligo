@@ -20,17 +20,12 @@ function WriteAutomationTextFile(const AFileName: string;
 implementation
 
 uses
-  Classes;
+  Classes, AppPaths;
 
 function GetProtocolsDirectory(const AExecutableFileName: string): string;
-var
-  ExecutableFileName: string;
 begin
-  ExecutableFileName := AExecutableFileName;
-  if Trim(ExecutableFileName) = '' then
-    ExecutableFileName := ParamStr(0);
-  Result := IncludeTrailingPathDelimiter(
-    ExtractFilePath(ExpandFileName(ExecutableFileName))) + 'protocols';
+  // Сценарии станции лежат в data\automation рядом с exe.
+  Result := AutomationDir(AExecutableFileName);
 end;
 
 function EnsureProtocolsDirectory(const AExecutableFileName: string;
