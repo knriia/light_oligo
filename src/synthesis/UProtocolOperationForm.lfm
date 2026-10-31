@@ -162,7 +162,7 @@ object ProtocolOperationForm: TProtocolOperationForm
       object LE_SyrNames: TLabeledEdit
         Left = 104
         Height = 23
-        Hint = 'Имена дозаторов из конфигуратора станции через /'#13#10'Имя: до 3 символов, буквы, цифры и точка'#13#10'Например: A/Act/W'
+        Hint = 'Имена дозаторов из конфигуратора станции через /'#13#10'Имя: до 3 символов, латинские буквы, цифры и точка'#13#10'Например: A/Act/W'
         Top = 2
         Width = 220
         EditLabel.Height = 23

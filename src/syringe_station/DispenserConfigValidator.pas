@@ -5,7 +5,7 @@ unit DispenserConfigValidator;
 interface
 
 uses
-  SysUtils, DispenserConfig, DispenserLimits, DispenserResolution;
+  SysUtils, DispenserConfig, DispenserLimits, DispenserResolution, ProtocolFormat;
 
 type
   TDispenserConfigValidator = class
@@ -66,11 +66,10 @@ begin
     Exit(False);
   end;
 
-  if Trim(AConfig.Name) = '' then
-  begin
-    ErrorText := 'не задано имя';
+  // Те же правила, что и для поля «Дозаторы» в протоколе, иначе дозатор
+  // нельзя будет вызвать из протокола.
+  if not CheckDispenserName(Trim(AConfig.Name), ErrorText) then
     Exit(False);
-  end;
 
   if not (AConfig.Address in [MIN_DISPENSER_VALUE..MAX_DISPENSER_VALUE]) then
   begin

@@ -84,6 +84,7 @@ type
     procedure RejectsDuplicateSyringeParameter;
     procedure NumbersCommandsAcrossBlocks;
     procedure RejectsLegacySyringeLine;
+    procedure FindsNameIgnoringCase;
     procedure RejectsMissingFieldsAndEmptyProtocol;
   end;
 
@@ -113,6 +114,9 @@ type
     procedure RejectsDuplicateNumber;
     procedure RejectsDuplicateAddress;
     procedure RejectsDuplicateName;
+    procedure AcceptsShortProtocolNames;
+    procedure RejectsLongName;
+    procedure RejectsInvalidNameCharacters;
     procedure RejectsInvalidOperationValues;
     procedure NormalizesOperationValuesAboveHardwareLimits;
     procedure NormalizesOperationValuesBelowMinimums;
@@ -196,7 +200,7 @@ type
     procedure MissingFileLoadsEmptyList;
     procedure EmptyListRoundTrip;
     procedure ConfigurationRoundTripPreservesOperation;
-    procedure RoundTripPreservesOrderAndCyrillicName;
+    procedure RoundTripPreservesOrderAndNames;
     procedure MaximumDispenserCountRoundTrip;
     procedure LegacyFileUsesOperationDefaults;
     procedure LegacyMotorSpeedIsMigratedToVolumeRate;
@@ -295,7 +299,7 @@ var
 begin
   Result := TDispenserConfigList.Create;
   Config := Result.AddConfig;
-  Config.Name := 'Д1';
+  Config.Name := 'P1';
   Config.Number := 1;
   Config.Address := 1;
   Config.Volume := 250;
@@ -305,7 +309,7 @@ begin
   Config.MaxFlowRate := 125;
 
   Config := Result.AddConfig;
-  Config.Name := 'Д2';
+  Config.Name := 'P2';
   Config.Number := 2;
   Config.Address := 2;
   Config.Volume := 1000;
@@ -333,19 +337,40 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := SyrStText('Д1', '2', '500', 'мкл', '100', 'мкл/с');
+  Text := SyrStText('P1', '2', '500', 'мкл', '100', 'мкл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
     try
       AssertEquals(1, Protocol.Count);
       AssertEquals(1, Protocol[0].Number);
-      AssertEquals('Д1', Protocol[0].Targets[0].Config.Name);
+      AssertEquals('P1', Protocol[0].Targets[0].Config.Name);
       AssertEquals(2, Protocol[0].Targets[0].ValveChannel);
       AssertEquals(500000, Protocol[0].Targets[0].VolumeNanoLiters);
       AssertEquals(100000, Protocol[0].Targets[0].SpeedNanoLitersPerSecond);
       AssertEquals(192000, Protocol[0].Targets[0].TotalSteps);
       AssertEquals(4800, Protocol[0].Targets[0].MotorSpeed);
+    finally
+      Protocol.Free;
+    end;
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.FindsNameIgnoringCase;
+var
+  Configurations: TDispenserConfigList;
+  Protocol: TAutomationProtocol;
+  ErrorText: string;
+begin
+  Configurations := CreateConfigurations;
+  Protocol := nil;
+  try
+    AssertTrue(ErrorText, Parse(SyrStText('p1','2', '500', 'мкл', '100', 'мкл/с'),
+      Configurations, Protocol, ErrorText));
+    try
+      AssertEquals('P1', Protocol[0].Targets[0].Config.Name);
     finally
       Protocol.Free;
     end;
@@ -364,7 +389,7 @@ begin
   Configurations := CreateConfigurations;
   Configurations[0].IntakeChannel := 2;
   Protocol := nil;
-  Text := SyrStText('Д1', '1', '500', 'мкл', '100', 'мкл/с');
+  Text := SyrStText('P1', '1', '500', 'мкл', '100', 'мкл/с');
   try
     AssertTrue(Parse(Text, Configurations, Protocol, ErrorText));
     try
@@ -388,8 +413,8 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      SyrStText('Д1', '1', '500', 'мкл', '100', 'мкл/с'), Configurations, Protocol, ErrorText));
-    AssertTrue(Pos('Для дозатора "Д1" входной и выходной каналы совпадают',
+      SyrStText('P1', '1', '500', 'мкл', '100', 'мкл/с'), Configurations, Protocol, ErrorText));
+    AssertTrue(Pos('Для дозатора "P1" входной и выходной каналы совпадают',
       ErrorText) > 0);
   finally
     Protocol.Free;
@@ -407,7 +432,7 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := SyrStText('Д1/Д2', '2', '500', 'мкл', '100', 'мкл/с');
+  Text := SyrStText('P1/P2', '2', '500', 'мкл', '100', 'мкл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
@@ -437,7 +462,7 @@ var
 begin
   Configurations := CreateConfigurations;
   Protocol := nil;
-  Text := SyrStText('Д1/Д2', '2/4', '500/250', 'мкл', '100/50', 'мкл/с');
+  Text := SyrStText('P1/P2', '2/4', '500/250', 'мкл', '100/50', 'мкл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
@@ -466,7 +491,7 @@ begin
   Configurations := CreateConfigurations;
   Protocol := nil;
   // Дробные значения не допускаются: 0,5 мкл записывается как 500 нл.
-  Text := SyrStText('Д1', '2', '500', 'нл', '500', 'нл/с');
+  Text := SyrStText('P1', '2', '500', 'нл', '500', 'нл/с');
   try
     Success := Parse(Text, Configurations, Protocol, ErrorText);
     AssertTrue(ErrorText, Success);
@@ -511,7 +536,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      SyrStText('Д1/Д2', '1/2', '10/20/30', 'мкл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
+      SyrStText('P1/P2', '1/2', '10/20/30', 'мкл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(ErrorText <> '');
   finally
     Protocol.Free;
@@ -529,7 +554,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      SyrStText('Д1', '2', '10', 'ul', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
+      SyrStText('P1', '2', '10', 'ul', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('единица объёма', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -547,7 +572,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      SyrStText('Д1', '2', '10', 'мкл', '126', 'мкл/с'), Configurations, Protocol, ErrorText));
+      SyrStText('P1', '2', '10', 'мкл', '126', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('максимальную', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -565,7 +590,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse(
-      SyrStText('Д1', '2', '1', 'нл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
+      SyrStText('P1', '2', '1', 'нл', '10', 'мкл/с'), Configurations, Protocol, ErrorText));
     AssertTrue(Pos('разрешения шприца', ErrorText) > 0);
   finally
     Protocol.Free;
@@ -582,7 +607,7 @@ begin
   Configurations := CreateConfigurations;
   Protocol := nil;
   try
-    AssertFalse(Parse(SyrStText('Д1', '2', '10', 'мкл', '10', 'мкл/с') +
+    AssertFalse(Parse(SyrStText('P1', '2', '10', 'мкл', '10', 'мкл/с') +
       #9#9'Valves=3;' + LineEnding, Configurations, Protocol, ErrorText));
     AssertTrue(Pos('повторяется', ErrorText) > 0);
   finally
@@ -601,12 +626,12 @@ begin
   Configurations := CreateConfigurations;
   Protocol := nil;
   // Второй блок с паузой и лазером: станция берёт только SyrSt.
-  Text := SyrStText('Д1', '2', '10', 'мкл', '10', 'мкл/с') +
+  Text := SyrStText('P1', '2', '10', 'мкл', '10', 'мкл/с') +
     'Block=Wash;' + LineEnding +
     #9'Pause=5;' + LineEnding +
     #9'Laser=1; Time=3;' + LineEnding +
     #9'SyrSt;' + LineEnding +
-    #9#9'Dispensers=Д2;' + LineEnding +
+    #9#9'Dispensers=P2;' + LineEnding +
     #9#9'Valves=2;' + LineEnding +
     #9#9'Volumes=20;' + LineEnding +
     #9#9'VolumeUnit=мкл;' + LineEnding +
@@ -619,7 +644,7 @@ begin
       AssertEquals(2, Protocol[1].Number);
       AssertEquals('Wash', Protocol[1].BlockName);
       AssertEquals(1, Protocol[1].BlockIndex);
-      AssertEquals('Д2', Protocol[1].Targets[0].Config.Name);
+      AssertEquals('P2', Protocol[1].Targets[0].Config.Name);
     finally
       FreeAndNil(Protocol);
     end;
@@ -668,7 +693,7 @@ begin
     AssertFalse(Parse(
       'Block=Test;' + LineEnding +
       #9'SyrSt;' + LineEnding +
-      #9#9'Dispensers=Д1;' + LineEnding +
+      #9#9'Dispensers=P1;' + LineEnding +
       #9#9'Valves=1;' + LineEnding, Configurations, Protocol, ErrorText));
     AssertTrue(Pos('не заданы параметры', ErrorText) > 0);
   finally
@@ -681,7 +706,7 @@ function TDispenserOperationRulesTests.CreateConfig:
   TDispenserConfig;
 begin
   Result := TDispenserConfig.Create;
-  Result.Name := 'Test dispenser';
+  Result.Name := 'T';
   Result.Volume := 5000;
   Result.ChannelCount := 10;
   Result.StepCount := 12000;
@@ -1301,7 +1326,7 @@ begin
       begin
         Number := I;
         Address := I;
-        Name := 'Dispenser ' + IntToStr(I);
+        Name := 'D' + IntToStr(I);
       end;
     end;
     AssertEquals(MAX_DISPENSERS, Configurations.Count);
@@ -1565,6 +1590,46 @@ begin
   end;
 end;
 
+// Имя в конфигураторе подчиняется тем же правилам, что и в протоколе.
+function NameError(const AName: string): string;
+var
+  Config: TDispenserConfig;
+begin
+  Config := TDispenserConfig.Create;
+  try
+    Config.Name := AName;
+    if TDispenserConfigValidator.Validate(Config, Result) then
+      Result := '';
+  finally
+    Config.Free;
+  end;
+end;
+
+procedure TDispenserConfigValidatorTests.AcceptsShortProtocolNames;
+begin
+  AssertEquals('', NameError('A'));
+  AssertEquals('', NameError('Act'));
+  AssertEquals('', NameError('A.1'));
+  AssertEquals('', NameError('P1'));
+  AssertEquals('', NameError(' W '));
+end;
+
+procedure TDispenserConfigValidatorTests.RejectsLongName;
+begin
+  AssertTrue(Pos('длиннее 3', NameError('Wash')) > 0);
+  AssertTrue(Pos('длиннее 3', NameError('A.12')) > 0);
+end;
+
+procedure TDispenserConfigValidatorTests.RejectsInvalidNameCharacters;
+begin
+  // Только латиница: русская "А" запрещена, хотя выглядит как латинская.
+  AssertTrue(Pos('недопустимый символ "А"', NameError('А1')) > 0);
+  AssertTrue(Pos('латинские буквы', NameError('Д1')) > 0);
+  AssertTrue(Pos('недопустимый символ " "', NameError('A B')) > 0);
+  AssertTrue(Pos('недопустимый символ "/"', NameError('A/B')) > 0);
+  AssertTrue(Pos('недопустимый символ "-"', NameError('A-1')) > 0);
+end;
+
 procedure TDispenserConfigValidatorTests.RejectsInvalidOperationValues;
 var
   Config: TDispenserConfig;
@@ -1813,7 +1878,7 @@ begin
   begin
     Number := ANumber;
     Address := AAddress;
-    Name := Format('Дозатор %d', [ANumber]);
+    Name := Format('P%d', [ANumber]);
     Volume := AVolume;
     Operation.Volume := AVolume;
   end;
@@ -2259,7 +2324,7 @@ begin
   Result := TDispenserConfigList.Create;
   Config := Result.AddConfig;
   Config.Number := 3;
-  Config.Name := 'Test dispenser';
+  Config.Name := 'T';
   Config.Address := 7;
   Config.Volume := 5000;
   Config.ChannelCount := 4;
@@ -2280,7 +2345,7 @@ begin
   try
     Ini.WriteInteger('Configuration', 'Count', 1);
     Ini.WriteInteger('Dispenser1', 'Number', 2);
-    Ini.WriteString('Dispenser1', 'Name', 'Legacy dispenser');
+    Ini.WriteString('Dispenser1', 'Name', 'L');
     Ini.WriteInteger('Dispenser1', 'Address', 6);
     Ini.WriteInteger('Dispenser1', 'Volume', 4000);
     Ini.WriteInteger('Dispenser1', 'ChannelCount', 3);
@@ -2392,7 +2457,7 @@ begin
   end;
 end;
 
-procedure TDispenserConfigStorageTests.RoundTripPreservesOrderAndCyrillicName;
+procedure TDispenserConfigStorageTests.RoundTripPreservesOrderAndNames;
 var
   Source: TDispenserConfigList;
   Loaded: TDispenserConfigList;
@@ -2403,13 +2468,13 @@ begin
   begin
     Number := 2;
     Address := 8;
-    Name := 'Дозатор №2';
+    Name := 'P.2';
   end;
   with Source.AddConfig do
   begin
     Number := 1;
     Address := 4;
-    Name := 'Дозатор №1';
+    Name := 'P.1';
   end;
   Loaded := nil;
   try
@@ -2418,10 +2483,10 @@ begin
     AssertEquals(2, Loaded.Count);
     AssertEquals(2, Loaded[0].Number);
     AssertEquals(8, Loaded[0].Address);
-    AssertEquals('Дозатор №2', Loaded[0].Name);
+    AssertEquals('P.2', Loaded[0].Name);
     AssertEquals(1, Loaded[1].Number);
     AssertEquals(4, Loaded[1].Address);
-    AssertEquals('Дозатор №1', Loaded[1].Name);
+    AssertEquals('P.1', Loaded[1].Name);
   finally
     Source.Free;
     Loaded.Free;
@@ -2442,7 +2507,7 @@ begin
     begin
       Number := I;
       Address := I;
-      Name := 'Dispenser ' + IntToStr(I);
+      Name := 'D' + IntToStr(I);
     end;
   end;
   Loaded := nil;

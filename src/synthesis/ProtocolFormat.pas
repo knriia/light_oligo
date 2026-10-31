@@ -90,13 +90,18 @@ function VolumeUnitScale(const AUnit: string; out AScale: Int64): Boolean;
 function SpeedUnitScale(const AUnit: string; out AScale: Int64): Boolean;
 
 // Проверка записи SyrSt без привязки к конфигурации станции:
-//  - имена дозаторов: буквы, цифры, точка, не длиннее 3 символов, без повторов;
+//  - имена дозаторов: латинские буквы, цифры, точка, не длиннее 3 символов, без повторов;
 //  - клапаны, объёмы, скорости: целые числа больше нуля;
 //  - значения через "/", без "//" и без "/" в начале или конце;
 //  - в каждом поле одно значение на всех или по одному на каждый дозатор;
 //  - единицы объёма и скорости из списка.
 function CheckSyringeStep(const AStep: TSyringeStep;
   out ErrorText: string): Boolean;
+
+// Проверка одного имени дозатора (общая для протокола и конфигуратора):
+// не пустое, до MAX_DISPENSER_NAME_LENGTH символов, только латинские буквы,
+// цифры и точка.
+function CheckDispenserName(const AName: string; out ErrorText: string): Boolean;
 
 // Строки параметров SyrSt для дерева протокола (без отступов).
 function SyringeStepParamLines(const AStep: TSyringeStep): TStringArray;
@@ -106,7 +111,7 @@ function SyringeStepSummary(const AStep: TSyringeStep): string;
 implementation
 
 uses
-  StrUtils, Character;
+  StrUtils;
 
 function SplitSlashValues(const AText: string; AValues: TStrings): Boolean;
 var
@@ -157,12 +162,61 @@ begin
   Result := AScale > 0;
 end;
 
+// UTF-8 байты в обычной string без перекодировки. Результат UTF8Encode при
+// склейке с string конвертируется в системную кодовую страницу и портит
+// кириллицу, если она не UTF-8 (консольные тесты).
+function Utf8Text(const AText: UnicodeString): string;
+var
+  Bytes: RawByteString;
+begin
+  Bytes := UTF8Encode(AText);
+  SetCodePage(Bytes, DefaultSystemCodePage, False);
+  Result := Bytes;
+end;
+
+// Только латинские буквы, цифры и точка.
+function IsNameChar(C: UnicodeChar): Boolean;
+begin
+  Result := ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z')) or
+    ((C >= '0') and (C <= '9')) or (C = '.');
+end;
+
+function CheckDispenserName(const AName: string; out ErrorText: string): Boolean;
+var
+  Name: UnicodeString;
+  I: Integer;
+begin
+  Result := False;
+  ErrorText := '';
+  Name := UTF8Decode(AName);
+  if Name = '' then
+  begin
+    ErrorText := 'Имя дозатора не задано.';
+    Exit;
+  end;
+  for I := 1 to Length(Name) do
+    if not IsNameChar(Name[I]) then
+    begin
+      ErrorText := 'В имени дозатора "' + AName + '" допустимы только латинские буквы, ' +
+        'цифры и точка (недопустимый символ "' +
+        Utf8Text(UnicodeString(Name[I])) + '").';
+      Exit;
+    end;
+  if Length(Name) > MAX_DISPENSER_NAME_LENGTH then
+  begin
+    ErrorText := 'Имя дозатора "' + AName + '" длиннее ' +
+      IntToStr(MAX_DISPENSER_NAME_LENGTH) + ' символов.';
+    Exit;
+  end;
+  Result := True;
+end;
+
 type
   TListFieldKind = (lfkNames, lfkNumbers);
 
 // Проверяет список значений через "/":
 //  - не пустой, не начинается и не заканчивается "/", нет "//";
-//  - имена: буквы, цифры и точка, не длиннее MAX_DISPENSER_NAME_LENGTH;
+//  - имена: латинские буквы, цифры и точка, не длиннее MAX_DISPENSER_NAME_LENGTH;
 //  - числа: только цифры, значение больше нуля.
 function CheckListField(const AText, ACaption: string; AKind: TListFieldKind;
   AValues: TStrings; out ErrorText: string): Boolean;
@@ -201,13 +255,13 @@ begin
     if (AKind = lfkNumbers) and not ((C >= '0') and (C <= '9')) then
     begin
       ErrorText := 'В поле «' + ACaption + '» допустимы только цифры и "/" ' +
-        '(недопустимый символ "' + UTF8Encode(UnicodeString(C)) + '").';
+        '(недопустимый символ "' + Utf8Text(UnicodeString(C)) + '").';
       Exit;
     end;
-    if (AKind = lfkNames) and not (IsLetter(C) or IsDigit(C) or (C = '.')) then
+    if (AKind = lfkNames) and not IsNameChar(C) then
     begin
-      ErrorText := 'В поле «' + ACaption + '» допустимы только буквы, цифры, ' +
-        'точка и "/" (недопустимый символ "' + UTF8Encode(UnicodeString(C)) + '").';
+      ErrorText := 'В поле «' + ACaption + '» допустимы только латинские буквы, цифры, ' +
+        'точка и "/" (недопустимый символ "' + Utf8Text(UnicodeString(C)) + '").';
       Exit;
     end;
   end;
@@ -222,20 +276,16 @@ begin
       Value := Value + Text[I];
       Continue;
     end;
-    if (AKind = lfkNames) and (Length(Value) > MAX_DISPENSER_NAME_LENGTH) then
-    begin
-      ErrorText := 'Имя дозатора "' + UTF8Encode(Value) + '" длиннее ' +
-        IntToStr(MAX_DISPENSER_NAME_LENGTH) + ' символов.';
+    if (AKind = lfkNames) and not CheckDispenserName(Utf8Text(Value), ErrorText) then
       Exit;
-    end;
     if (AKind = lfkNumbers) and
-      (not TryStrToInt64(UTF8Encode(Value), Number) or (Number <= 0)) then
+      (not TryStrToInt64(Utf8Text(Value), Number) or (Number <= 0)) then
     begin
-      ErrorText := 'В поле «' + ACaption + '» значение "' + UTF8Encode(Value) +
+      ErrorText := 'В поле «' + ACaption + '» значение "' + Utf8Text(Value) +
         '" должно быть целым числом больше нуля.';
       Exit;
     end;
-    AValues.Add(UTF8Encode(Value));
+    AValues.Add(Utf8Text(Value));
     Value := '';
   end;
   Result := True;
@@ -277,7 +327,7 @@ begin
 
     for I := 1 to Names.Count - 1 do
       for J := 0 to I - 1 do
-        if WideSameText(UTF8Decode(Names[I]), UTF8Decode(Names[J])) then
+        if SameText(Names[I], Names[J]) then
         begin
           ErrorText := 'Дозатор "' + Names[I] + '" указан несколько раз.';
           Exit;
