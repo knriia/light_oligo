@@ -10,7 +10,7 @@ uses
   StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
   AppState, CommonUtils, WinProcessUtils, OligoMatrix, OligoArray,
-  OligoSlices, SynthesisProtocol, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
+  OligoSlices, SynthesisProtocol, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
 
 
 type
@@ -164,6 +164,10 @@ const
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+  // папка data с данными рядом с exe; переносим туда данные из старых мест
+  MigrateLegacyData;
+  EnsureDataDirs;
+
   //интерфейс
   MyInterface:=TIniFile.Create(ExtractFilePath(ParamStr(0))+'Interface.ini');
 
@@ -990,6 +994,7 @@ var
   F: TextFile;
  begin
   OD_File.Filter:='CSV Files|*.csv';
+  OD_File.InitialDir:=ArraysDir;
   OD_File.FilterIndex:=1;
   if OD_File.Execute then
   begin
@@ -1011,6 +1016,7 @@ var
   Sep: String;
 begin
   SD_File.Filter:='CSV|*.csv';
+  SD_File.InitialDir:=ArraysDir;
   SD_File.FilterIndex:=1;
   SD_File.FileName:='';
   if SD_File.Execute then
@@ -1084,8 +1090,11 @@ var
 begin
   if Length(MyOligoArr)<>0 then
   begin
-    if SDD_Dir.Execute then
-      Path:=SDD_Dir.FileName;
+    // Слои удобно складывать в отдельную подпапку data\slices на каждый запуск
+    SDD_Dir.InitialDir:=SlicesDir;
+    if not SDD_Dir.Execute then
+      Exit; // без выбранной папки файлы слоёв записались бы в корень диска
+    Path:=SDD_Dir.FileName;
 
     SetLength(mySymbolSet,0);
 
@@ -1226,6 +1235,7 @@ procedure TMainForm.B_LoadProtocolLayerClick(Sender: TObject);
 // Загрузка протокола из файла
 begin
   OD_File.Filter:='Протокол|*.pro';
+  OD_File.InitialDir:=ProtocolsDir;
   OD_File.FilterIndex:=1;
   OD_File.FileName:='';
   If OD_File.Execute then
@@ -1293,6 +1303,7 @@ procedure TMainForm.B_SaveProtocolLayerClick(Sender: TObject);
 // Сохраняем протокол в файл
 begin
   SD_File.Filter:='Протокол|*.pro';
+  SD_File.InitialDir:=ProtocolsDir;
   SD_File.FilterIndex:=1;
   SD_File.FileName:='';
   if SD_File.Execute then
@@ -1361,6 +1372,7 @@ var
   i: integer;
 begin
   OD_File.Filter:='Протокол|*.pro';
+  OD_File.InitialDir:=ProtocolsDir;
   OD_File.FileName:='';
   if OD_File.Execute then
   begin
@@ -1417,6 +1429,7 @@ begin
 
   SetLength(SliceTable,0);
   OD_File.Filter:='Слои|*.lays';
+  OD_File.InitialDir:=SlicesDir;
   OD_File.FileName:='';
   if OD_File.Execute then
   begin

@@ -153,7 +153,7 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure ProtocolsDirectoryIsNextToExecutable;
+    procedure AutomationDirectoryIsInDataFolder;
     procedure CreatesProtocolsDirectoryWhenMissing;
     procedure RoundTripPreservesUtf8Scenario;
     procedure ReadsUtf8Bom;
@@ -2063,7 +2063,7 @@ begin
   FExecutableFileName := IncludeTrailingPathDelimiter(FDirectory) +
     'syringe_pump.exe';
   FProtocolsDirectory := IncludeTrailingPathDelimiter(FDirectory) +
-    'protocols';
+    'data' + PathDelim + 'automation';
 end;
 
 procedure TAutomationDocumentStorageTests.TearDown;
@@ -2073,6 +2073,7 @@ begin
   DeleteFile(IncludeTrailingPathDelimiter(FProtocolsDirectory) +
     'bom.txt');
   RemoveDir(FProtocolsDirectory);
+  RemoveDir(IncludeTrailingPathDelimiter(FDirectory) + 'data');
   RemoveDir(FDirectory);
   inherited TearDown;
 end;
@@ -2087,7 +2088,7 @@ begin
   AssertEquals(FProtocolsDirectory, Directory);
 end;
 
-procedure TAutomationDocumentStorageTests.ProtocolsDirectoryIsNextToExecutable;
+procedure TAutomationDocumentStorageTests.AutomationDirectoryIsInDataFolder;
 begin
   AssertEquals(FProtocolsDirectory,
     GetProtocolsDirectory(FExecutableFileName));

@@ -75,6 +75,21 @@ type
 
 implementation
 
+uses
+  AppPaths;
+
+function ToStoredAutomationPath(const AFileName: string): string;
+// Файл из папки сценариев запоминаем относительным путём,
+// чтобы программу можно было перенести в другую папку.
+begin
+  Result := MakePathRelative(GetProtocolsDirectory(ParamStr(0)), AFileName);
+end;
+
+function FromStoredAutomationPath(const AStoredName: string): string;
+begin
+  Result := ResolvePath(GetProtocolsDirectory(ParamStr(0)), AStoredName);
+end;
+
 constructor TAutomationEditorView.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -341,7 +356,7 @@ var
 begin
   if not EnsureProtocolsDirectory(ParamStr(0), ProtocolsPath, ErrorText) then
   begin
-    MessageDlg('Не удалось подготовить папку protocols: ' + ErrorText, mtError,
+    MessageDlg('Не удалось подготовить папку сценариев data\automation: ' + ErrorText, mtError,
       [mbOK], 0);
     Exit;
   end;
@@ -364,7 +379,8 @@ begin
 
   SetOpenedDocument(SelectedFileName, Content);
   if (FSettingsStorage <> nil) and
-    not FSettingsStorage.SaveLastAutomationFile(FCurrentFileName) then
+    not FSettingsStorage.SaveLastAutomationFile(
+      ToStoredAutomationPath(FCurrentFileName)) then
     MessageDlg('Сценарий открыт, но не удалось сохранить путь к последнему ' +
       'файлу в настройках.', mtWarning, [mbOK], 0);
 end;
@@ -490,7 +506,7 @@ begin
   begin
     if not EnsureProtocolsDirectory(ParamStr(0), ProtocolsPath, AErrorText) then
     begin
-      AErrorText := 'Не удалось подготовить папку protocols: ' + AErrorText;
+      AErrorText := 'Не удалось подготовить папку сценариев data\automation: ' + AErrorText;
       Exit;
     end;
 
@@ -517,7 +533,8 @@ begin
   Result := True;
 
   if (FSettingsStorage <> nil) and
-    not FSettingsStorage.SaveLastAutomationFile(FCurrentFileName) then
+    not FSettingsStorage.SaveLastAutomationFile(
+      ToStoredAutomationPath(FCurrentFileName)) then
     AErrorText := 'Файл сохранён, но не удалось запомнить его путь в настройках.';
 end;
 
@@ -576,7 +593,7 @@ begin
   if FSettingsStorage = nil then
     Exit;
 
-  FileName := FSettingsStorage.LoadLastAutomationFile;
+  FileName := FromStoredAutomationPath(FSettingsStorage.LoadLastAutomationFile);
   if FileName = '' then
     Exit;
   if not ReadAutomationTextFile(FileName, Content, AErrorText) then

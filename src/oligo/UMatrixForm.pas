@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Spin, Grids,
-  Buttons, EzCadApi, AppState, CommonUtils, OligoMatrix;
+  Buttons, EzCadApi, AppState, CommonUtils, OligoMatrix, AppPaths;
 
 type
 
@@ -89,6 +89,7 @@ var
 begin
   MainForm.OD_File.Filter:='Текстовый файл матрицы|*.txt';
   MainForm.OD_File.FilterIndex:=1;
+  MainForm.OD_File.InitialDir:=MatricesDir;
   MainForm.OD_File.FileName:='';
   if MainForm.OD_File.Execute then
   begin

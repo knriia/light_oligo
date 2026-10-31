@@ -26,6 +26,9 @@ type
 
 implementation
 
+uses
+  AppPaths;
+
 const
   WINDOW_SECTION = 'ConfigurationWindow';
 
@@ -34,8 +37,7 @@ constructor TWindowSettingsStorage.Create(const AFileName: string;
 begin
   inherited Create;
   if Trim(AFileName) = '' then
-    FFileName := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) +
-      'syringe_pump.ini'
+    FFileName := SettingsFilePath
   else
     FFileName := AFileName;
   if Trim(ASection) = '' then

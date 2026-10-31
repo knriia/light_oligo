@@ -23,6 +23,9 @@ type
 
 implementation
 
+uses
+  AppPaths;
+
 const
   CONFIG_SECTION = 'Configuration';
   DISPENSER_SECTION_PREFIX = 'Dispenser';
@@ -55,8 +58,7 @@ constructor TDispenserConfigStorage.Create(const AFileName: string);
 begin
   inherited Create;
   if Trim(AFileName) = '' then
-    FFileName := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) +
-      'syringe_pump.ini'
+    FFileName := SettingsFilePath
   else
     FFileName := AFileName;
 end;
