@@ -38,3 +38,7 @@ Desktop.ini
 /Arr5050.txt
 /oligs_*.csv
 /TestArr.txt
+
+# Working folder for syringe station scenarios, created next to the exe
+/protocols/
+/Protocols/
