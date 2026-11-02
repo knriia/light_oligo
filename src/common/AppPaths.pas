@@ -17,6 +17,7 @@ const
   PROTOCOLS_FOLDER = 'protocols';    // протоколы синтеза (.pro)
   AUTOMATION_FOLDER = 'automation';  // сценарии шприцевой станции
   SETTINGS_FOLDER = 'settings';      // настройки шприцевой станции
+  EZD_FOLDER = 'ezd';                // файлы EzCAD, созданные вручную
   SETTINGS_FILE = 'syringe_pump.ini';
 
 // Папка с exe. Пустой AExecutableFileName означает текущую программу.
@@ -31,6 +32,7 @@ function SlicesDir: string;
 function ProtocolsDir: string;
 function AutomationDir(const AExecutableFileName: string = ''): string;
 function SettingsDir: string;
+function EzdDir: string;
 function SettingsFilePath: string;
 
 // Создаёт папку data со всеми подпапками.
@@ -100,6 +102,11 @@ begin
   Result := DataSubDir(SETTINGS_FOLDER);
 end;
 
+function EzdDir: string;
+begin
+  Result := DataSubDir(EZD_FOLDER);
+end;
+
 function SettingsFilePath: string;
 begin
   Result := IncludeTrailingPathDelimiter(SettingsDir) + SETTINGS_FILE;
@@ -113,6 +120,7 @@ begin
   ForceDirectories(ProtocolsDir);
   ForceDirectories(AutomationDir);
   ForceDirectories(SettingsDir);
+  ForceDirectories(EzdDir);
 end;
 
 function IsAbsolutePath(const AFileName: string): Boolean;

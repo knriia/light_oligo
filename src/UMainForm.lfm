@@ -28,10 +28,90 @@ object MainForm: TMainForm
       Height = 598
       Top = 1
       Width = 422
-      ActivePage = TS_Manual
+      ActivePage = TS_Synthesis
       Align = alClient
-      TabIndex = 3
+      TabIndex = 0
       TabOrder = 0
+      object TS_Synthesis: TTabSheet
+        Caption = 'TS_Synthesis'
+        ClientHeight = 493
+        ClientWidth = 840
+        object GB_Files: TGroupBox
+          Left = 185
+          Height = 493
+          Top = 0
+          Width = 655
+          Align = alClient
+          Caption = 'GB_Files'
+          ClientHeight = 473
+          ClientWidth = 651
+          TabOrder = 0
+          object TV_Synthesis: TTreeView
+            Left = 0
+            Height = 473
+            Top = 0
+            Width = 651
+            Align = alClient
+            TabOrder = 0
+          end
+        end
+        object GB_SynthControl: TGroupBox
+          Left = 0
+          Height = 493
+          Top = 0
+          Width = 185
+          Align = alLeft
+          Caption = 'GB_SynthControl'
+          ClientHeight = 473
+          ClientWidth = 181
+          TabOrder = 1
+          object B_LoadProtToSynth: TButton
+            Left = 32
+            Height = 25
+            Top = 24
+            Width = 90
+            Caption = 'B_LoadProtToSynth'
+            TabOrder = 0
+            OnClick = B_LoadProtToSynthClick
+          end
+          object B_LoadLayers: TButton
+            Left = 32
+            Height = 25
+            Top = 56
+            Width = 90
+            Caption = 'B_LoadLayers'
+            TabOrder = 1
+            OnClick = B_LoadLayersClick
+          end
+          object B_Start: TButton
+            Left = 32
+            Height = 25
+            Top = 192
+            Width = 90
+            Caption = 'B_Start'
+            TabOrder = 2
+            OnClick = B_StartClick
+          end
+          object B_Pause: TButton
+            Left = 32
+            Height = 25
+            Top = 224
+            Width = 90
+            Caption = 'B_Pause'
+            TabOrder = 3
+            OnClick = B_PauseClick
+          end
+          object B_ClearAll: TButton
+            Left = 32
+            Height = 25
+            Top = 120
+            Width = 90
+            Caption = 'B_ClearAll'
+            TabOrder = 4
+            OnClick = B_ClearAllClick
+          end
+        end
+      end
       object TS_Sequences: TTabSheet
         Caption = 'TS_Sequences'
         ClientHeight = 493
@@ -522,86 +602,6 @@ object MainForm: TMainForm
             Width = 78
             Anchors = [akTop, akRight]
             Caption = 'L_MoveArrows'
-          end
-        end
-      end
-      object TS_Synthesis: TTabSheet
-        Caption = 'TS_Synthesis'
-        ClientHeight = 493
-        ClientWidth = 840
-        object GB_Files: TGroupBox
-          Left = 185
-          Height = 493
-          Top = 0
-          Width = 655
-          Align = alClient
-          Caption = 'GB_Files'
-          ClientHeight = 473
-          ClientWidth = 651
-          TabOrder = 0
-          object TV_Synthesis: TTreeView
-            Left = 0
-            Height = 473
-            Top = 0
-            Width = 651
-            Align = alClient
-            TabOrder = 0
-          end
-        end
-        object GB_SynthControl: TGroupBox
-          Left = 0
-          Height = 493
-          Top = 0
-          Width = 185
-          Align = alLeft
-          Caption = 'GB_SynthControl'
-          ClientHeight = 473
-          ClientWidth = 181
-          TabOrder = 1
-          object B_LoadProtToSynth: TButton
-            Left = 32
-            Height = 25
-            Top = 24
-            Width = 90
-            Caption = 'B_LoadProtToSynth'
-            TabOrder = 0
-            OnClick = B_LoadProtToSynthClick
-          end
-          object B_LoadLayers: TButton
-            Left = 32
-            Height = 25
-            Top = 56
-            Width = 90
-            Caption = 'B_LoadLayers'
-            TabOrder = 1
-            OnClick = B_LoadLayersClick
-          end
-          object B_Start: TButton
-            Left = 32
-            Height = 25
-            Top = 192
-            Width = 90
-            Caption = 'B_Start'
-            TabOrder = 2
-            OnClick = B_StartClick
-          end
-          object B_Pause: TButton
-            Left = 32
-            Height = 25
-            Top = 224
-            Width = 90
-            Caption = 'B_Pause'
-            TabOrder = 3
-            OnClick = B_PauseClick
-          end
-          object B_ClearAll: TButton
-            Left = 32
-            Height = 25
-            Top = 120
-            Width = 90
-            Caption = 'B_ClearAll'
-            TabOrder = 4
-            OnClick = B_ClearAllClick
           end
         end
       end

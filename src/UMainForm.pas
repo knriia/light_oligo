@@ -257,9 +257,9 @@ begin
   UpdateMinimumWindowWidth();
   UpdateManualControlsWidth();
 
-  // при запуске всегда открываем вкладку последовательностей,
+  // при запуске всегда открываем вкладку синтеза,
   // независимо от того, какая вкладка сохранена в дизайнере
-  PageControl1.ActivePage:=TS_Sequences;
+  PageControl1.ActivePage:=TS_Synthesis;
 end;
 
 procedure TMainForm.FormResize(Sender: TObject);
@@ -500,12 +500,47 @@ var
   MarkButtonsHeight: Integer;
   EzCadButtonTop: Integer;
   EzCadButtonsHeight: Integer;
+  MarkButtonWidth: Integer;
+  EzCadButtonWidth: Integer;
+
+  // ширина, при которой помещается самая длинная надпись из группы,
+  // но не шире самой группы
+  function GroupButtonWidth(const AButtons: array of TButton;
+    AGroupWidth: Integer): Integer;
+  var
+    I, W, H: Integer;
+  begin
+    Result := 0;
+    for I := 0 to High(AButtons) do
+    begin
+      W := 0;
+      H := 0;
+      AButtons[I].GetPreferredSize(W, H);
+      if W <= 0 then // окно кнопки ещё не создано: оставляем как есть
+        W := AButtons[I].Width;
+      if W > Result then
+        Result := W;
+    end;
+    if Result > AGroupWidth then
+      Result := AGroupWidth;
+  end;
+
 begin
   if not Assigned(GB_MarkEZDDLL) or not Assigned(GB_EzCAD) or
      not Assigned(B_SetLasPen) or not Assigned(B_CreateEZD) or
      not Assigned(B_OpenEZCAD) or not Assigned(B_CloseEzCAD) or
      not Assigned(B_SendF2) then
     Exit;
+
+  MarkButtonWidth := GroupButtonWidth([B_SetLasPen, B_CreateEZD],
+    GB_MarkEZDDLL.ClientWidth);
+  B_SetLasPen.Width := MarkButtonWidth;
+  B_CreateEZD.Width := MarkButtonWidth;
+  EzCadButtonWidth := GroupButtonWidth([B_OpenEZCAD, B_CloseEzCAD, B_SendF2],
+    GB_EzCAD.ClientWidth);
+  B_OpenEZCAD.Width := EzCadButtonWidth;
+  B_CloseEzCAD.Width := EzCadButtonWidth;
+  B_SendF2.Width := EzCadButtonWidth;
 
   MarkButtonsHeight := B_SetLasPen.Height + BUTTON_GAP +
     B_CreateEZD.Height;
@@ -712,24 +747,9 @@ var
    path: string;
    pMyArr: pointer;
    TmpP: TPoint;
+   EzdFile: string;
 begin
    path:=ExtractFilePath(ParamStr(0));
-
-   // строка заголовка сообщения об ошибке (путь к проге)
-   TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
-
-   // запускаем таймер закрывающий сообщение об ошибке
-   Tmr_Closer.Enabled:=true;
-   rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
-   ShowRez('lmc1_Initial2',rez);
-
-   // открываем/создаем файл ezd
-   rez:=lmc1_LoadEzdFile(WideString(path+'Arr.ezd'));
-   ShowRez('lmc1_LoadEzdFile',rez);
-
-   // очищаем библиотеку объектов
-   rez:=lmc1_ClearEntLib();
-   ShowRez('lmc1_ClearEntLib',rez);
 
    myStep:=FSE_Step.Value;
    myGStep:=FSE_GroupStep.Value;
@@ -750,31 +770,57 @@ begin
    rez:=ConvertMatrixToLinearArray(MyMatrix, ArrOfSpots, myStep, myGroup, myGStep, BiasX, BiasY);
    ShowRez('ConvertMatrixToLineArray', rez);
 
-   if Length(ArrOfSpots)<>0 then
-     begin
-        // добавляем наш массив в файл
-       pMyArr:=@ArrOfSpots[0];
-
-       rez:=lmc1_SetPenParam2(MyLasPen.nPenNo,MyLasPen.nMarkLoop, MyLasPen.dMarkSpeed,
-                             MyLasPen.dPowerRatio, MyLasPen.dCurrent,MyLasPen.nFreq,
-                             MyLasPen.dQPulseWidth, MyLasPen.nStartTC, MyLasPen.nLaserOffTC,
-                             MyLasPen.nEndTC, MyLasPen.nPolyTC, MyLasPen.dJumpSpeed,
-                             MyLasPen.nJumpPosTC, MyLasPen.nJumpDistTC, MyLasPen.dPointTime,
-                             MyLasPen.nSpiWave, MyLasPen.bWobbleMode, MyLasPen.dWobbleDiameter,
-                             MyLasPen.dWobbleDist);
-       ShowRez('lmc1_SetPenParam2',rez);
-
-       rez:=lmc1_AddPointToLib(pMyArr,Length(ArrOfSpots),'arr',MyLasPen.nPenNo);
-       ShowRez('lmc1_AddPointToLib',rez);
-
-       // сохраняем файл
-       rez:=lmc1_SaveEntLibToFile(WideString(path+'Arr.ezd'));
-       ShowRez('lmc1_SaveEntLibToFile',rez);
-     end
-   else
+   if Length(ArrOfSpots)=0 then
    begin
-     ShowRez('Пустой массив! Файл не перезаписан!',-1);
+     ShowMessage('Массив пустой: сначала задайте матрицу.');
+     Exit;
    end;
+
+   // куда сохранить файл: по умолчанию data\ezd, имя по дате и времени
+   SD_File.Filter:='EzCAD|*.ezd';
+   SD_File.DefaultExt:='ezd';
+   SD_File.InitialDir:=EzdDir;
+   SD_File.FilterIndex:=1;
+   SD_File.FileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now)+'.ezd';
+   try
+     if not SD_File.Execute then
+       Exit;
+     EzdFile:=SD_File.FileName;
+   finally
+     SD_File.DefaultExt:='';
+   end;
+
+   // строка заголовка сообщения об ошибке (путь к проге)
+   TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
+
+   // запускаем таймер закрывающий сообщение об ошибке
+   Tmr_Closer.Enabled:=true;
+   rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
+   ShowRez('lmc1_Initial2',rez);
+
+   // очищаем библиотеку объектов: файл создаётся с нуля
+   rez:=lmc1_ClearEntLib();
+   ShowRez('lmc1_ClearEntLib',rez);
+
+   // добавляем наш массив в файл
+   pMyArr:=@ArrOfSpots[0];
+
+   rez:=lmc1_SetPenParam2(MyLasPen.nPenNo,MyLasPen.nMarkLoop, MyLasPen.dMarkSpeed,
+                         MyLasPen.dPowerRatio, MyLasPen.dCurrent,MyLasPen.nFreq,
+                         MyLasPen.dQPulseWidth, MyLasPen.nStartTC, MyLasPen.nLaserOffTC,
+                         MyLasPen.nEndTC, MyLasPen.nPolyTC, MyLasPen.dJumpSpeed,
+                         MyLasPen.nJumpPosTC, MyLasPen.nJumpDistTC, MyLasPen.dPointTime,
+                         MyLasPen.nSpiWave, MyLasPen.bWobbleMode, MyLasPen.dWobbleDiameter,
+                         MyLasPen.dWobbleDist);
+   ShowRez('lmc1_SetPenParam2',rez);
+
+   rez:=lmc1_AddPointToLib(pMyArr,Length(ArrOfSpots),'arr',MyLasPen.nPenNo);
+   ShowRez('lmc1_AddPointToLib',rez);
+
+   // сохраняем файл
+   rez:=lmc1_SaveEntLibToFile(WideString(EzdFile));
+   ShowRez('lmc1_SaveEntLibToFile: '+EzdFile,rez);
+
    // отключаемся от библиотеки
    rez:=lmc1_Close();
    ShowRez('lmc1_Close',rez);
@@ -786,17 +832,29 @@ begin
 end;
 
 procedure TMainForm.B_OpenEZCADClick(Sender: TObject);
-// Открываем приложение, по таймеру закрываем предупреждения об ошибках
+// Выбираем файл ezd и открываем его в EzCAD,
+// по таймеру закрываем предупреждения об ошибках
 begin
- if GetProcessHandle('EzCad2.exe')=0 then
-  begin
-   GlobalI:=0; // обнуляем глобальный счетчик
-   Tmr_EzCADer.Enabled:=true;
-   ShellExecute(0, 'open', PChar(ExtractFilePath(ParamStr(0))+'EzCAD2.exe'),
-                PChar(ExtractFilePath(ParamStr(0))+'Arr.ezd'), nil, SW_SHOWMINIMIZED);
-  end
- else
+ if GetProcessHandle('EzCad2.exe')<>0 then
+ begin
    ShowMessage('Приложение EzCAD2.exe уже запущено!');
+   Exit;
+ end;
+
+ OD_File.Filter:='EzCAD|*.ezd';
+ OD_File.InitialDir:=EzdDir;
+ OD_File.FilterIndex:=1;
+ OD_File.FileName:='';
+ if not OD_File.Execute then
+   Exit;
+
+ GlobalI:=0; // обнуляем глобальный счетчик
+ Tmr_EzCADer.Enabled:=true;
+ // W-версия и кавычки: путь может содержать кириллицу и пробелы
+ ShellExecuteW(0, 'open',
+               PWideChar(UnicodeString(ExtractFilePath(ParamStr(0))+'EzCAD2.exe')),
+               PWideChar(UnicodeString('"'+OD_File.FileName+'"')),
+               nil, SW_SHOWMINIMIZED);
 end;
 
 procedure TMainForm.B_PreviewClick(Sender: TObject);
@@ -1012,22 +1070,85 @@ var
   end;
  end;
 
+function CheckFileNamePart(const AName, ACaption: String; out ErrorText: String): Boolean;
+// имя папки или файла без пути: не пустое и без запрещённых символов Windows
+const
+  BadChars = ['\', '/', ':', '*', '?', '"', '<', '>', '|'];
+var
+  i: integer;
+begin
+  Result:=false;
+  ErrorText:='';
+  if Trim(AName)='' then
+  begin
+    ErrorText:=ACaption+': имя не задано.';
+    Exit;
+  end;
+  for i:=1 to Length(AName) do
+    if AName[i] in BadChars then
+    begin
+      ErrorText:=ACaption+': недопустимый символ "'+AName[i]+'".'+#13#10+
+                 'Нельзя использовать \ / : * ? " < > |';
+      Exit;
+    end;
+  if (AName[Length(AName)]='.') or (AName[Length(AName)]=' ') then
+  begin
+    ErrorText:=ACaption+': имя не может заканчиваться точкой или пробелом.';
+    Exit;
+  end;
+  Result:=true;
+end;
+
 procedure TMainForm.B_SaveOligsClick(Sender: TObject);
-{Сохранение массива в файл}
+{Сохранение массива в файл data\arrays\<папка>\<имя>.csv}
 var
   F: TextFile;
   S: String;
   i,j: integer;
   Sep: String;
+  Values: array of String;
+  FolderName, FileName, FilePath, ErrorText: String;
 begin
-  SD_File.Filter:='CSV|*.csv';
-  SD_File.InitialDir:=ArraysDir;
-  SD_File.FilterIndex:=1;
-  SD_File.FileName:='';
-  if SD_File.Execute then
+  // по умолчанию и папка, и файл называются по дате и времени
+  SetLength(Values, 2);
+  Values[0]:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
+  Values[1]:=Values[0];
+
+  // спрашиваем, пока не получим допустимые имена и согласие на перезапись
+  repeat
+    if not InputQuery('Сохранение массива олигов',
+                      ['Папка (внутри data\arrays)', 'Имя файла'], Values) then
+      Exit;
+    FolderName:=Trim(Values[0]);
+    FileName:=Trim(Values[1]);
+    if SameText(ExtractFileExt(FileName), '.csv') then
+      FileName:=ChangeFileExt(FileName, '');
+
+    if not CheckFileNamePart(FolderName, 'Папка', ErrorText) or
+       not CheckFileNamePart(FileName, 'Имя файла', ErrorText) then
+    begin
+      ShowMessage(ErrorText);
+      Continue;
+    end;
+
+    FilePath:=IncludeTrailingPathDelimiter(ArraysDir)+FolderName+PathDelim+
+              FileName+'.csv';
+    if FileExists(FilePath) and
+       (MessageDlg('Файл уже существует:'+#13#10+FilePath+#13#10+
+                   'Перезаписать его?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes) then
+      Continue;
+    Break;
+  until false;
+
+  if not ForceDirectories(ExtractFileDir(FilePath)) then
+  begin
+    ShowMessage('Не удалось создать папку:'+#13#10+ExtractFileDir(FilePath));
+    Exit;
+  end;
+
+  AssignFile(F,FilePath);
+  Rewrite(F);
   try
-    AssignFile(F,SD_File.FileName);
-    Rewrite(F);
     for i:=0 to Length(MyOligoArr)-1 do
     begin
       S:='';
