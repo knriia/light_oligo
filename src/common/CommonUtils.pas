@@ -10,6 +10,8 @@ uses
 
 Function RemoveFileExt(Const aFileName: String): String;
 Procedure NumerateGrid(aSG: TStringGrid);
+// ширина столбца по самому длинному тексту в нём
+procedure AutoSizeGridColumn(aGrid: TStringGrid; aColumn: Integer);
 
 implementation
 
@@ -41,6 +43,20 @@ begin
   begin
     aSG.Cells[0,i]:=IntToStr(i);
   end;
+end;
+
+procedure AutoSizeGridColumn(aGrid: TStringGrid; aColumn: Integer);
+var
+  i, W, MaxW: integer;
+begin
+  MaxW:=0;
+  for i:=0 to aGrid.RowCount-1 do
+  begin
+    W:=aGrid.Canvas.TextWidth(aGrid.Cells[aColumn, i]);
+    if W>MaxW then
+      MaxW:=W;
+  end;
+  aGrid.ColWidths[aColumn]:=MaxW+aGrid.GridLineWidth+5;
 end;
 
 end.
