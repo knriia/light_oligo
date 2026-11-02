@@ -79,7 +79,7 @@ implementation
 uses
   LCLType, Clipbrd, MatrixTypes, AppState, AppPaths, CommonUtils, EzCadApi,
   Lmc1Results, OligoArray, OligoSlicing, OligoMatrix,
-  OligoSlices, OligoPaste, UOligoArrayForm, ULayerChartForm;
+  OligoSlices, OligoPaste, UOligoArrayForm, UArraySaveForm, ULayerChartForm;
 
 {$R *.lfm}
 
@@ -218,44 +218,28 @@ begin
 end;
 
 procedure TSequencesForm.B_SaveOligsClick(Sender: TObject);
-{Сохранение массива в файл data\arrays\<папка>\<имя>.csv}
+{Сохранение массива: по умолчанию в новую папку data\arrays\<дата>,
+ но можно выбрать любую папку}
 var
-  Values: array of String;
-  FolderName, FileName, FilePath, ErrorText: String;
+  Folder, FileName, FilePath, ErrorText: String;
 begin
   // открытый из файла массив предлагаем сохранить туда же,
   // новый - в папку и файл с датой и временем
-  SetLength(Values, 2);
   if FDocument.HasFile then
   begin
-    Values[0]:=ExtractFileName(FDocument.ArrayDir);
-    Values[1]:=ChangeFileExt(ExtractFileName(FDocument.FileName), '');
+    Folder:=FDocument.ArrayDir;
+    FileName:=ChangeFileExt(ExtractFileName(FDocument.FileName), '');
   end
   else
   begin
-    Values[0]:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
-    Values[1]:=Values[0];
+    FileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
+    Folder:=IncludeTrailingPathDelimiter(ArraysDir)+FileName;
   end;
 
-  // спрашиваем, пока не получим допустимые имена и согласие на перезапись
+  // спрашиваем, пока не получим согласие на перезапись существующего файла
   repeat
-    if not InputQuery('Сохранение массива олигов',
-                      ['Папка (внутри data\arrays)', 'Имя файла'], Values) then
+    if not TArraySaveForm.Execute(Folder, FileName, FilePath) then
       Exit;
-    FolderName:=Trim(Values[0]);
-    FileName:=Trim(Values[1]);
-    if SameText(ExtractFileExt(FileName), '.csv') then
-      FileName:=ChangeFileExt(FileName, '');
-
-    if not CheckFileNamePart(FolderName, 'Папка', ErrorText) or
-       not CheckFileNamePart(FileName, 'Имя файла', ErrorText) then
-    begin
-      ShowMessage(ErrorText);
-      Continue;
-    end;
-
-    FilePath:=IncludeTrailingPathDelimiter(ArraysDir)+FolderName+PathDelim+
-              FileName+'.csv';
     if FileExists(FilePath) and
        (MessageDlg('Файл уже существует:'+LineEnding+FilePath+LineEnding+
                    'Перезаписать его?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes) then

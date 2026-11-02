@@ -94,6 +94,11 @@ type
     procedure RejectsEmptyName;
     procedure RejectsForbiddenCharacters;
     procedure RejectsTrailingDotOrSpace;
+    procedure FilePathJoinsFolderNameAndExtension;
+    procedure FilePathDoesNotDoubleExtension;
+    procedure FilePathAcceptsDriveRootAndTrailingSlash;
+    procedure FilePathRejectsRelativeOrEmptyFolder;
+    procedure FilePathRejectsBadFolderPartOrName;
   end;
 
 implementation
@@ -826,6 +831,57 @@ var
 begin
   AssertFalse(CheckFileNamePart('name.', 'Имя файла', ErrorText));
   AssertFalse(CheckFileNamePart('name ', 'Имя файла', ErrorText));
+end;
+
+procedure TFileNameCheckTests.FilePathJoinsFolderNameAndExtension;
+var
+  FilePath, ErrorText: string;
+begin
+  AssertTrue(ErrorText, MakeFilePathInFolder(' C:\Users\me\Desktop ', ' arr 1 ',
+    '.csv', FilePath, ErrorText));
+  AssertEquals('C:\Users\me\Desktop\arr 1.csv', FilePath);
+end;
+
+procedure TFileNameCheckTests.FilePathDoesNotDoubleExtension;
+var
+  FilePath, ErrorText: string;
+begin
+  AssertTrue(ErrorText, MakeFilePathInFolder('D:\data', 'arr.CSV', '.csv',
+    FilePath, ErrorText));
+  AssertEquals('D:\data\arr.csv', FilePath);
+end;
+
+procedure TFileNameCheckTests.FilePathAcceptsDriveRootAndTrailingSlash;
+var
+  FilePath, ErrorText: string;
+begin
+  AssertTrue(ErrorText, MakeFilePathInFolder('D:\', 'a', '.csv', FilePath, ErrorText));
+  AssertEquals('D:\a.csv', FilePath);
+  AssertTrue(ErrorText, MakeFilePathInFolder('D:\data\', 'a', '.csv', FilePath, ErrorText));
+  AssertEquals('D:\data\a.csv', FilePath);
+end;
+
+procedure TFileNameCheckTests.FilePathRejectsRelativeOrEmptyFolder;
+var
+  FilePath, ErrorText: string;
+begin
+  AssertFalse(MakeFilePathInFolder('', 'a', '.csv', FilePath, ErrorText));
+  AssertTrue(ErrorText <> '');
+  AssertFalse(MakeFilePathInFolder('data\arrays', 'a', '.csv', FilePath, ErrorText));
+  AssertTrue(ErrorText <> '');
+  AssertEquals('', FilePath);
+end;
+
+procedure TFileNameCheckTests.FilePathRejectsBadFolderPartOrName;
+var
+  FilePath, ErrorText: string;
+begin
+  AssertFalse(MakeFilePathInFolder('D:\da?ta\x', 'a', '.csv', FilePath, ErrorText));
+  AssertTrue(ErrorText <> '');
+  AssertFalse(MakeFilePathInFolder('D:\data.\x', 'a', '.csv', FilePath, ErrorText));
+  AssertFalse(MakeFilePathInFolder('D:\data', 'a:b', '.csv', FilePath, ErrorText));
+  AssertTrue(ErrorText <> '');
+  AssertFalse(MakeFilePathInFolder('D:\data', '', '.csv', FilePath, ErrorText));
 end;
 
 initialization

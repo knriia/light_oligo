@@ -1,0 +1,81 @@
+object ArraySaveForm: TArraySaveForm
+  Left = 0
+  Height = 132
+  Top = 0
+  Width = 560
+  BorderStyle = bsDialog
+  Caption = 'ArraySaveForm'
+  ClientHeight = 132
+  ClientWidth = 560
+  Position = poMainFormCenter
+  OnCloseQuery = FormCloseQuery
+  LCLVersion = '4.4.0.0'
+  object L_Folder: TLabel
+    Left = 12
+    Height = 15
+    Top = 18
+    Width = 40
+    Caption = 'L_Folder'
+  end
+  object E_Folder: TEdit
+    Left = 96
+    Height = 23
+    Top = 14
+    Width = 360
+    TabOrder = 0
+  end
+  object B_Browse: TButton
+    Left = 464
+    Height = 25
+    Top = 13
+    Width = 84
+    Caption = 'B_Browse'
+    TabOrder = 1
+    OnClick = B_BrowseClick
+  end
+  object L_FileName: TLabel
+    Left = 12
+    Height = 15
+    Top = 52
+    Width = 60
+    Caption = 'L_FileName'
+  end
+  object E_FileName: TEdit
+    Left = 96
+    Height = 23
+    Top = 48
+    Width = 300
+    TabOrder = 2
+  end
+  object L_Ext: TLabel
+    Left = 400
+    Height = 15
+    Top = 52
+    Width = 22
+    Caption = 'L_Ext'
+  end
+  object B_Save: TButton
+    Left = 360
+    Height = 25
+    Top = 94
+    Width = 92
+    Caption = 'B_Save'
+    Default = True
+    ModalResult = 1
+    TabOrder = 3
+  end
+  object B_Cancel: TButton
+    Left = 456
+    Height = 25
+    Top = 94
+    Width = 92
+    Cancel = True
+    Caption = 'B_Cancel'
+    ModalResult = 2
+    TabOrder = 4
+  end
+  object SDD_Folder: TSelectDirectoryDialog
+    Left = 24
+    Top = 88
+  end
+end
