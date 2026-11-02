@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, MatrixTypes, OligoArray,
-  OligoArrayCsv, OligoSlicing, OligoMatrix, AppPaths;
+  OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, AppPaths;
 
 type
   TOligoArrayTests = class(TTestCase)
@@ -63,6 +63,21 @@ type
     procedure AutoCenterWithoutGroups;
     procedure AutoCenterWithGroups;
     procedure CopyMatrixMakesIndependentCopy;
+  end;
+
+  TMarkGeometryTests = class(TTestCase)
+  published
+    procedure ManualBiasIsTakenAsIs;
+    procedure AutoCenterUsesMatrixAndSteps;
+  end;
+
+  TOligoPasteTests = class(TTestCase)
+  published
+    procedure MeasuresRowsAndWidestRow;
+    procedure TrailingLineBreakIsNotARow;
+    procedure FitsWhenEnoughRoom;
+    procedure DoesNotFitByRows;
+    procedure DoesNotFitByColumns;
   end;
 
   TFileNameCheckTests = class(TTestCase)
@@ -540,6 +555,87 @@ begin
   AssertEquals('10|01', MatrixToText(Target));
 end;
 
+{ TMarkGeometryTests }
+
+function Geometry(AAutoCenter: Boolean): TMarkGeometry;
+begin
+  Result := Default(TMarkGeometry);
+  Result.Step := 1.0;
+  Result.GroupStep := 0.5;
+  Result.Group := 2;
+  Result.AutoCenter := AAutoCenter;
+  Result.BiasX := 3.25;
+  Result.BiasY := -1.5;
+end;
+
+procedure TMarkGeometryTests.ManualBiasIsTakenAsIs;
+var
+  P: TPoint;
+begin
+  P := MarkBias(Matrix(['00000']), Geometry(False));
+  AssertEquals(3.25, P[0], 1e-9);
+  AssertEquals(-1.5, P[1], 1e-9);
+end;
+
+procedure TMarkGeometryTests.AutoCenterUsesMatrixAndSteps;
+var
+  P: TPoint;
+begin
+  // то же, что AutoCenterWithGroups: ручное смещение не учитывается
+  P := MarkBias(Matrix(['00000']), Geometry(True));
+  AssertEquals(-2.5, P[0], 1e-9);
+  AssertEquals(0.0, P[1], 1e-9);
+end;
+
+{ TOligoPasteTests }
+
+procedure TOligoPasteTests.MeasuresRowsAndWidestRow;
+var
+  Rows, Cols: Integer;
+begin
+  MeasurePasteText('A'#9'T'#13#10'G'#9'C'#9'A'#13#10'T', Rows, Cols);
+  AssertEquals(3, Rows);
+  AssertEquals(3, Cols);
+end;
+
+procedure TOligoPasteTests.TrailingLineBreakIsNotARow;
+var
+  Rows, Cols: Integer;
+begin
+  MeasurePasteText('A'#9'T'#13#10, Rows, Cols);
+  AssertEquals(1, Rows);
+  AssertEquals(2, Cols);
+  MeasurePasteText('', Rows, Cols);
+  AssertEquals(0, Rows);
+  AssertEquals(0, Cols);
+end;
+
+procedure TOligoPasteTests.FitsWhenEnoughRoom;
+var
+  Msg: string;
+begin
+  // таблица 3x3 с заголовками: от ячейки (1,1) свободно 2x2
+  AssertTrue(CheckPasteFits('A'#9'T'#13#10'G'#9'C'#13#10, 1, 1, 3, 3, Msg));
+  AssertEquals('', Msg);
+end;
+
+procedure TOligoPasteTests.DoesNotFitByRows;
+var
+  Msg: string;
+begin
+  AssertFalse(CheckPasteFits('A'#13#10'T'#13#10'G', 2, 1, 3, 3, Msg));
+  AssertTrue(Pos('3 ', Msg) > 0);
+  AssertTrue(Pos('1 ', Msg) > 0);
+end;
+
+procedure TOligoPasteTests.DoesNotFitByColumns;
+var
+  Msg: string;
+begin
+  AssertFalse(CheckPasteFits('A'#9'T'#9'G', 1, 2, 3, 3, Msg));
+  AssertTrue(Msg <> '');
+end;
+
 { TFileNameCheckTests }
 
 procedure TFileNameCheckTests.AcceptsNormalName;
@@ -585,6 +681,8 @@ initialization
   RegisterTest(TOligoSlicingTests);
   RegisterTest(TOligoFileTests);
   RegisterTest(TOligoMatrixTests);
+  RegisterTest(TMarkGeometryTests);
+  RegisterTest(TOligoPasteTests);
   RegisterTest(TFileNameCheckTests);
 
 end.

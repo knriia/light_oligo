@@ -10,7 +10,8 @@ uses
   StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
   AppState, CommonUtils, WinProcessUtils, OligoMatrix, OligoArray,
-  OligoSlices, OligoArrayCsv, OligoSlicing, SynthesisProtocol, ProtocolFormat, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
+  OligoSlices, SynthesisProtocol, ProtocolFormat, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm,
+  USequencesForm, MarkGeometry, Lmc1Results;
 
 
 type
@@ -18,10 +19,6 @@ type
   { TMainForm }
 
   TMainForm = class(TForm)
-    B_SetGeomParam: TButton;
-    B_SetLasPen2: TButton;
-    B_SaveOligs: TButton;
-    B_LoadOligs: TButton;
     B_ClearAll: TButton;
     B_Pause: TButton;
     B_Start: TButton;
@@ -32,12 +29,9 @@ type
     B_AddBlockInProtocol: TButton;
     B_SaveProtocolLayer: TButton;
     B_LoadProtocolLayer: TButton;
-    B_CreateArrEzd: TButton;
     B_CloseEzCAD: TButton;
     B_SetLasPen: TButton;
     B_SendF2: TButton;
-    B_SliceOligoArr: TButton;
-    B_CreateOligoArr: TButton;
     B_OpenEZCAD: TButton;
     B_Preview: TButton;
     B_Matrix: TButton;
@@ -59,7 +53,6 @@ type
     FSE_Step: TFloatSpinEdit;
     FSE_GroupStep: TFloatSpinEdit;
     FSE_YBias: TFloatSpinEdit;
-    GB_OligControl: TGroupBox;
     GB_Laser: TGroupBox;
     GB_Array: TGroupBox;
     L_Group: TLabel;
@@ -72,15 +65,12 @@ type
     PageControl1: TPageControl;
     Panel1: TPanel;
     Panel3: TPanel;
-    Panel4: TPanel;
     SD_File: TSaveDialog;
-    SDD_Dir: TSelectDirectoryDialog;
     SE_Group: TSpinEdit;
     SE_SpotSize: TSpinEdit;
     SE_SubstrateDiameter: TSpinEdit;
     SB_UpNode: TSpeedButton;
     SB_DownNode: TSpeedButton;
-    SG_OligoArr: TStringGrid;
     Splitter2: TSplitter;
     TV_Synthesis: TTreeView;
     TS_Synthesis: TTabSheet;
@@ -95,11 +85,8 @@ type
     procedure B_AddOperInProtocolClick(Sender: TObject);
     procedure B_ClearAllClick(Sender: TObject);
     procedure B_CloseEzCADClick(Sender: TObject);
-    procedure B_CreateArrEzdClick(Sender: TObject);
-    procedure B_CreateOligoArrClick(Sender: TObject);
     procedure B_CreateEZDClick(Sender: TObject);
     procedure B_LoadLayersClick(Sender: TObject);
-    procedure B_LoadOligsClick(Sender: TObject);
     procedure B_LoadProtocolLayerClick(Sender: TObject);
     procedure B_LoadProtToSynthClick(Sender: TObject);
     procedure B_MatrixClick(Sender: TObject);
@@ -107,13 +94,9 @@ type
     procedure B_PauseClick(Sender: TObject);
     procedure B_PreviewClick(Sender: TObject);
     procedure B_RemoveNodeClick(Sender: TObject);
-    procedure B_SaveOligsClick(Sender: TObject);
     procedure B_SaveProtocolLayerClick(Sender: TObject);
     procedure B_SendF2Click(Sender: TObject);
-    procedure B_SetGeomParamClick(Sender: TObject);
-    procedure B_SetLasPen2Click(Sender: TObject);
     procedure B_SetLasPenClick(Sender: TObject);
-    procedure B_SliceOligoArrClick(Sender: TObject);
     procedure B_StartClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -122,25 +105,20 @@ type
       Shift: TShiftState; X, Y: Integer);
     procedure SB_DownNodeClick(Sender: TObject);
     procedure SB_UpNodeClick(Sender: TObject);
-    procedure SG_OligoArrEditingDone(Sender: TObject);
-    procedure SG_OligoArrHeaderClick(Sender: TObject; IsColumn: Boolean;
-      Index: Integer);
-    procedure SG_OligoArrKeyUp(Sender: TObject; var Key: Word;
-      Shift: TShiftState);
-    procedure SG_OligoArrSetEditText(Sender: TObject; ACol, ARow: Integer;
-      const Value: string);
     procedure Tmr_CloserTimer(Sender: TObject);
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
     FDispenserStation: TDispenserStationForm;
+    FSequencesForm: TSequencesForm;
+    procedure SequencesLog(const AMsg: string);
+    function GetMarkGeometry: TMarkGeometry;
+    procedure BeforeDllInit(Sender: TObject);
     procedure UpdateManualControlsWidth;
     procedure UpdateManualArrayControlsLayout;
     procedure UpdateManualLaserControlsLayout;
     procedure UpdateMinimumWindowWidth;
     procedure ToggleManualOptionLabel(Sender: TObject);
     procedure DispenserStationLogMessage(Sender: TObject; const Msg: string);
-    Procedure DisplayOligoArrInGrid(anArr: TOligoArr);
-    procedure AutoSizeGridColumn(Grid : TStringGrid; column : integer);
     procedure LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
   public
     Procedure ShowRez(aFunName: String; aRez:integer);
@@ -207,15 +185,6 @@ begin
   B_SendF2.Caption:=MyInterface.ReadString('Manual','B_SendF2','Mark');
   GB_PumpStation.Caption:=MyInterface.ReadString('Manual','GB_PumpStation','PumpStation');
 
-  GB_OligControl.Caption:=MyInterface.ReadString('Oligo','GB_OligControl','Oligonucleotides');
-  B_CreateOligoArr.Caption:=MyInterface.ReadString('Oligo','B_CreateOligoArr','OligoArray');
-  B_LoadOligs.Caption:=MyInterface.ReadString('Oligo','B_LoadOligs','Load Oligs');
-  B_SaveOligs.Caption:=MyInterface.ReadString('Oligo','B_SaveOligs','Save Oligs');
-  B_SliceOligoArr.Caption:=MyInterface.ReadString('Oligo','B_SliceOligoArr','Slice');
-  B_SetLasPen2.Caption:=MyInterface.ReadString('Oligo','B_SetLasPen2','SetLasPen');
-  B_SetGeomParam.Caption:=MyInterface.ReadString('Oligo','B_SetGeomParam','SetGeomParam');
-  B_CreateArrEzd.Caption:=MyInterface.ReadString('Oligo','B_CreateArrEzd','EZD Files');
-
   GB_EditProtocolTree.Caption:=MyInterface.ReadString('Protocol','GB_EditProtocolTree','Protocol');
   B_LoadProtocolLayer.Caption:=MyInterface.ReadString('Protocol','B_LoadProtocolLayer','Load Protocol');
   L_MoveArrows.Caption:=MyInterface.ReadString('Protocol','L_Arrows','Move Node');
@@ -253,6 +222,16 @@ begin
   FDispenserStation.Align := alClient;
   FDispenserStation.AttachLogSink(@DispenserStationLogMessage);
   FDispenserStation.Show;
+  FSequencesForm := TSequencesForm.Create(Self);
+  FSequencesForm.BorderStyle := bsNone;
+  FSequencesForm.Parent := TS_Sequences;
+  FSequencesForm.Align := alClient;
+  FSequencesForm.ApplyCaptions(MyInterface);
+  FSequencesForm.OnLog := @SequencesLog;
+  FSequencesForm.OnGetMarkGeometry := @GetMarkGeometry;
+  FSequencesForm.OnShowLaserSettings := @B_SetLasPenClick;
+  FSequencesForm.OnBeforeDllInit := @BeforeDllInit;
+  FSequencesForm.Show;
   Randomize();
   UpdateMinimumWindowWidth();
   UpdateManualControlsWidth();
@@ -582,30 +561,30 @@ end;
 
 procedure TMainForm.ShowRez(aFunName: String; aRez: integer);
 begin
-    case aRez of
-   0:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Успех!');
-   1:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' работает EZCAD');
-   2:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' EZCAD.CFG не найден');
-   3:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' не удалось открыть LMC1');
-   4:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' нет допустимого устройства LMC1');
-   5:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' ошибка версии LMC1');
-   6:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Невозможно найти файл конфигурации устройства');
-   7:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Аварийный сигнал');
-   8:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Остановка пользователя');
-   9:  Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Неизвестная ошибка');
-   10: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Тайм-аут');
-   11: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Не инициализировано');
-   12: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Ошибка чтения файла');
-   13: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Пустое окно');
-   14: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Невозможно найти шрифт с указанным именем');
-   15: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Неправильный номер пера');
-   16: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Объект с указанным именем не является текстовым объектом');
-   17: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Не удалось сохранить файл');
-   18: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Указанный объект не найден');
-   19: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Эта операция не может быть выполнена в текущем состоянии');
-   21: Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' Режим TestMode');
-   else Memo1.Lines.Add(aFunName+' -> '+intTostr(aRez)+' ХЗ');
-   end;
+  Memo1.Lines.Add(Lmc1ResultText(aFunName, aRez));
+end;
+
+procedure TMainForm.SequencesLog(const AMsg: string);
+begin
+  Memo1.Lines.Add(AMsg);
+end;
+
+function TMainForm.GetMarkGeometry: TMarkGeometry;
+// геометрия маркировки с вкладки ручного управления
+begin
+  Result.Step:=FSE_Step.Value;
+  Result.GroupStep:=FSE_GroupStep.Value;
+  Result.Group:=SE_Group.Value;
+  Result.AutoCenter:=CB_AutoCenter.Checked;
+  Result.BiasX:=FSE_XBias.Value;
+  Result.BiasY:=FSE_YBias.Value;
+end;
+
+procedure TMainForm.BeforeDllInit(Sender: TObject);
+// закрыть сообщение MarkEzd.dll с заголовком - путём к программе
+begin
+  TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
+  Tmr_Closer.Enabled:=true;
 end;
 
 procedure TMainForm.Tmr_EzCADerTimer(Sender: TObject);
@@ -665,23 +644,6 @@ begin
     postMessage(h,WM_CLOSE,0,0);
     Tmr_Closer.Enabled:=false;
    end;
-end;
-
-procedure TMainForm.AutoSizeGridColumn(Grid: TStringGrid; column: integer);
-
-// установка ширины столбца стринггрида по самой длинной последовательности
-var
-i: integer;
-temp: integer;
-max : integer;
-begin
-max:= 0;
-for i:= 0 to (Grid.RowCount - 1) do
-begin
-   temp:= Grid.Canvas.TextWidth(grid.cells[column, i]);
-   if temp > max then max:= temp;
-end;
-Grid.ColWidths[column]:= Max + Grid.GridLineWidth + 5;
 end;
 
 procedure TMainForm.LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
@@ -964,310 +926,6 @@ end;
 
 {ВКЛАДКА Sequence}
  
-procedure TMainForm.DisplayOligoArrInGrid(anArr: TOligoArr);
-// отображение массива олигов в StringGride
-var
-  i,j: Integer;
-begin
-  SG_OligoArr.Clear;
-  // Устанавливаем количество строк и столбцов в TStringGrid
-  SG_OligoArr.RowCount := Length(anArr)+1;
-  if Length(anArr) > 0 then
-    SG_OligoArr.ColCount := Length(anArr[0])+1;
-  // Заполняем TStringGrid значениями из anArr
-  for i := 0 to Length(anArr)-1 do
-  begin
-    for j := 0 to Length(anArr[i])-1 do
-    begin
-      // Присваиваем значение ячейке
-      SG_OligoArr.Cells[j+1, i+1]:=anArr[i][j];
-    end;
-  end;
-end;
-
-procedure TMainForm.SG_OligoArrHeaderClick(Sender: TObject; IsColumn: Boolean;
-  Index: Integer);
-// Переключение отображения ячеек в SG_OligoArr
-var
-  i: integer;
-  N: INteger;
-begin
-  if isColumn and (Index=0) then
-  begin
-    SG_OligoArr.Cells[0,0]:=SG_OligoArr.Cells[0,0]+' ';
-    N:=Length(SG_OligoArr.Cells[0,0]);
-    case N of
-    1: begin // дефолтный размер ячеек
-        for i:=1 to SG_OligoArr.ColCount-1 do
-            SG_OligoArr.ColWidths[i]:=SG_OligoArr.DefaultColWidth;
-       end;
-    2: begin // максимально раскрытые ячейки
-         for i:=1 to SG_OligoArr.ColCount-1 do
-             AutoSizeGridColumn(SG_OligoArr, i);
-       end;
-    3: begin // квадратные ячейки
-        for i:=1 to SG_OligoArr.ColCount-1 do
-            SG_OligoArr.ColWidths[i]:=SG_OligoArr.DefaultRowHeight;
-        SG_OligoArr.Cells[0,0]:='';
-       end;
-    else begin
-      SG_OligoArr.Cells[0,0]:='';
-      end;
-    end;
-  end;
-end;
-
-procedure TMainForm.SG_OligoArrKeyUp(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
-// обработка Ctrl+V
-var
-  i,j: integer;
-begin
-  if (Key=VK_V) and (Shift=[ssCtrl]) then
-  for i:=1 to SG_OligoArr.RowCount-1 do
-  begin
-    for j:=1 to SG_OligoArr.ColCount-1 do
-    begin
-      MyOligoArr[i-1,j-1]:=StringToOlig(SG_OligoArr.Cells[j,i]);
-      SG_OligoArr.Cells[j,i]:=MyOligoArr[i-1,j-1];
-    end;
-  end;
-end;
-
-procedure TMainForm.SG_OligoArrSetEditText(Sender: TObject; ACol, ARow: Integer;
-  const Value: string);
-// Запоминаем начальную ячейку выделения
-begin
-  EditedCell.Col:=ACol;
-  EditedCell.Row:=ARow;
-end;
-
-procedure TMainForm.SG_OligoArrEditingDone(Sender: TObject);
-// изменение содержимого ячеики
-begin
-if (EditedCell.Row<>0) and (EditedCell.Col<>0) then
-  begin
-  MyOligoArr[EditedCell.Row-1,EditedCell.Col-1]:=StringToOlig(SG_OligoArr.Cells[EditedCell.Col,EditedCell.Row]);
-  SG_OligoArr.Cells[EditedCell.Col,EditedCell.Row]:=MyOligoArr[EditedCell.Row-1,EditedCell.Col-1];
-  end;
-end;
-
-procedure TMainForm.B_LoadOligsClick(Sender: TObject);
-var
-  Arr: TOligoArr;
-  ErrorText: String;
-begin
-  OD_File.Filter:='CSV Files|*.csv';
-  OD_File.InitialDir:=ArraysDir;
-  OD_File.FilterIndex:=1;
-  if not OD_File.Execute then
-    Exit;
-  if not LoadOligoArrayFile(OD_File.FileName, Arr, ErrorText) then
-  begin
-    ShowMessage('Не удалось прочитать файл массива:'+LineEnding+
-                OD_File.FileName+LineEnding+ErrorText);
-    Exit;
-  end;
-  MyOligoArr:=Arr;
-  DisplayOligoArrInGrid(MyOligoArr);
-  NumerateGrid(SG_OligoArr);
-end;
-
-procedure TMainForm.B_SaveOligsClick(Sender: TObject);
-{Сохранение массива в файл data\arrays\<папка>\<имя>.csv}
-var
-  Values: array of String;
-  FolderName, FileName, FilePath, ErrorText: String;
-begin
-  // по умолчанию и папка, и файл называются по дате и времени
-  SetLength(Values, 2);
-  Values[0]:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
-  Values[1]:=Values[0];
-
-  // спрашиваем, пока не получим допустимые имена и согласие на перезапись
-  repeat
-    if not InputQuery('Сохранение массива олигов',
-                      ['Папка (внутри data\arrays)', 'Имя файла'], Values) then
-      Exit;
-    FolderName:=Trim(Values[0]);
-    FileName:=Trim(Values[1]);
-    if SameText(ExtractFileExt(FileName), '.csv') then
-      FileName:=ChangeFileExt(FileName, '');
-
-    if not CheckFileNamePart(FolderName, 'Папка', ErrorText) or
-       not CheckFileNamePart(FileName, 'Имя файла', ErrorText) then
-    begin
-      ShowMessage(ErrorText);
-      Continue;
-    end;
-
-    FilePath:=IncludeTrailingPathDelimiter(ArraysDir)+FolderName+PathDelim+
-              FileName+'.csv';
-    if FileExists(FilePath) and
-       (MessageDlg('Файл уже существует:'+LineEnding+FilePath+LineEnding+
-                   'Перезаписать его?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes) then
-      Continue;
-    Break;
-  until false;
-
-  if not ForceDirectories(ExtractFileDir(FilePath)) then
-  begin
-    ShowMessage('Не удалось создать папку:'+LineEnding+ExtractFileDir(FilePath));
-    Exit;
-  end;
-
-  if not SaveOligoArrayFile(FilePath, MyOligoArr, ErrorText) then
-    ShowMessage('Не удалось сохранить массив:'+LineEnding+FilePath+LineEnding+
-                ErrorText);
-end;
-
-procedure TMainForm.B_CreateOligoArrClick(Sender: TObject);
-// Вызывается окно задания массива
-// по заданным параметрам генерится массив (пустой, рандомный или предзаполненный)
-const
-  FILLS: array[0..2] of TOligoFill = (ofEmpty, ofRandom, ofConstant);
-begin
-  OligoArrayForm.ShowModal;
-  if (FillType<Low(FILLS)) or (FillType>High(FILLS)) then
-    Exit; // отмена
-
-  SetLength(SliceTable,0); // очищаем слайстаблицу, если уже ранее создавалась
-  MyOligoArr:=CreateOligoArray(OligoArrRow, OligoArrCol, FILLS[FillType],
-                               RND_Length, ConstSeqStr);
-  DisplayOligoArrInGrid(MyOligoArr);
-  NumerateGrid(SG_OligoArr);
-end;
-
-procedure TMainForm.B_SliceOligoArrClick(Sender: TObject);
-// нарезка массива: файлы матриц слоёв, статистика и слайс-таблица
-var
-  Symbols: TSymbolSet;
-  Layers: TOligoLayers;
-  i: integer;
-  Path, LayerFile: String;
-begin
-  if Length(MyOligoArr)=0 then
-  begin
-    ShowMessage('пустой массив!');
-    Exit;
-  end;
-
-  // Слои удобно складывать в отдельную подпапку data\slices на каждый запуск
-  SDD_Dir.InitialDir:=SlicesDir;
-  if not SDD_Dir.Execute then
-    Exit; // без выбранной папки файлы слоёв записались бы в корень диска
-  Path:=SDD_Dir.FileName;
-
-  // показываем уникальные символы
-  Symbols:=CollectSymbols(MyOligoArr);
-  ShowMessage(SymbolsToString(Symbols));
-
-  Layers:=SliceOligoArray(MyOligoArr);
-  SetLength(SliceTable, Length(Layers));
-  LayerChartForm.LS_CharsInLayers.Clear;
-  for i:=0 to High(Layers) do
-  begin
-    LayerFile:=IncludeTrailingPathDelimiter(Path)+LayerFileName(Layers[i]);
-    SaveMatrixAsFile(Layers[i].Matrix, LayerFile);
-    SliceTable[i]:=Default(TSliceStruc);
-    SliceTable[i].LayerCount:=Layers[i].Number;
-    SliceTable[i].Letter:=Layers[i].Letter;
-    SliceTable[i].NumOfChar:=Layers[i].Count;
-    SliceTable[i].MatrixFile:=LayerFile;
-    LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
-                                          Layers[i].Letter);
-  end;
-  SaveSliceStatistics(Path, SliceTable);
-  LayerChartForm.ShowModal;
-end;
-
-procedure TMainForm.B_SetLasPen2Click(Sender: TObject);
-// Вызов настроек лазерного маркера
-begin
-   B_SetLasPenClick(Self);
-end;
-
-procedure TMainForm.B_SetGeomParamClick(Sender: TObject);
-begin
-  {TODO: Переделать на вкладке Manual окно задания массива и вызывать его отсюда}
-  ShowMessage('Перейдите на вкладку Ручного управления'+#10#13+'и задайте геометрические параметры массива');
-end;
-
-procedure TMainForm.B_CreateArrEzdClick(Sender: TObject);
-// Создаем файлы EZD
-var
-  i: integer;
-  TmpPath, path: String;
-  rez: integer;
-  TmpP: TPoint;
-  pMyArr: Pointer;
-begin
-
- { #TODO: Сделать редактирование параметров лазера! }
-  if Length(SliceTable)<>0 then
-  try
-    path:=ExtractFilePath(ParamStr(0)); // путь к директории с EzCAD
-    TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
-    Tmr_Closer.Enabled:=true;
-    rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
-    ShowRez('lmc1_Initial2',rez); // подключаемся к MarkEzd.dll
-
-    for i:=0 to Length(SliceTable)-1 do
-    begin
-      ReadMatrixFromFile(SliceTable[i].MatrixFile, myMatrix);
-
-      TmpPath:=RemoveFileExt(SliceTable[i].MatrixFile);
-      rez:=lmc1_LoadEzdFile(WideString(TmpPath+'.ezd'));
-      SliceTable[i].EZDFile:=WideString(TmpPath+'.ezd');
-      ShowRez('lmc1_LoadEzdFile',rez);
-      rez:=lmc1_ClearEntLib();
-      ShowRez('lmc1_ClearEntLib',rez);
-
-      // пока что берем значения myStep myGStep myGroup из ручного управления. Переделать!!!
-      myStep:=FSE_Step.Value;
-      myGStep:=FSE_GroupStep.Value;
-      myGroup:=SE_Group.Value;
-      if CB_AutoCenter.Checked then
-        begin
-          TmpP:=AutoCenterBiasMatrix(MyMatrix, myStep, MyGStep, MyGroup);
-          BiasX:=TmpP[0];
-          BiasY:=TmpP[1];
-        end
-      else
-        begin
-          BiasX:=FSE_XBias.Value;
-          BiasY:=FSE_YBias.Value;
-        end;
-
-       // добавляем споты в линейный массив
-      rez:=ConvertMatrixToLinearArray(MyMatrix, ArrOfSpots, myStep, myGroup, myGStep, BiasX, BiasY);
-      ShowRez('ConvertMatrixToLineArray: '+TmpPath+' ', rez);
-
-      if Length(ArrOfSpots)<>0 then
-        begin
-           // добавляем наш массив в файл
-          pMyArr:=@ArrOfSpots[0];
-          rez:=lmc1_AddPointToLib(pMyArr,Length(ArrOfSpots),'Layer'+IntToStr(SliceTable[i].LayerCount),1);
-          ShowRez('lmc1_AddPointToLib',rez);
-
-          // сохраняем файл
-          rez:=lmc1_SaveEntLibToFile(WideString(TmpPath+'.ezd'));
-          ShowRez('lmc1_SaveEntLibToFile',rez);
-        end
-      else
-      begin
-        ShowRez('Пустой массив! Файл не перезаписан!',-1);
-      end;
-    end;
-    TmpPath:=ExtractFileDir(SliceTable[0].MatrixFile);
-    SaveSliceStatistics(TmpPath, SliceTable, 1);
-  finally
-    rez:=lmc1_Close;
-    ShowRez('lmc1_Close', rez);
-  end;
-end;
-
-
 {ВКЛАДКА Protocol}
 
 procedure TMainForm.B_LoadProtocolLayerClick(Sender: TObject);

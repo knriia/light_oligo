@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Spin, StdCtrls,
-  Buttons, ExtCtrls;
+  Buttons, ExtCtrls, OligoArray;
 
 const
   RG_FILL_EMPTY = 0;
@@ -30,22 +30,19 @@ type
     SE_NOligoCol: TSpinEdit;
     SE_NOligoRow: TSpinEdit;
     SE_LenOfRNDSeq: TSpinEdit;
-    procedure BB_CancelArrClick(Sender: TObject);
-    procedure BB_CreateArrClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure RG_FillClick(Sender: TObject);
   private
     Procedure ShowFillElements(aFillType: integer);
   public
-
+    // Показывает окно. True, если нажали OK; тогда в параметрах - заданный массив.
+    function Execute(out ARows, ACols: Integer; out AFill: TOligoFill;
+      out ARandomLength: Integer; out AConstSeq: String): Boolean;
   end;
 
 var
   OligoArrayForm: TOligoArrayForm;
-  RND_Length: integer;
-  ConstSeqStr: String;
-  OligoArrCol, OligoArrRow, FillType: Integer;
 
 implementation
 uses
@@ -88,34 +85,24 @@ end;
 
 procedure TOligoArrayForm.FormShow(Sender: TObject);
 begin
-  RND_Length:=0;
-  ConstSeqStr:='';
   RG_FillClick(Self);
 end;
 
-procedure TOligoArrayForm.BB_CreateArrClick(Sender: TObject);
+function TOligoArrayForm.Execute(out ARows, ACols: Integer;
+  out AFill: TOligoFill; out ARandomLength: Integer;
+  out AConstSeq: String): Boolean;
 begin
-  OligoArrCol:=SE_NOligoCol.Value;
-  OligoArrRow:=SE_NOligoRow.Value;
+  Result:=ShowModal=mrOK;
+  ARows:=SE_NOligoRow.Value;
+  ACols:=SE_NOligoCol.Value;
+  ARandomLength:=SE_LenOfRNDSeq.Value;
+  AConstSeq:=E_ConstSeq.Text;
   case RG_Fill.ItemIndex of
-  0:begin
-        FillType:=0;
-      end;
-  1:begin
-        RND_Length:=SE_LenOfRNDSeq.Value;
-        FillType:=1;
-      end;
-  2:begin
-        ConstSeqStr:='';
-        ConstSeqStr:=E_ConstSeq.Text;
-        FillType:=2;
-      end;
+    1: AFill:=ofRandom;
+    2: AFill:=ofConstant;
+  else
+    AFill:=ofEmpty;
   end;
-end;
-
-procedure TOligoArrayForm.BB_CancelArrClick(Sender: TObject);
-begin
-    FillType:=-1;
 end;
 
 procedure TOligoArrayForm.ShowFillElements(aFillType: integer);
