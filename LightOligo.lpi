@@ -378,6 +378,10 @@
         <Filename Value="src\oligo\OligoPaste.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\oligo\OligoArrayDocument.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

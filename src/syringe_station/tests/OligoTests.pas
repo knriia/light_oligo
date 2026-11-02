@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, MatrixTypes, OligoArray,
-  OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, AppPaths;
+  OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, OligoArrayDocument, AppPaths;
 
 type
   TOligoArrayTests = class(TTestCase)
@@ -55,6 +55,14 @@ type
     procedure MatrixFileRoundTrip;
     procedure MatrixReadFailureKeepsOldMatrix;
     procedure EmptyMatrixIsNotSaved;
+    procedure DocumentStartsEmptyAndUnmodified;
+    procedure NewArrayIsModifiedWithoutFile;
+    procedure NewArrayKeepsOwnCopy;
+    procedure LoadRemembersFileAndClearsModified;
+    procedure FailedLoadKeepsDocument;
+    procedure SetCellMarksModifiedOnlyOnChange;
+    procedure SetCellOutsideArrayIsRejected;
+    procedure SaveRemembersFileAndClearsModified;
   end;
 
   TOligoMatrixTests = class(TTestCase)
@@ -511,6 +519,150 @@ procedure TOligoFileTests.EmptyMatrixIsNotSaved;
 begin
   AssertFalse(SaveMatrixAsFile(nil, FilePath('empty.txt')));
   AssertFalse(FileExists(FilePath('empty.txt')));
+end;
+
+procedure TOligoFileTests.DocumentStartsEmptyAndUnmodified;
+var
+  Doc: TOligoArrayDocument;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(Doc.IsEmpty);
+    AssertFalse(Doc.HasFile);
+    AssertFalse(Doc.Modified);
+    AssertEquals('', Doc.ArrayDir);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.NewArrayIsModifiedWithoutFile;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['A']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
+    Doc.NewArray(Arr(['AT;G']));
+    AssertTrue(Doc.Modified);
+    AssertFalse(Doc.HasFile);
+    AssertEquals('AT;G', ArrToText(Doc.Arr));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.NewArrayKeepsOwnCopy;
+var
+  Doc: TOligoArrayDocument;
+  Source: TOligoArr;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Source := Arr(['AT;G']);
+    Doc.NewArray(Source);
+    Source[0, 0] := 'CC';
+    AssertEquals('AT', Doc.Cell(0, 0));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.LoadRemembersFileAndClearsModified;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ForceDirectories(FilePath('arr1')));
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('arr1' + PathDelim + 'a.csv'),
+      Arr(['AT;G']), ErrorText));
+    Doc.NewArray(Arr(['C']));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('arr1' + PathDelim + 'a.csv'), ErrorText));
+    AssertFalse(Doc.Modified);
+    AssertTrue(Doc.HasFile);
+    AssertEquals(FilePath('arr1' + PathDelim + 'a.csv'), Doc.FileName);
+    AssertEquals(FilePath('arr1'), Doc.ArrayDir);
+    AssertEquals('AT;G', ArrToText(Doc.Arr));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.FailedLoadKeepsDocument;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['C']));
+    AssertFalse(Doc.LoadFromFile(FilePath('missing.csv'), ErrorText));
+    AssertTrue(ErrorText <> '');
+    AssertEquals('C', ArrToText(Doc.Arr));
+    AssertTrue(Doc.Modified);
+    AssertFalse(Doc.HasFile);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.SetCellMarksModifiedOnlyOnChange;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['AT;G']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
+    AssertTrue(Doc.SetCell(0, 0, 'at')); // то же значение после верхнего регистра
+    AssertFalse(Doc.Modified);
+    AssertTrue(Doc.SetCell(0, 1, 'gc'));
+    AssertTrue(Doc.Modified);
+    AssertEquals('GC', Doc.Cell(0, 1));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.SetCellOutsideArrayIsRejected;
+var
+  Doc: TOligoArrayDocument;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertFalse(Doc.SetCell(0, 0, 'A'));
+    Doc.NewArray(Arr(['AT;G', 'C']));
+    AssertFalse(Doc.SetCell(1, 1, 'A')); // во второй строке одна ячейка
+    AssertFalse(Doc.SetCell(-1, 0, 'A'));
+    AssertFalse(Doc.SetCell(2, 0, 'A'));
+    AssertEquals('', Doc.Cell(5, 5));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.SaveRemembersFileAndClearsModified;
+var
+  Doc: TOligoArrayDocument;
+  Loaded: TOligoArr;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT;G']));
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('b.csv'), ErrorText));
+    AssertFalse(Doc.Modified);
+    AssertEquals(FilePath('b.csv'), Doc.FileName);
+    AssertTrue(ErrorText, LoadOligoArrayFile(FilePath('b.csv'), Loaded, ErrorText));
+    AssertEquals('AT;G', ArrToText(Loaded));
+  finally
+    Doc.Free;
+  end;
 end;
 
 { TOligoMatrixTests }
