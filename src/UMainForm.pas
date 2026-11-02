@@ -256,6 +256,10 @@ begin
   Randomize();
   UpdateMinimumWindowWidth();
   UpdateManualControlsWidth();
+
+  // при запуске всегда открываем вкладку последовательностей,
+  // независимо от того, какая вкладка сохранена в дизайнере
+  PageControl1.ActivePage:=TS_Sequences;
 end;
 
 procedure TMainForm.FormResize(Sender: TObject);
