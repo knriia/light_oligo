@@ -19,6 +19,7 @@ const
   SETTINGS_FOLDER = 'settings';      // настройки шприцевой станции
   EZD_FOLDER = 'ezd';                // файлы EzCAD, созданные вручную
   SETTINGS_FILE = 'syringe_pump.ini';
+  LAYERS_FOLDER = 'layers';          // файлы слоёв рядом с файлом массива
 
 // Папка с exe. Пустой AExecutableFileName означает текущую программу.
 function AppDir(const AExecutableFileName: string = ''): string;
@@ -58,6 +59,10 @@ function CheckFileNamePart(const AName, ACaption: string;
 // не добавляется.
 function MakeFilePathInFolder(const AFolder, AName, AExt: string;
   out AFilePath, AErrorText: string): Boolean;
+
+// Папка - полный путь с диском, каждая часть проходит CheckFileNamePart.
+// Самой папки может ещё не быть.
+function CheckFolderPath(const AFolder: string; out AErrorText: string): Boolean;
 
 implementation
 
@@ -271,17 +276,14 @@ begin
   Result := True;
 end;
 
-function MakeFilePathInFolder(const AFolder, AName, AExt: string;
-  out AFilePath, AErrorText: string): Boolean;
+function CheckFolderPath(const AFolder: string; out AErrorText: string): Boolean;
 var
-  Folder, Drive, Name: string;
+  Folder, Drive: string;
   Parts: TStringArray;
   I: Integer;
 begin
   Result := False;
-  AFilePath := '';
   AErrorText := '';
-
   Folder := ExcludeTrailingPathDelimiter(Trim(AFolder));
   if Folder = '' then
   begin
@@ -299,6 +301,19 @@ begin
   for I := 0 to High(Parts) do
     if not CheckFileNamePart(Parts[I], 'Папка', AErrorText) then
       Exit;
+  Result := True;
+end;
+
+function MakeFilePathInFolder(const AFolder, AName, AExt: string;
+  out AFilePath, AErrorText: string): Boolean;
+var
+  Folder, Name: string;
+begin
+  Result := False;
+  AFilePath := '';
+  if not CheckFolderPath(AFolder, AErrorText) then
+    Exit;
+  Folder := ExcludeTrailingPathDelimiter(Trim(AFolder));
 
   Name := Trim(AName);
   if (AExt <> '') and SameText(ExtractFileExt(Name), AExt) then

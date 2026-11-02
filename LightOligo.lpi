@@ -389,6 +389,13 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\common\UFolderForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="FolderForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

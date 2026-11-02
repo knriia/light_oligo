@@ -116,8 +116,4 @@ object SequencesForm: TSequencesForm
     Left = 120
     Top = 40
   end
-  object SDD_Dir: TSelectDirectoryDialog
-    Left = 200
-    Top = 40
-  end
 end
