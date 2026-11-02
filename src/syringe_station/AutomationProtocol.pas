@@ -37,6 +37,8 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    // Добавляет команду; протокол становится её владельцем.
+    procedure Add(ACommand: TAutomationProtocolCommand);
     property Count: Integer read GetCount;
     property Commands[Index: Integer]: TAutomationProtocolCommand
       read GetCommand; default;
@@ -73,6 +75,11 @@ destructor TAutomationProtocol.Destroy;
 begin
   FCommands.Free;
   inherited Destroy;
+end;
+
+procedure TAutomationProtocol.Add(ACommand: TAutomationProtocolCommand);
+begin
+  FCommands.Add(ACommand);
 end;
 
 function TAutomationProtocol.GetCommand(

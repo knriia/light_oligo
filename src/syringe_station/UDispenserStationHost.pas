@@ -12,10 +12,13 @@ uses
   DispenserConnectionCoordinator,
   DispenserOperationCoordinator, DispenserRuntimeState, DispenserTypes,
   DispenserLimits, AutomationEditorView, AutomationProtocol,
-  AutomationProtocolRunner, FormWorkDispatcher;
+  AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat;
 
 type
   TDispenserStationLogEvent = procedure(Sender: TObject; const Msg: string) of object;
+
+  // Состояние шага SyrSt, запущенного из синтеза.
+  TSyringeStepStatus = (sssIdle, sssRunning, sssSucceeded, sssFailed);
 
   { TDispenserStationForm }
 
@@ -88,6 +91,9 @@ type
       of Boolean;
     FSelectedOperationRequests: TDispenserOperationRequestArray;
     FSelectedOperationRequestCount: Integer;
+    FSyringeStepStatus: TSyringeStepStatus;
+    FSyringeStepError: string;
+    FSyringeStepStopRequested: Boolean;
 
     procedure ClearFocusOnMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -122,6 +128,10 @@ type
     procedure OperationFailed(AAddress: Integer; const MessageText: string;
       UpdateAndSaveVolume: Boolean);
     procedure RunAutomationProtocol(Sender: TObject);
+    function CheckCanStartProtocol(out ErrorText: string): Boolean;
+    function StartProtocol(AProtocol: TAutomationProtocol;
+      out ErrorText: string; out Cancelled: Boolean): Boolean;
+    procedure FinishSyringeStep(Failed: Boolean; const MessageText: string);
     procedure AutomationProtocolFinished(const MessageText: string;
       Failed: Boolean);
     procedure ExecuteWorkItem(AWorkItem: TObject);
@@ -141,6 +151,13 @@ type
   public
     procedure AttachLogSink(AHandler: TDispenserStationLogEvent);
     function CanCloseFromHost: Boolean;
+    // Шаг SyrSt из протокола синтеза. Вызывать из главного потока.
+    // Запуск идёт тем же путём, что и протокол на вкладке станции;
+    // результат читается через SyringeStepStatus.
+    function StartSyringeStep(const AStep: TSyringeStep;
+      out ErrorText: string): Boolean;
+    procedure StopSyringeStep;
+    function SyringeStepStatus(out ErrorText: string): TSyringeStepStatus;
   end;
 
 
@@ -796,13 +813,58 @@ end;
 
 procedure TDispenserStationForm.RunAutomationProtocol(Sender: TObject);
 var
+  Protocol: TAutomationProtocol;
+  ErrorText: string;
+  Cancelled: Boolean;
+begin
+  if not CheckCanStartProtocol(ErrorText) then
+  begin
+    ShowOperationWarning(ErrorText);
+    Exit;
+  end;
+
+  if not ParseAutomationProtocol(FAutomationPage.ProtocolText,
+    FConfigurations, Protocol, ErrorText,
+    FAutomationPage.RequestedBlockIndex) then
+  begin
+    ShowOperationWarning('Не удалось запустить протокол: ' + ErrorText);
+    Exit;
+  end;
+
+  if not StartProtocol(Protocol, ErrorText, Cancelled) and not Cancelled then
+    ShowOperationWarning(ErrorText);
+end;
+
+function TDispenserStationForm.CheckCanStartProtocol(
+  out ErrorText: string): Boolean;
+begin
+  Result := False;
+  ErrorText := '';
+  if not FDispenser.IsConnected then
+  begin
+    ErrorText := 'Сначала подключите устройство.';
+    Exit;
+  end;
+  if FAutomationRunner.IsRunning or FProtocolTaskActive then
+  begin
+    ErrorText := 'Протокол уже выполняется.';
+    Exit;
+  end;
+  Result := True;
+end;
+
+// Запускает готовый протокол: проверяет занятость дозаторов, резервирует их,
+// при необходимости спрашивает об инициализации и ставит задачу в очередь.
+// Становится владельцем AProtocol в любом случае.
+function TDispenserStationForm.StartProtocol(AProtocol: TAutomationProtocol;
+  out ErrorText: string; out Cancelled: Boolean): Boolean;
+var
   Task: TFormWorkItem;
   Protocol: TAutomationProtocol;
   Targets: TDispenserConfigList;
   InitializationTargets: TDispenserConfigList;
   InitializationTargetDescriptions: TStringList;
   ConfirmationText: string;
-  ErrorText: string;
   Address: Integer;
   I: Integer;
   J: Integer;
@@ -811,30 +873,14 @@ var
   SeenAddresses: array[MIN_DISPENSER_VALUE..MAX_DISPENSER_VALUE]
     of Boolean;
 begin
-  if not FDispenser.IsConnected then
-  begin
-    ShowOperationWarning('Сначала подключите устройство.');
-    Exit;
-  end;
-  if FAutomationRunner.IsRunning or FProtocolTaskActive then
-  begin
-    ShowOperationWarning('Протокол уже выполняется.');
-    Exit;
-  end;
-
-  Protocol := nil;
+  Result := False;
+  ErrorText := '';
+  Cancelled := False;
+  Protocol := AProtocol;
   Targets := TDispenserConfigList.Create;
   InitializationTargets := TDispenserConfigList.Create;
   InitializationTargetDescriptions := TStringList.Create;
   try
-    if not ParseAutomationProtocol(FAutomationPage.ProtocolText,
-      FConfigurations, Protocol, ErrorText,
-      FAutomationPage.RequestedBlockIndex) then
-    begin
-      ShowOperationWarning('Не удалось запустить протокол: ' + ErrorText);
-      Exit;
-    end;
-
     for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
       SeenAddresses[Address] := False;
     for I := 0 to Protocol.Count - 1 do
@@ -845,15 +891,15 @@ begin
         State := FRuntimeStates.Items[Address];
         if State = nil then
         begin
-          ShowOperationWarning(Target.Config.Name +
-            ': не удалось получить состояние дозатора.');
+          ErrorText := Target.Config.Name +
+            ': не удалось получить состояние дозатора.';
           Exit;
         end;
         if State.OperationActive or State.CommandPending or
           State.ProtocolReserved then
         begin
-          ShowOperationWarning(Target.Config.Name +
-            ': дозатор сейчас выполняет другую команду.');
+          ErrorText := Target.Config.Name +
+            ': дозатор сейчас выполняет другую команду.';
           Exit;
         end;
         if not SeenAddresses[Address] then
@@ -878,7 +924,11 @@ begin
         'будут инициализированы. Продолжить?';
       if MessageDlg(ConfirmationText, mtConfirmation, [mbYes, mbNo], 0) <>
         mrYes then
+      begin
+        Cancelled := True;
+        ErrorText := 'Инициализация дозаторов отменена пользователем.';
         Exit;
+      end;
     end;
 
     if InitializationTargets.Count > 0 then
@@ -910,12 +960,76 @@ begin
     FProtocolTaskActive := True;
     QueueWorkItem(Task);
     UpdateUI;
+    Result := True;
   finally
     InitializationTargetDescriptions.Free;
     InitializationTargets.Free;
     Targets.Free;
     Protocol.Free;
   end;
+end;
+
+function TDispenserStationForm.StartSyringeStep(const AStep: TSyringeStep;
+  out ErrorText: string): Boolean;
+var
+  Protocol: TAutomationProtocol;
+  Command: TAutomationProtocolCommand;
+  Cancelled: Boolean;
+begin
+  Result := False;
+  if not CheckCanStartProtocol(ErrorText) then
+    Exit;
+  if not BuildSyringeCommand(AStep, FConfigurations, Command, ErrorText) then
+    Exit;
+  Command.Number := 1;
+  Command.BlockName := 'Синтез';
+  Command.BlockIndex := 0;
+  Protocol := TAutomationProtocol.Create;
+  Protocol.Add(Command);
+  if not StartProtocol(Protocol, ErrorText, Cancelled) then
+    Exit;
+  FSyringeStepStatus := sssRunning;
+  FSyringeStepError := '';
+  FSyringeStepStopRequested := False;
+  Result := True;
+end;
+
+procedure TDispenserStationForm.StopSyringeStep;
+var
+  Task: TFormWorkItem;
+begin
+  if FSyringeStepStatus <> sssRunning then
+    Exit;
+  FSyringeStepStopRequested := True;
+  // Если исполнитель ещё не запущен (идёт инициализация), протокол
+  // не будет поставлен в очередь: см. QueuePendingAutomationProtocol.
+  if FAutomationRunner.IsRunning then
+  begin
+    Task := TFormWorkItem.Create(btkStopProtocol);
+    FProtocolTaskActive := True;
+    QueueWorkItem(Task);
+    UpdateUI;
+  end;
+end;
+
+function TDispenserStationForm.SyringeStepStatus(
+  out ErrorText: string): TSyringeStepStatus;
+begin
+  Result := FSyringeStepStatus;
+  ErrorText := FSyringeStepError;
+end;
+
+procedure TDispenserStationForm.FinishSyringeStep(Failed: Boolean;
+  const MessageText: string);
+begin
+  if FSyringeStepStatus <> sssRunning then
+    Exit;
+  if Failed then
+    FSyringeStepStatus := sssFailed
+  else
+    FSyringeStepStatus := sssSucceeded;
+  FSyringeStepError := MessageText;
+  FSyringeStepStopRequested := False;
 end;
 
 procedure TDispenserStationForm.AutomationProtocolFinished(const MessageText: string;
@@ -933,6 +1047,7 @@ end;
 procedure TDispenserStationForm.ApplyAutomationProtocolFinished(const MessageText: string;
   Failed: Boolean);
 begin
+  FinishSyringeStep(Failed, MessageText);
   if Failed then
     ShowOperationWarning(MessageText)
   else
@@ -1044,6 +1159,7 @@ begin
         FPendingAutomationProtocol := nil;
         FProtocolTaskActive := False;
         ReleaseProtocolReservations;
+        FinishSyringeStep(True, 'Не удалось инициализировать дозаторы.');
       end;
     end;
     UpdateUI;
@@ -1061,6 +1177,17 @@ begin
   begin
     FProtocolTaskActive := False;
     ReleaseProtocolReservations;
+    Exit;
+  end;
+
+  if FSyringeStepStopRequested and (FSyringeStepStatus = sssRunning) then
+  begin
+    // Синтез остановлен во время инициализации: протокол не запускаем.
+    FreeAndNil(FPendingAutomationProtocol);
+    FProtocolTaskActive := False;
+    ReleaseProtocolReservations;
+    FinishSyringeStep(True, 'Шаг дозаторов остановлен пользователем.');
+    Log('Шаг дозаторов остановлен до запуска.');
     Exit;
   end;
 
@@ -1321,6 +1448,7 @@ begin
               end;
             FProtocolTaskActive := False;
             ReleaseProtocolReservations;
+            FinishSyringeStep(True, 'Не удалось подготовить дозаторы.');
             if (Task.Failures <> nil) and (Task.Failures.Count > 0) then
               ShowOperationWarning('Не удалось запустить инициализацию дозаторов протокола:' +
                 LineEnding + Task.Failures.Text)
@@ -1389,8 +1517,17 @@ begin
                 FTable.SetProtocolReserved(J, False);
                 FProtocolReserved[J] := False;
               end;
+            FinishSyringeStep(True, 'Не удалось запустить протокол: ' +
+              Task.ErrorText);
             ShowOperationWarning('Не удалось запустить протокол: ' +
               Task.ErrorText);
+          end
+          else if FSyringeStepStopRequested and
+            (FSyringeStepStatus = sssRunning) then
+          begin
+            // Остановку запросили, пока протокол ставился в очередь.
+            FProtocolTaskActive := True;
+            QueueWorkItem(TFormWorkItem.Create(btkStopProtocol));
           end;
         end;
       btkStopProtocol:

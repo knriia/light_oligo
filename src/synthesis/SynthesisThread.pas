@@ -6,13 +6,22 @@ interface
 
 uses
   Classes, SysUtils, Windows, AppState, WinProcessUtils, SynthesisProtocol,
-  ProtocolFormat;
+  ProtocolFormat, UDispenserStationHost;
 
 type
 
   { TSynthesisThread }
 
   TSynthesisThread = class(TThread)
+  private
+    // Шаг SyrSt: данные для вызовов станции через Synchronize
+    FSyringeStep: TSyringeStep;
+    FSyringeStatus: TSyringeStepStatus;
+    FSyringeError: String;
+    procedure StartSyringeStep;
+    procedure CheckSyringeStep;
+    procedure StopSyringeStep;
+    procedure RunSyringeStep;
   protected
     procedure OutLog;
     procedure TrigTimer;
@@ -39,6 +48,59 @@ end;
 procedure TSynthesisThread.TrigTimer;
 begin
   MainForm.Tmr_EzCADer.Enabled:=true;
+end;
+
+procedure TSynthesisThread.StartSyringeStep;
+begin
+  FSyringeError:='';
+  if MainForm.DispenserStation=nil then
+  begin
+    FSyringeStatus:=sssFailed;
+    FSyringeError:='шприцевая станция не создана.';
+  end
+  else if MainForm.DispenserStation.StartSyringeStep(FSyringeStep, FSyringeError) then
+    FSyringeStatus:=sssRunning
+  else
+    FSyringeStatus:=sssFailed;
+end;
+
+procedure TSynthesisThread.CheckSyringeStep;
+begin
+  FSyringeStatus:=MainForm.DispenserStation.SyringeStepStatus(FSyringeError);
+end;
+
+procedure TSynthesisThread.StopSyringeStep;
+begin
+  MainForm.DispenserStation.StopSyringeStep;
+end;
+
+procedure TSynthesisThread.RunSyringeStep;
+// Запускает шаг на станции и ждёт его завершения.
+// При ошибке синтез останавливается; при остановке синтеза останавливает дозаторы.
+var
+  StopSent: Boolean;
+begin
+  Synchronize(@StartSyringeStep);
+  StopSent:=false;
+  while FSyringeStatus=sssRunning do
+  begin
+    if not IsStarted and not StopSent then
+    begin
+      Synchronize(@StopSyringeStep);
+      StopSent:=true;
+    end;
+    Sleep(100);
+    Synchronize(@CheckSyringeStep);
+  end;
+
+  if FSyringeStatus=sssSucceeded then
+    OutS:='SyrSt done'
+  else
+  begin
+    OutS:='SyrSt ERROR: '+FSyringeError;
+    IsStarted:=false;
+  end;
+  Synchronize(@OutLog);
 end;
 
 procedure TSynthesisThread.Execute;
@@ -81,9 +143,10 @@ begin
                   Synchronize(@OutLog);
                 end;
         dSyrSt: begin
-                  Sleep(100); {TODO: заменить на запуск команды шприцевой станции}
-                  OutS:=SyringeStepSummary(MySynthProt[a,i].Syringe);
+                  FSyringeStep:=MySynthProt[a,i].Syringe;
+                  OutS:=SyringeStepSummary(FSyringeStep);
                   Synchronize(@OutLog);
+                  RunSyringeStep;
                 end;
         dLaser: begin
                    OutS:='Laser='+IntToStr(MySynthProt[a,i].IntParam);
