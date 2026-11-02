@@ -30,7 +30,6 @@ type
     OD_File: TOpenDialog;
     Panel4: TPanel;
     SD_File: TSaveDialog;
-    SDD_Dir: TSelectDirectoryDialog;
     SG_OligoArr: TStringGrid;
     procedure B_CreateArrEzdClick(Sender: TObject);
     procedure B_CreateOligoArrClick(Sender: TObject);
@@ -79,7 +78,7 @@ implementation
 uses
   LCLType, Clipbrd, MatrixTypes, AppState, AppPaths, CommonUtils, EzCadApi,
   Lmc1Results, OligoArray, OligoSlicing, OligoMatrix,
-  OligoSlices, OligoPaste, UOligoArrayForm, UArraySaveForm, ULayerChartForm;
+  OligoSlices, OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
 
 {$R *.lfm}
 
@@ -273,23 +272,52 @@ begin
 end;
 
 procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);
-// нарезка массива: файлы матриц слоёв, статистика и слайс-таблица
+// нарезка массива: файлы матриц слоёв (по умолчанию <папка массива>\layers),
+// статистика Slices.txt рядом с файлом массива и слайс-таблица
 var
   Layers: TOligoLayers;
+  Existing: TStringArray;
   i: integer;
-  Path, LayerFile: String;
+  Path, LayerFile, ErrorText: String;
 begin
   if FDocument.IsEmpty then
   begin
     ShowMessage('пустой массив!');
     Exit;
   end;
+  if not FDocument.HasFile or FDocument.Modified then
+  begin
+    ShowMessage('Массив не сохранён. Сначала сохраните его:'+LineEnding+
+                'слои записываются рядом с файлом массива.');
+    Exit;
+  end;
 
-  // Слои удобно складывать в отдельную подпапку data\slices на каждый запуск
-  SDD_Dir.InitialDir:=SlicesDir;
-  if not SDD_Dir.Execute then
-    Exit; // без выбранной папки файлы слоёв записались бы в корень диска
-  Path:=SDD_Dir.FileName;
+  // папка слоёв; если в ней уже есть слои - только с согласия их удалить
+  Path:=IncludeTrailingPathDelimiter(FDocument.ArrayDir)+LAYERS_FOLDER;
+  repeat
+    if not TFolderForm.Execute('Слайсинг', 'Папка для файлов слоёв:', Path) then
+      Exit;
+    Existing:=ListLayerFiles(Path);
+    if Length(Existing)>0 then
+    begin
+      if MessageDlg('В папке уже есть файлы слоёв ('+IntToStr(Length(Existing))+
+           '):'+LineEnding+Path+LineEnding+
+           'Удалить их и записать новые слои?', mtConfirmation,
+           [mbYes, mbNo], 0)<>mrYes then
+        Continue;
+      if not DeleteLayerFiles(Path, ErrorText) then
+      begin
+        ShowMessage(ErrorText);
+        Exit;
+      end;
+    end;
+    Break;
+  until false;
+  if not ForceDirectories(Path) then
+  begin
+    ShowMessage('Не удалось создать папку:'+LineEnding+Path);
+    Exit;
+  end;
 
   // показываем уникальные символы
   ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
@@ -309,7 +337,8 @@ begin
     LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
                                           Layers[i].Letter);
   end;
-  SaveSliceStatistics(Path, SliceTable);
+  // пути к слоям в статистике - относительно папки массива
+  SaveSliceStatistics(FDocument.ArrayDir, SliceTable);
   LayerChartForm.ShowModal;
 end;
 

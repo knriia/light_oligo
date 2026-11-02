@@ -26,6 +26,12 @@ procedure SaveSliceStatistics(aDir: String;
                               const aTable: array of TSliceStruc; aFileType: word=0);
 Function LoadSliceFile(var aSliceTable: TArrSliceStruc; aSliceFile: String): integer;
 
+// Файлы слоёв в папке (Layer*.txt и Layer*.ezd), полные пути по алфавиту.
+// Для несуществующей папки - пустой список.
+function ListLayerFiles(const aDir: String): TStringArray;
+// Удаляет файлы слоёв из папки. False и текст ошибки, если какой-то не удалился.
+function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
+
 implementation
 
 uses
@@ -121,6 +127,57 @@ begin
       CloseFile(F);
     end;
   end;
+end;
+
+function ListLayerFiles(const aDir: String): TStringArray;
+const
+  MASKS: array[0..1] of String = ('Layer*.txt', 'Layer*.ezd');
+var
+  Names: TStringList;
+  Search: TSearchRec;
+  Dir: String;
+  i: integer;
+begin
+  Result:=nil;
+  Dir:=IncludeTrailingPathDelimiter(aDir);
+  Names:=TStringList.Create;
+  try
+    for i:=Low(MASKS) to High(MASKS) do
+      if FindFirst(Dir+MASKS[i], faAnyFile and not faDirectory, Search)=0 then
+      try
+        repeat
+          if (Search.Attr and faDirectory)=0 then
+            Names.Add(Dir+Search.Name);
+        until FindNext(Search)<>0;
+      finally
+        FindClose(Search);
+      end;
+    Names.Sort;
+    SetLength(Result, Names.Count);
+    for i:=0 to Names.Count-1 do
+      Result[i]:=Names[i];
+  finally
+    Names.Free;
+  end;
+end;
+
+function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
+var
+  Files: TStringArray;
+  i: integer;
+begin
+  aErrorText:='';
+  Files:=ListLayerFiles(aDir);
+  for i:=0 to High(Files) do
+    if not DeleteFile(Files[i]) then
+    begin
+      if aErrorText<>'' then
+        aErrorText:=aErrorText+LineEnding;
+      aErrorText:=aErrorText+Files[i];
+    end;
+  Result:=aErrorText='';
+  if not Result then
+    aErrorText:='Не удалось удалить файлы:'+LineEnding+aErrorText;
 end;
 
 end.

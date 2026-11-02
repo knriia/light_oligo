@@ -8,7 +8,8 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, MatrixTypes, OligoArray,
-  OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, OligoArrayDocument, AppPaths;
+  OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, OligoArrayDocument,
+  OligoSlices, AppPaths;
 
 type
   TOligoArrayTests = class(TTestCase)
@@ -63,6 +64,10 @@ type
     procedure SetCellMarksModifiedOnlyOnChange;
     procedure SetCellOutsideArrayIsRejected;
     procedure SaveRemembersFileAndClearsModified;
+    procedure ListLayerFilesFindsOnlyLayers;
+    procedure ListLayerFilesOfMissingFolderIsEmpty;
+    procedure DeleteLayerFilesKeepsOtherFiles;
+    procedure SliceStatisticsInArrayFolderPointsIntoLayers;
   end;
 
   TOligoMatrixTests = class(TTestCase)
@@ -99,6 +104,7 @@ type
     procedure FilePathAcceptsDriveRootAndTrailingSlash;
     procedure FilePathRejectsRelativeOrEmptyFolder;
     procedure FilePathRejectsBadFolderPartOrName;
+    procedure FolderPathChecksDriveAndParts;
   end;
 
 implementation
@@ -670,6 +676,63 @@ begin
   end;
 end;
 
+procedure TOligoFileTests.ListLayerFilesFindsOnlyLayers;
+var
+  Files: TStringArray;
+  ErrorText: string;
+begin
+  AssertTrue(ForceDirectories(FilePath('layers')));
+  AssertTrue(SaveMatrixAsFile(Matrix(['1']), FilePath('layers\Layer2_A1.txt')));
+  AssertTrue(SaveMatrixAsFile(Matrix(['1']), FilePath('layers\Layer1_T1.txt')));
+  AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('layers\Layer1_T1.ezd'), nil, ErrorText));
+  AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('layers\notes.txt'), nil, ErrorText));
+  Files := ListLayerFiles(FilePath('layers'));
+  AssertEquals(3, Length(Files));
+  AssertEquals(FilePath('layers\Layer1_T1.ezd'), Files[0]);
+  AssertEquals(FilePath('layers\Layer1_T1.txt'), Files[1]);
+  AssertEquals(FilePath('layers\Layer2_A1.txt'), Files[2]);
+end;
+
+procedure TOligoFileTests.ListLayerFilesOfMissingFolderIsEmpty;
+begin
+  AssertEquals(0, Length(ListLayerFiles(FilePath('missing'))));
+end;
+
+procedure TOligoFileTests.DeleteLayerFilesKeepsOtherFiles;
+var
+  ErrorText: string;
+begin
+  AssertTrue(SaveMatrixAsFile(Matrix(['1']), FilePath('Layer1_T1.txt')));
+  AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('array.csv'), Arr(['A']), ErrorText));
+  AssertTrue(ErrorText, DeleteLayerFiles(FDirectory, ErrorText));
+  AssertFalse(FileExists(FilePath('Layer1_T1.txt')));
+  AssertTrue(FileExists(FilePath('array.csv')));
+  AssertEquals(0, Length(ListLayerFiles(FDirectory)));
+end;
+
+procedure TOligoFileTests.SliceStatisticsInArrayFolderPointsIntoLayers;
+var
+  Table: TArrSliceStruc;
+  Lines: TStringList;
+begin
+  AssertTrue(ForceDirectories(FilePath('layers')));
+  SetLength(Table, 1);
+  Table[0] := Default(TSliceStruc);
+  Table[0].LayerCount := 1;
+  Table[0].Letter := 'T';
+  Table[0].NumOfChar := 2;
+  Table[0].MatrixFile := FilePath('layers\Layer1_T2.txt');
+  SaveSliceStatistics(FDirectory, Table);
+  Lines := TStringList.Create;
+  try
+    Lines.LoadFromFile(FilePath('Slices.txt'));
+    AssertEquals(2, Lines.Count);
+    AssertEquals('1'#9'T'#9'2'#9'layers\Layer1_T2.txt', Lines[1]);
+  finally
+    Lines.Free;
+  end;
+end;
+
 { TOligoMatrixTests }
 
 procedure TOligoMatrixTests.AutoCenterOfEmptyMatrixIsZero;
@@ -882,6 +945,18 @@ begin
   AssertFalse(MakeFilePathInFolder('D:\data', 'a:b', '.csv', FilePath, ErrorText));
   AssertTrue(ErrorText <> '');
   AssertFalse(MakeFilePathInFolder('D:\data', '', '.csv', FilePath, ErrorText));
+end;
+
+procedure TFileNameCheckTests.FolderPathChecksDriveAndParts;
+var
+  ErrorText: string;
+begin
+  AssertTrue(ErrorText, CheckFolderPath('D:\data\arrays\a1\layers', ErrorText));
+  AssertTrue(ErrorText, CheckFolderPath('D:\', ErrorText));
+  AssertFalse(CheckFolderPath('layers', ErrorText));
+  AssertFalse(CheckFolderPath('', ErrorText));
+  AssertFalse(CheckFolderPath('D:\data\la|yers', ErrorText));
+  AssertTrue(ErrorText <> '');
 end;
 
 initialization
