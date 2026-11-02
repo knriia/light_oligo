@@ -52,6 +52,13 @@ procedure MigrateLegacyData(const AExecutableFileName: string = '');
 function CheckFileNamePart(const AName, ACaption: string;
   out ErrorText: string): Boolean;
 
+// Полный путь к файлу AName с расширением AExt (например '.csv') в папке
+// AFolder. Папка - полный путь (с диском), каждая её часть и имя файла
+// проверяются как CheckFileNamePart. Если AExt уже есть в имени, второй раз
+// не добавляется.
+function MakeFilePathInFolder(const AFolder, AName, AExt: string;
+  out AFilePath, AErrorText: string): Boolean;
+
 implementation
 
 function AppDir(const AExecutableFileName: string): string;
@@ -261,6 +268,45 @@ begin
       ': имя не может заканчиваться точкой или пробелом.';
     Exit;
   end;
+  Result := True;
+end;
+
+function MakeFilePathInFolder(const AFolder, AName, AExt: string;
+  out AFilePath, AErrorText: string): Boolean;
+var
+  Folder, Drive, Name: string;
+  Parts: TStringArray;
+  I: Integer;
+begin
+  Result := False;
+  AFilePath := '';
+  AErrorText := '';
+
+  Folder := ExcludeTrailingPathDelimiter(Trim(AFolder));
+  if Folder = '' then
+  begin
+    AErrorText := 'Папка: не задана.';
+    Exit;
+  end;
+  Drive := ExtractFileDrive(Folder);
+  if Drive = '' then
+  begin
+    AErrorText := 'Папка: укажите полный путь, например D:\data.';
+    Exit;
+  end;
+  Parts := Copy(Folder, Length(Drive) + 1, MaxInt).Split(['\', '/'],
+    TStringSplitOptions.ExcludeEmpty);
+  for I := 0 to High(Parts) do
+    if not CheckFileNamePart(Parts[I], 'Папка', AErrorText) then
+      Exit;
+
+  Name := Trim(AName);
+  if (AExt <> '') and SameText(ExtractFileExt(Name), AExt) then
+    Name := ChangeFileExt(Name, '');
+  if not CheckFileNamePart(Name, 'Имя файла', AErrorText) then
+    Exit;
+
+  AFilePath := IncludeTrailingPathDelimiter(Folder) + Name + AExt;
   Result := True;
 end;
 

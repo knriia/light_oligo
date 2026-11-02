@@ -382,6 +382,13 @@
         <Filename Value="src\oligo\OligoArrayDocument.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\oligo\UArraySaveForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ArraySaveForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
