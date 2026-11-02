@@ -31,6 +31,9 @@ Function LoadSliceFile(var aSliceTable: TArrSliceStruc; aSliceFile: String): int
 function ListLayerFiles(const aDir: String): TStringArray;
 // Удаляет файлы слоёв из папки. False и текст ошибки, если какой-то не удалился.
 function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
+// То же только для EZD-файлов слоёв (Layer*.ezd); файлы матриц не трогаются.
+function ListLayerEzdFiles(const aDir: String): TStringArray;
+function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolean;
 
 implementation
 
@@ -129,9 +132,8 @@ begin
   end;
 end;
 
-function ListLayerFiles(const aDir: String): TStringArray;
-const
-  MASKS: array[0..1] of String = ('Layer*.txt', 'Layer*.ezd');
+function ListFilesByMasks(const aDir: String;
+  const aMasks: array of String): TStringArray;
 var
   Names: TStringList;
   Search: TSearchRec;
@@ -142,8 +144,8 @@ begin
   Dir:=IncludeTrailingPathDelimiter(aDir);
   Names:=TStringList.Create;
   try
-    for i:=Low(MASKS) to High(MASKS) do
-      if FindFirst(Dir+MASKS[i], faAnyFile and not faDirectory, Search)=0 then
+    for i:=Low(aMasks) to High(aMasks) do
+      if FindFirst(Dir+aMasks[i], faAnyFile and not faDirectory, Search)=0 then
       try
         repeat
           if (Search.Attr and faDirectory)=0 then
@@ -161,13 +163,11 @@ begin
   end;
 end;
 
-function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
+function DeleteFileList(const Files: TStringArray; out aErrorText: String): Boolean;
 var
-  Files: TStringArray;
   i: integer;
 begin
   aErrorText:='';
-  Files:=ListLayerFiles(aDir);
   for i:=0 to High(Files) do
     if not DeleteFile(Files[i]) then
     begin
@@ -178,6 +178,26 @@ begin
   Result:=aErrorText='';
   if not Result then
     aErrorText:='Не удалось удалить файлы:'+LineEnding+aErrorText;
+end;
+
+function ListLayerFiles(const aDir: String): TStringArray;
+begin
+  Result:=ListFilesByMasks(aDir, ['Layer*.txt', 'Layer*.ezd']);
+end;
+
+function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
+begin
+  Result:=DeleteFileList(ListLayerFiles(aDir), aErrorText);
+end;
+
+function ListLayerEzdFiles(const aDir: String): TStringArray;
+begin
+  Result:=ListFilesByMasks(aDir, ['Layer*.ezd']);
+end;
+
+function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolean;
+begin
+  Result:=DeleteFileList(ListLayerEzdFiles(aDir), aErrorText);
 end;
 
 end.

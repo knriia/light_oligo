@@ -10,7 +10,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  Grids, IniFiles, MarkGeometry, OligoArrayDocument;
+  Grids, IniFiles, MarkGeometry, OligoArrayDocument, OligoSlices;
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
@@ -49,6 +49,10 @@ type
     FEditedCol: Integer;
     FEditedRow: Integer;
     FDocument: TOligoArrayDocument;
+    // результат последнего слайсинга этого массива и папка массива, рядом с
+    // которой лежат Slices.txt и Slices.lays
+    FSliceTable: TArrSliceStruc;
+    FSliceDir: string;
     FOnLog: TSequencesLogEvent;
     FOnGetMarkGeometry: TGetMarkGeometryEvent;
     FOnShowLaserSettings: TNotifyEvent;
@@ -56,6 +60,7 @@ type
     procedure Log(const AMsg: string);
     procedure LogDll(const AFunName: string; ARez: Integer);
     procedure DisplayOligoArray;
+    procedure ForgetSlicing;
     procedure StoreCell(ACol, ARow: Integer);
   public
     constructor Create(TheOwner: TComponent); override;
@@ -78,7 +83,7 @@ implementation
 uses
   LCLType, Clipbrd, MatrixTypes, AppState, AppPaths, CommonUtils, EzCadApi,
   Lmc1Results, OligoArray, OligoSlicing, OligoMatrix,
-  OligoSlices, OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
+  OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
 
 {$R *.lfm}
 
@@ -117,6 +122,13 @@ end;
 procedure TSequencesForm.LogDll(const AFunName: string; ARez: Integer);
 begin
   Log(Lmc1ResultText(AFunName, ARez));
+end;
+
+procedure TSequencesForm.ForgetSlicing;
+// слои относились к прежнему массиву
+begin
+  FSliceTable:=nil;
+  FSliceDir:='';
 end;
 
 procedure TSequencesForm.DisplayOligoArray;
@@ -213,6 +225,7 @@ begin
                 OD_File.FileName+LineEnding+ErrorText);
     Exit;
   end;
+  ForgetSlicing;
   DisplayOligoArray;
 end;
 
@@ -267,6 +280,7 @@ begin
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
   SetLength(SliceTable,0); // слайс-таблица старого массива больше не нужна
+  ForgetSlicing;
   FDocument.NewArray(CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq));
   DisplayOligoArray;
 end;
@@ -323,22 +337,24 @@ begin
   ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
 
   Layers:=SliceOligoArray(FDocument.Arr);
-  SetLength(SliceTable, Length(Layers));
+  SetLength(FSliceTable, Length(Layers));
   LayerChartForm.LS_CharsInLayers.Clear;
   for i:=0 to High(Layers) do
   begin
     LayerFile:=IncludeTrailingPathDelimiter(Path)+LayerFileName(Layers[i]);
     SaveMatrixAsFile(Layers[i].Matrix, LayerFile);
-    SliceTable[i]:=Default(TSliceStruc);
-    SliceTable[i].LayerCount:=Layers[i].Number;
-    SliceTable[i].Letter:=Layers[i].Letter;
-    SliceTable[i].NumOfChar:=Layers[i].Count;
-    SliceTable[i].MatrixFile:=LayerFile;
+    FSliceTable[i]:=Default(TSliceStruc);
+    FSliceTable[i].LayerCount:=Layers[i].Number;
+    FSliceTable[i].Letter:=Layers[i].Letter;
+    FSliceTable[i].NumOfChar:=Layers[i].Count;
+    FSliceTable[i].MatrixFile:=LayerFile;
     LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
                                           Layers[i].Letter);
   end;
   // пути к слоям в статистике - относительно папки массива
-  SaveSliceStatistics(FDocument.ArrayDir, SliceTable);
+  FSliceDir:=FDocument.ArrayDir;
+  SaveSliceStatistics(FSliceDir, FSliceTable);
+  SliceTable:=Copy(FSliceTable); // общая таблица слоёв (её использует синтез)
   LayerChartForm.ShowModal;
 end;
 
@@ -357,22 +373,54 @@ begin
 end;
 
 procedure TSequencesForm.B_CreateArrEzdClick(Sender: TObject);
-// EZD-файл для каждого слоя: рядом с файлом матрицы слоя, с тем же именем
+// EZD-файл для каждого слоя (по умолчанию в папке ezd рядом с массивом, имя
+// как у файла матрицы слоя) и таблица Slices.lays для синтеза рядом с массивом
 var
   i, rez: integer;
-  EzdFile: String;
+  Path, EzdFile, ErrorText: String;
+  Existing: TStringArray;
   Geometry: TMarkGeometry;
   LayerMatrix: TMatrix;
   Spots: TArrOfTPoint;
   Bias: TPoint;
   Unread: TStringList;
 begin
-  if Length(SliceTable)=0 then
+  if Length(FSliceTable)=0 then
+  begin
+    ShowMessage('Сначала выполните слайсинг массива.');
     Exit;
+  end;
   if not Assigned(FOnGetMarkGeometry) then
     Exit;
   // шаг, группы и смещение пока берутся с вкладки ручного управления
   Geometry:=FOnGetMarkGeometry();
+
+  // папка EZD; если в ней уже есть EZD слоёв - только с согласия их удалить
+  Path:=IncludeTrailingPathDelimiter(FSliceDir)+EZD_FOLDER;
+  repeat
+    if not TFolderForm.Execute('EZD-файлы слоёв', 'Папка для EZD-файлов слоёв:',
+         Path) then
+      Exit;
+    Existing:=ListLayerEzdFiles(Path);
+    if Length(Existing)>0 then
+    begin
+      if MessageDlg('В папке уже есть EZD-файлы слоёв ('+IntToStr(Length(Existing))+
+           '):'+LineEnding+Path+LineEnding+
+           'Удалить их и создать новые?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes then
+        Continue;
+      if not DeleteLayerEzdFiles(Path, ErrorText) then
+      begin
+        ShowMessage(ErrorText);
+        Exit;
+      end;
+    end;
+    Break;
+  until false;
+  if not ForceDirectories(Path) then
+  begin
+    ShowMessage('Не удалось создать папку:'+LineEnding+Path);
+    Exit;
+  end;
 
   if Assigned(FOnBeforeDllInit) then
     FOnBeforeDllInit(Self);
@@ -381,15 +429,16 @@ begin
     rez:=lmc1_Initial2(WideString(AppDir), true, Application.MainFormHandle);
     LogDll('lmc1_Initial2',rez); // подключаемся к MarkEzd.dll
 
-    for i:=0 to High(SliceTable) do
+    for i:=0 to High(FSliceTable) do
     begin
-      EzdFile:=RemoveFileExt(SliceTable[i].MatrixFile)+'.ezd';
-      SliceTable[i].EZDFile:=EzdFile;
+      EzdFile:=IncludeTrailingPathDelimiter(Path)+
+        ChangeFileExt(ExtractFileName(FSliceTable[i].MatrixFile), '.ezd');
+      FSliceTable[i].EZDFile:=EzdFile;
       LayerMatrix:=nil;
-      if not ReadMatrixFromFile(SliceTable[i].MatrixFile, LayerMatrix) then
+      if not ReadMatrixFromFile(FSliceTable[i].MatrixFile, LayerMatrix) then
       begin
-        Log('Не удалось прочитать матрицу слоя: '+SliceTable[i].MatrixFile);
-        Unread.Add(ExtractFileName(SliceTable[i].MatrixFile));
+        Log('Не удалось прочитать матрицу слоя: '+FSliceTable[i].MatrixFile);
+        Unread.Add(ExtractFileName(FSliceTable[i].MatrixFile));
         Continue;
       end;
 
@@ -411,18 +460,20 @@ begin
       end;
 
       rez:=lmc1_AddPointToLib(@Spots[0], Length(Spots),
-        'Layer'+IntToStr(SliceTable[i].LayerCount), 1);
+        'Layer'+IntToStr(FSliceTable[i].LayerCount), 1);
       LogDll('lmc1_AddPointToLib',rez);
       rez:=lmc1_SaveEntLibToFile(WideString(EzdFile));
       LogDll('lmc1_SaveEntLibToFile',rez);
     end;
-    SaveSliceStatistics(ExtractFileDir(SliceTable[0].MatrixFile), SliceTable, 1);
+    // пути к EZD в Slices.lays - относительно папки массива
+    SaveSliceStatistics(FSliceDir, FSliceTable, 1);
+    SliceTable:=Copy(FSliceTable); // синтез можно запускать сразу
   finally
     rez:=lmc1_Close;
     LogDll('lmc1_Close', rez);
     if Unread.Count>0 then
       ShowMessage('Не удалось прочитать матрицы слоёв ('+IntToStr(Unread.Count)+
-        ' из '+IntToStr(Length(SliceTable))+'), EZD-файлы для них не созданы:'+
+        ' из '+IntToStr(Length(FSliceTable))+'), EZD-файлы для них не созданы:'+
         LineEnding+Unread.Text);
     Unread.Free;
   end;

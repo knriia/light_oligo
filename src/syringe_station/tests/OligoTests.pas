@@ -68,6 +68,8 @@ type
     procedure ListLayerFilesOfMissingFolderIsEmpty;
     procedure DeleteLayerFilesKeepsOtherFiles;
     procedure SliceStatisticsInArrayFolderPointsIntoLayers;
+    procedure DeleteLayerEzdFilesKeepsMatrices;
+    procedure LaysInArrayFolderPointsIntoEzdAndLoads;
   end;
 
   TOligoMatrixTests = class(TTestCase)
@@ -731,6 +733,49 @@ begin
   finally
     Lines.Free;
   end;
+end;
+
+procedure TOligoFileTests.DeleteLayerEzdFilesKeepsMatrices;
+var
+  ErrorText: string;
+begin
+  // EZD и матрицы в одной папке: удаляются только EZD
+  AssertTrue(SaveMatrixAsFile(Matrix(['1']), FilePath('Layer1_T1.txt')));
+  AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('Layer1_T1.ezd'), nil, ErrorText));
+  AssertEquals(1, Length(ListLayerEzdFiles(FDirectory)));
+  AssertTrue(ErrorText, DeleteLayerEzdFiles(FDirectory, ErrorText));
+  AssertFalse(FileExists(FilePath('Layer1_T1.ezd')));
+  AssertTrue(FileExists(FilePath('Layer1_T1.txt')));
+end;
+
+procedure TOligoFileTests.LaysInArrayFolderPointsIntoEzdAndLoads;
+var
+  Table, Loaded: TArrSliceStruc;
+  Lines: TStringList;
+begin
+  SetLength(Table, 2);
+  Table[0] := Default(TSliceStruc);
+  Table[0].LayerCount := 1;
+  Table[0].Letter := 'T';
+  Table[0].EZDFile := FilePath('ezd\Layer1_T2.ezd');
+  Table[1] := Default(TSliceStruc);
+  Table[1].LayerCount := 2;
+  Table[1].Letter := 'A';
+  Table[1].EZDFile := FilePath('ezd\Layer2_A1.ezd');
+  SaveSliceStatistics(FDirectory, Table, 1);
+
+  Lines := TStringList.Create;
+  try
+    Lines.LoadFromFile(FilePath('Slices.lays'));
+    AssertEquals('1'#9'T'#9'ezd\Layer1_T2.ezd', Lines[1]);
+  finally
+    Lines.Free;
+  end;
+
+  AssertEquals(0, LoadSliceFile(Loaded, FilePath('Slices.lays')));
+  AssertEquals(2, Length(Loaded));
+  AssertEquals(FilePath('ezd\Layer1_T2.ezd'), Loaded[0].EZDFile);
+  AssertEquals('A', Loaded[1].Letter);
 end;
 
 { TOligoMatrixTests }
