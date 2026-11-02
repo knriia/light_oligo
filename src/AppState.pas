@@ -7,7 +7,7 @@ unit AppState;
 interface
 
 uses
-  Classes, SysUtils, EzCadApi, OligoArray, OligoSlices, SynthesisProtocol;
+  Classes, SysUtils, EzCadApi, OligoSlices, SynthesisProtocol;
 
 Function AlphabetNum(anLetter: String): Integer;
 
@@ -18,7 +18,6 @@ var
   myGroup: Integer;                  // группировка точек
   BiasX, BiasY: Double;              // смещение массива по X и Y (для центрирования)
   MyMatrix: TMatrix;                 // матрица точек
-  MyOligoArr: TOligoArr;             // массив олигов
   ArrOfSpots: TArrOfTPoint;          // линейный массив маркируемых точек
   SliceTable: TArrSliceStruc;        // массив записей о слайсах
   MyLasPen: TLasPen2;                // Запись с параметрами маркера

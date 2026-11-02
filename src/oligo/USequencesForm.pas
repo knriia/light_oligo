@@ -10,7 +10,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  Grids, IniFiles, MarkGeometry;
+  Grids, IniFiles, MarkGeometry, OligoArrayDocument;
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
@@ -49,6 +49,7 @@ type
   private
     FEditedCol: Integer;
     FEditedRow: Integer;
+    FDocument: TOligoArrayDocument;
     FOnLog: TSequencesLogEvent;
     FOnGetMarkGeometry: TGetMarkGeometryEvent;
     FOnShowLaserSettings: TNotifyEvent;
@@ -58,6 +59,8 @@ type
     procedure DisplayOligoArray;
     procedure StoreCell(ACol, ARow: Integer);
   public
+    constructor Create(TheOwner: TComponent); override;
+    destructor Destroy; override;
     // Надписи кнопок из файла интерфейса (раздел [Oligo]).
     procedure ApplyCaptions(AIni: TCustomIniFile);
     property OnLog: TSequencesLogEvent read FOnLog write FOnLog;
@@ -75,12 +78,24 @@ implementation
 
 uses
   LCLType, Clipbrd, MatrixTypes, AppState, AppPaths, CommonUtils, EzCadApi,
-  Lmc1Results, OligoArray, OligoArrayCsv, OligoSlicing, OligoMatrix,
+  Lmc1Results, OligoArray, OligoSlicing, OligoMatrix,
   OligoSlices, OligoPaste, UOligoArrayForm, ULayerChartForm;
 
 {$R *.lfm}
 
 { TSequencesForm }
+
+constructor TSequencesForm.Create(TheOwner: TComponent);
+begin
+  FDocument:=TOligoArrayDocument.Create;
+  inherited Create(TheOwner);
+end;
+
+destructor TSequencesForm.Destroy;
+begin
+  inherited Destroy;
+  FDocument.Free;
+end;
 
 procedure TSequencesForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
@@ -111,27 +126,20 @@ var
   i,j: Integer;
 begin
   SG_OligoArr.Clear;
-  SG_OligoArr.RowCount:=Length(MyOligoArr)+1;
-  if Length(MyOligoArr)>0 then
-    SG_OligoArr.ColCount:=Length(MyOligoArr[0])+1;
-  for i:=0 to High(MyOligoArr) do
-    for j:=0 to High(MyOligoArr[i]) do
-      SG_OligoArr.Cells[j+1, i+1]:=MyOligoArr[i][j];
+  SG_OligoArr.RowCount:=Length(FDocument.Arr)+1;
+  if not FDocument.IsEmpty then
+    SG_OligoArr.ColCount:=Length(FDocument.Arr[0])+1;
+  for i:=0 to High(FDocument.Arr) do
+    for j:=0 to High(FDocument.Arr[i]) do
+      SG_OligoArr.Cells[j+1, i+1]:=FDocument.Arr[i][j];
   NumerateGrid(SG_OligoArr);
 end;
 
 procedure TSequencesForm.StoreCell(ACol, ARow: Integer);
 // ячейку таблицы в массив; ячейки вне массива не трогаем
-var
-  Row, Col: Integer;
 begin
-  Row:=ARow-1;
-  Col:=ACol-1;
-  if (Row<0) or (Row>High(MyOligoArr)) or
-     (Col<0) or (Col>High(MyOligoArr[Row])) then
-    Exit;
-  MyOligoArr[Row,Col]:=StringToOlig(SG_OligoArr.Cells[ACol,ARow]);
-  SG_OligoArr.Cells[ACol,ARow]:=MyOligoArr[Row,Col];
+  if FDocument.SetCell(ARow-1, ACol-1, SG_OligoArr.Cells[ACol,ARow]) then
+    SG_OligoArr.Cells[ACol,ARow]:=FDocument.Cell(ARow-1, ACol-1);
 end;
 
 procedure TSequencesForm.SG_OligoArrHeaderClick(Sender: TObject;
@@ -193,7 +201,6 @@ end;
 
 procedure TSequencesForm.B_LoadOligsClick(Sender: TObject);
 var
-  Arr: TOligoArr;
   ErrorText: String;
 begin
   OD_File.Filter:='CSV Files|*.csv';
@@ -201,13 +208,12 @@ begin
   OD_File.FilterIndex:=1;
   if not OD_File.Execute then
     Exit;
-  if not LoadOligoArrayFile(OD_File.FileName, Arr, ErrorText) then
+  if not FDocument.LoadFromFile(OD_File.FileName, ErrorText) then
   begin
     ShowMessage('Не удалось прочитать файл массива:'+LineEnding+
                 OD_File.FileName+LineEnding+ErrorText);
     Exit;
   end;
-  MyOligoArr:=Arr;
   DisplayOligoArray;
 end;
 
@@ -217,10 +223,19 @@ var
   Values: array of String;
   FolderName, FileName, FilePath, ErrorText: String;
 begin
-  // по умолчанию и папка, и файл называются по дате и времени
+  // открытый из файла массив предлагаем сохранить туда же,
+  // новый - в папку и файл с датой и временем
   SetLength(Values, 2);
-  Values[0]:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
-  Values[1]:=Values[0];
+  if FDocument.HasFile then
+  begin
+    Values[0]:=ExtractFileName(FDocument.ArrayDir);
+    Values[1]:=ChangeFileExt(ExtractFileName(FDocument.FileName), '');
+  end
+  else
+  begin
+    Values[0]:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
+    Values[1]:=Values[0];
+  end;
 
   // спрашиваем, пока не получим допустимые имена и согласие на перезапись
   repeat
@@ -254,7 +269,7 @@ begin
     Exit;
   end;
 
-  if not SaveOligoArrayFile(FilePath, MyOligoArr, ErrorText) then
+  if not FDocument.SaveToFile(FilePath, ErrorText) then
     ShowMessage('Не удалось сохранить массив:'+LineEnding+FilePath+LineEnding+
                 ErrorText);
 end;
@@ -269,7 +284,7 @@ begin
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
   SetLength(SliceTable,0); // слайс-таблица старого массива больше не нужна
-  MyOligoArr:=CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq);
+  FDocument.NewArray(CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq));
   DisplayOligoArray;
 end;
 
@@ -280,7 +295,7 @@ var
   i: integer;
   Path, LayerFile: String;
 begin
-  if Length(MyOligoArr)=0 then
+  if FDocument.IsEmpty then
   begin
     ShowMessage('пустой массив!');
     Exit;
@@ -293,9 +308,9 @@ begin
   Path:=SDD_Dir.FileName;
 
   // показываем уникальные символы
-  ShowMessage(SymbolsToString(CollectSymbols(MyOligoArr)));
+  ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
 
-  Layers:=SliceOligoArray(MyOligoArr);
+  Layers:=SliceOligoArray(FDocument.Arr);
   SetLength(SliceTable, Length(Layers));
   LayerChartForm.LS_CharsInLayers.Clear;
   for i:=0 to High(Layers) do
