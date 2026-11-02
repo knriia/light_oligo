@@ -1,54 +1,140 @@
 unit OligoArray;
-// Массив олигов: типы, генерация, чтение из CSV, построение слоя матрицы
+// Массив олигов: типы, создание, набор букв, построение слоя матрицы
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, EzCadApi;
+  Classes, SysUtils, MatrixTypes;
 
 type
   TOlig = String;
-
-type
   TSymbolSet = array of Char;
+  TOligoArr = array of array of TOlig; // [строка][столбец]
 
-type
-  TOligoArr = array of array of TOlig;
+  // способ заполнения нового массива
+  TOligoFill = (ofEmpty, ofRandom, ofConstant);
 
 Function GenerateOligSeq(aLength: Integer): TOlig;
+Function StringToOlig(aStr: String): TOlig;
+
+// Новый массив aRows x aCols: пустой, случайные олиги длины aRandomLength
+// или везде одна последовательность aConstSeq.
+function CreateOligoArray(aRows, aCols: Integer; aFill: TOligoFill;
+  aRandomLength: Integer; const aConstSeq: String): TOligoArr;
+function CopyOligoArray(const aArr: TOligoArr): TOligoArr;
+
+Procedure FindUniqueSymbols(anOlig: TOlig;
+                            var aSymbolSet: TSymbolSet);
+// Все буквы массива в порядке первого появления.
+function CollectSymbols(const aArr: TOligoArr): TSymbolSet;
+// Буквы набора одной строкой, например 'ATGC'.
+function SymbolsToString(const aSymbols: TSymbolSet): String;
+
 Procedure CreateMatrixLayerFromOligoArr(var aOligoArr: TOligoArr;
                                         var aSymbolSet: TSymbolSet;
                                         var aMatrixLayer: TMatrix;
                                         var maxLetter: TOlig;
                                         var maxCount: Integer);
-Function StringToOlig(aStr: String): TOlig;
-Procedure FindUniqueSymbols(anOlig: TOlig;
-                            var aSymbolSet: TSymbolSet);
-Function ReadOligsFromCSVFile(var anOligoArr: TOligoArr; aFileName: String; aSeparator: String=';'): Boolean;
 
 implementation
 
 function GenerateOligSeq(aLength: Integer): TOlig;
-// генерируем олиг с рандомной последовательностью ATGC длиной aLength
+// олиг со случайной последовательностью ATGC длиной aLength
+const
+  Letters: array[0..3] of Char = ('A', 'T', 'G', 'C');
 var
   i: integer;
-  Olig: TOlig;
-  tmpCh: Byte;
 begin
-  SetLength(Olig,aLength);
-  for i:=1 to High(Olig) do
+  Result:='';
+  if aLength<=0 then
+    Exit;
+  SetLength(Result, aLength);
+  for i:=1 to aLength do
+    Result[i]:=Letters[Random(4)];
+end;
+
+function StringToOlig(aStr: String): TOlig;
+// Строку переводим в UpperCase
+begin
+  Result:=UpperCase(aStr);
+end;
+
+function CreateOligoArray(aRows, aCols: Integer; aFill: TOligoFill;
+  aRandomLength: Integer; const aConstSeq: String): TOligoArr;
+var
+  i,j: integer;
+begin
+  Result:=nil;
+  if (aRows<=0) or (aCols<=0) then
+    Exit;
+  SetLength(Result, aRows);
+  for i:=0 to aRows-1 do
   begin
-    tmpCh:=Random(4);
-    case tmpCh of
-    0: Olig[i]:='A';
-    1: Olig[i]:='T';
-    2: Olig[i]:='G';
-    3: Olig[i]:='C';
+    SetLength(Result[i], aCols);
+    for j:=0 to aCols-1 do
+      case aFill of
+        ofEmpty: Result[i,j]:='';
+        ofRandom: Result[i,j]:=GenerateOligSeq(aRandomLength);
+        ofConstant: Result[i,j]:=StringToOlig(aConstSeq);
+      end;
+  end;
+end;
+
+function CopyOligoArray(const aArr: TOligoArr): TOligoArr;
+var
+  i,j: integer;
+begin
+  SetLength(Result, Length(aArr));
+  for i:=0 to High(aArr) do
+  begin
+    SetLength(Result[i], Length(aArr[i]));
+    for j:=0 to High(aArr[i]) do
+      Result[i,j]:=aArr[i,j];
+  end;
+end;
+
+procedure FindUniqueSymbols(anOlig: TOlig; var aSymbolSet: TSymbolSet);
+// Находятся символы в anOlig и добавляются в массив aSymbolSet.
+var
+  i, j: Integer;
+  found: Boolean;
+begin
+  for i := 1 to Length(anOlig) do
+  begin
+    found := False;
+    for j := Low(aSymbolSet) to High(aSymbolSet) do
+      if aSymbolSet[j] = anOlig[i] then
+      begin
+        found := True;
+        Break;
+      end;
+    if not found then
+    begin
+      SetLength(aSymbolSet, Length(aSymbolSet) + 1);
+      aSymbolSet[High(aSymbolSet)] := anOlig[i];
     end;
   end;
-  Result:=Olig;
+end;
+
+function CollectSymbols(const aArr: TOligoArr): TSymbolSet;
+var
+  i,j: integer;
+begin
+  Result:=nil;
+  for i:=0 to High(aArr) do
+    for j:=0 to High(aArr[i]) do
+      FindUniqueSymbols(aArr[i,j], Result);
+end;
+
+function SymbolsToString(const aSymbols: TSymbolSet): String;
+var
+  i: integer;
+begin
+  SetLength(Result, Length(aSymbols));
+  for i:=0 to High(aSymbols) do
+    Result[i+1]:=aSymbols[i];
 end;
 
 procedure CreateMatrixLayerFromOligoArr(
@@ -58,165 +144,66 @@ procedure CreateMatrixLayerFromOligoArr(
   var maxLetter: TOlig; // буква создаваемого слоя матрицы
   var maxCount: Integer // количество букв в слое
   );
-  //Создание матрицы слоя. В слое ищется наиболее частая буква. Из нее создается матрица. В массиве она удаляется
+// Создание матрицы слоя. Среди последних букв олигов ищется самая частая
+// (при равенстве - та, что раньше в aSymbolSet). Из неё создаётся матрица,
+// а в массиве эта последняя буква удаляется.
 var
   i, j, k: Integer;
-  tmpS: String;
   lastCh: Char;
   letterCount: array of Integer;
-  lastLetters: array of TOlig;
   maxIndex: Integer;
-begin
-  // Инициализация массива для подсчета вхождений каждой буквы
-  SetLength(letterCount, Length(aSymbolSet));
-  SetLength(lastLetters, Length(aSymbolSet));
 
-   // Обнуляем счетчики
+  function LastChar(const aOlig: TOlig): Char;
+  begin
+    if Length(aOlig)<>0 then
+      Result:=aOlig[Length(aOlig)]
+    else
+      Result:=' ';
+  end;
+
+begin
+  SetLength(letterCount, Length(aSymbolSet));
   for k := Low(letterCount) to High(letterCount) do
     letterCount[k] := 0;
 
-  // Подсчет последних букв и их вхождений
-  for i:=0 to Length(aOligoArr)-1 do
-  begin
-    for j:=0 to Length(aOligoArr[i])-1 do
+  // подсчёт последних букв
+  for i:=0 to High(aOligoArr) do
+    for j:=0 to High(aOligoArr[i]) do
     begin
-      tmpS:=aOligoArr[i,j]; // скопировал олиг для анализа
-      if Length(tmpS)<>0 then
-      lastCh:=tmpS[Length(tmpS)] //скопировал последнюю букву
-      else lastCh:=' ';
-
-      for k:=0 to Length(aSymbolSet)-1 do
-      begin
+      lastCh:=LastChar(aOligoArr[i,j]);
+      for k:=0 to High(aSymbolSet) do
         if lastCh=aSymbolSet[k] then
-        begin
-          lastLetters[k]:=lastCh;
           Inc(letterCount[k]);
-        end;
-      end;
     end;
-  end;
 
-  // Находим букву с максимальным количеством вхождений
+  // буква с максимальным количеством вхождений
   maxCount:= 0;
   maxIndex:= -1;
-  for k:=0 to Length(letterCount)-1 do
-  begin
+  for k:=0 to High(letterCount) do
     if letterCount[k] > maxCount then
     begin
       maxCount:= letterCount[k];
       maxIndex:= k;
     end;
-  end;
-  // Если найдена буква с максимальным количеством вхождений
-  if maxIndex <> -1 then
+  if maxIndex = -1 then
+    Exit;
+
+  maxLetter:= aSymbolSet[maxIndex];
+
+  // матрица слоя того же размера, что и массив
+  SetLength(aMatrixLayer, Length(aOligoArr));
+  for i:=0 to High(aOligoArr) do
   begin
-    maxLetter:= lastLetters[maxIndex];
-
-
-    // Создание матрицы
-    SetLength(aMatrixLayer, Length(aOligoArr)); // Размер матрицы равен размеру aOligoArr
-    for i:=0 to Length(aOligoArr)-1 do
-    begin
-      SetLength(aMatrixlayer[i],Length(aOligoArr[i]));
-      for j := 0 to Length(aOligoArr[i])-1 do
+    SetLength(aMatrixlayer[i],Length(aOligoArr[i]));
+    for j := 0 to High(aOligoArr[i]) do
+      if LastChar(aOligoArr[i,j]) = maxLetter then
       begin
-        tmpS:=aOligoArr[i,j]; // скопировал олиг для анализа
-        if Length(tmpS)<>0 then
-        lastCh:=tmpS[Length(tmpS)] //скопировал последнюю букву
-        else lastCh:=' ';
-        if lastCh = maxLetter then
-          begin
-            aMatrixLayer[i][j]:=1;
-            if Length(aOligoArr[i,j]) > 0 then
-            Delete(aOligoArr[i][j],Length(aOligoArr[i][j]),1); // сразу удаляем эту последнюю букву из олига
-          end
-        else
-          aMatrixLayer[i][j]:=0;
-      end;
-    end;
+        aMatrixLayer[i][j]:=1;
+        Delete(aOligoArr[i][j],Length(aOligoArr[i][j]),1);
+      end
+      else
+        aMatrixLayer[i][j]:=0;
   end;
-end;
-
-function StringToOlig(aStr: String): TOlig;
-// Строку переводим в UpperCase
-begin
-  Result:=UpperCase(aStr);
-end;
-
-procedure FindUniqueSymbols(anOlig: TOlig; var aSymbolSet: TSymbolSet);
-// Находятся символы в anOlig и добавляются в массив aSymbolSet.
-var
-  i, j: Integer;
-  found: Boolean;
-  begin
-    for i := 1 to Length(anOlig) do
-    begin
-      found := False;
-      // Проверяем, есть ли символ уже в массиве
-      for j := Low(aSymbolSet) to High(aSymbolSet) do
-      begin
-        if aSymbolSet[j] = anOlig[i] then
-        begin
-          found := True;
-          Break;
-        end;
-      end;
-
-      // Если символ не найден, добавляем его в массив
-      if not found then
-      begin
-        // Увеличиваем размер массива
-        SetLength(aSymbolSet, Length(aSymbolSet) + 1);
-        aSymbolSet[High(aSymbolSet)] := anOlig[i];
-      end;
-    end;
-  end;
-
-function ReadOligsFromCSVFile(var anOligoArr: TOligoArr; aFileName: String;
-  aSeparator: String=';'): Boolean;
-//Чтение массива олигов из CSV файла
-var
-  tmpArr: TOligoArr;
-  S: String;
-  Parts: TStringArray;
-  i,j: integer;
-  F: TextFile;
-begin
-    try
-      Result:=false;
-      Setlength(tmpArr,0);
-      AssignFile(F, aFileName);
-      Reset(F);
-      while not EOF(F) do
-      begin
-        ReadLN(F,S);
-        Parts:=S.Split(aSeparator);
-        if Length(Parts)<>0 then
-        begin
-          SetLength(tmpArr,Length(tmpArr)+1);
-          i:=Length(tmpArr)-1;
-          SetLength(tmpArr[i], Length(Parts));
-          for j:=0 to Length(Parts)-1 do
-          begin
-            tmpArr[i,j]:=StringToOlig(Parts[j]);
-          end;
-        end;
-      end;
-      SetLength(anOligoArr,Length(tmpArr));
-      begin
-        for i:=0 to High(tmpArr) do
-        begin
-          SetLength(anOligoArr[i], Length(tmpArr[i]));
-          for j:=0 to High(tmpArr[i]) do
-          begin
-            anOligoArr[i,j]:=tmpArr[i,j];
-          end;
-        end;
-      end;
-      Result:=true;
-    finally
-      CloseFile(F);
-    end;
 end;
 
 end.

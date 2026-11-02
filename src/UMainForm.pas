@@ -10,7 +10,7 @@ uses
   StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
   AppState, CommonUtils, WinProcessUtils, OligoMatrix, OligoArray,
-  OligoSlices, SynthesisProtocol, ProtocolFormat, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
+  OligoSlices, OligoArrayCsv, OligoSlicing, SynthesisProtocol, ProtocolFormat, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm;
 
 
 type
@@ -1054,58 +1054,28 @@ end;
 
 procedure TMainForm.B_LoadOligsClick(Sender: TObject);
 var
-  F: TextFile;
- begin
+  Arr: TOligoArr;
+  ErrorText: String;
+begin
   OD_File.Filter:='CSV Files|*.csv';
   OD_File.InitialDir:=ArraysDir;
   OD_File.FilterIndex:=1;
-  if OD_File.Execute then
+  if not OD_File.Execute then
+    Exit;
+  if not LoadOligoArrayFile(OD_File.FileName, Arr, ErrorText) then
   begin
-    if ReadOligsFromCSVFile(MyOligoArr, OD_File.FileName)
-    then
-      begin
-        DisplayOligoArrInGrid(MyOligoArr);
-        NumerateGrid(SG_OligoArr);
-     end;
-  end;
- end;
-
-function CheckFileNamePart(const AName, ACaption: String; out ErrorText: String): Boolean;
-// имя папки или файла без пути: не пустое и без запрещённых символов Windows
-const
-  BadChars = ['\', '/', ':', '*', '?', '"', '<', '>', '|'];
-var
-  i: integer;
-begin
-  Result:=false;
-  ErrorText:='';
-  if Trim(AName)='' then
-  begin
-    ErrorText:=ACaption+': имя не задано.';
+    ShowMessage('Не удалось прочитать файл массива:'+LineEnding+
+                OD_File.FileName+LineEnding+ErrorText);
     Exit;
   end;
-  for i:=1 to Length(AName) do
-    if AName[i] in BadChars then
-    begin
-      ErrorText:=ACaption+': недопустимый символ "'+AName[i]+'".'+#13#10+
-                 'Нельзя использовать \ / : * ? " < > |';
-      Exit;
-    end;
-  if (AName[Length(AName)]='.') or (AName[Length(AName)]=' ') then
-  begin
-    ErrorText:=ACaption+': имя не может заканчиваться точкой или пробелом.';
-    Exit;
-  end;
-  Result:=true;
+  MyOligoArr:=Arr;
+  DisplayOligoArrInGrid(MyOligoArr);
+  NumerateGrid(SG_OligoArr);
 end;
 
 procedure TMainForm.B_SaveOligsClick(Sender: TObject);
 {Сохранение массива в файл data\arrays\<папка>\<имя>.csv}
 var
-  F: TextFile;
-  S: String;
-  i,j: integer;
-  Sep: String;
   Values: array of String;
   FolderName, FileName, FilePath, ErrorText: String;
 begin
@@ -1134,7 +1104,7 @@ begin
     FilePath:=IncludeTrailingPathDelimiter(ArraysDir)+FolderName+PathDelim+
               FileName+'.csv';
     if FileExists(FilePath) and
-       (MessageDlg('Файл уже существует:'+#13#10+FilePath+#13#10+
+       (MessageDlg('Файл уже существует:'+LineEnding+FilePath+LineEnding+
                    'Перезаписать его?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes) then
       Continue;
     Break;
@@ -1142,130 +1112,73 @@ begin
 
   if not ForceDirectories(ExtractFileDir(FilePath)) then
   begin
-    ShowMessage('Не удалось создать папку:'+#13#10+ExtractFileDir(FilePath));
+    ShowMessage('Не удалось создать папку:'+LineEnding+ExtractFileDir(FilePath));
     Exit;
   end;
 
-  AssignFile(F,FilePath);
-  Rewrite(F);
-  try
-    for i:=0 to Length(MyOligoArr)-1 do
-    begin
-      S:='';
-      for j:=0 to Length(MyOligoArr[i])-1 do
-      begin
-        // В последней строке ';' быть не должно
-        if (j<Length(MyOligoArr[i])-1) then Sep:=';' else Sep:='';
-        S:=S+MyOligoArr[i,j]+Sep;
-      end;
-      WriteLN(F,S);
-    end;
-  finally
-    CloseFile(F);
-  end;
+  if not SaveOligoArrayFile(FilePath, MyOligoArr, ErrorText) then
+    ShowMessage('Не удалось сохранить массив:'+LineEnding+FilePath+LineEnding+
+                ErrorText);
 end;
 
 procedure TMainForm.B_CreateOligoArrClick(Sender: TObject);
 // Вызывается окно задания массива
 // по заданным параметрам генерится массив (пустой, рандомный или предзаполненный)
-var
-  i,j: integer;
+const
+  FILLS: array[0..2] of TOligoFill = (ofEmpty, ofRandom, ofConstant);
 begin
   OligoArrayForm.ShowModal;
+  if (FillType<Low(FILLS)) or (FillType>High(FILLS)) then
+    Exit; // отмена
 
-   if FillType<>-1 then
-    begin
-      SetLength(SliceTable,0); // очищаем слайстаблицу, если уже ранее создавалась
-      SetLength(MyOligoArr, OligoArrRow);
-      for i:=0 to Length(MyOligoArr)-1 do
-      begin
-        SetLength(MyOligoArr[i], OligoArrCol);
-        for j:=0 to Length(MyOligoArr[i])-1 do
-        begin
-          case FillType of
-          0: begin // ничего не делаем
-               MyOligoArr[i,j]:='';
-            end;
-          1: begin  // рандомный массив
-               MyOligoArr[i,j]:=GenerateOligSeq(RND_Length);
-            end;
-          2: begin  // предзаполненный одинаковой последовательностью
-              MyOligoArr[i,j]:=StringToOlig(ConstSeqStr);
-            end;
-          end;
-        end;
-
-      end;
-      DisplayOligoArrInGrid(MyOligoArr);
-      NumerateGrid(SG_OligoArr);
-    end;
+  SetLength(SliceTable,0); // очищаем слайстаблицу, если уже ранее создавалась
+  MyOligoArr:=CreateOligoArray(OligoArrRow, OligoArrCol, FILLS[FillType],
+                               RND_Length, ConstSeqStr);
+  DisplayOligoArrInGrid(MyOligoArr);
+  NumerateGrid(SG_OligoArr);
 end;
 
 procedure TMainForm.B_SliceOligoArrClick(Sender: TObject);
-// нарезка массива. Если массив не пустой, то выполняем его слайсинг, формируем файлы слоев и создаем слайс-таблицу
+// нарезка массива: файлы матриц слоёв, статистика и слайс-таблица
 var
-  TmpOligoArr: TOligoArr;
-  TmpMatrixLayer: TMatrix;
-  i,j: integer;
-  mySymbolSet: TSymbolSet;
-  TmpS: String;
-  MaxLetter: TOlig;
-  MaxCount: integer;
-  Path: String;
-
+  Symbols: TSymbolSet;
+  Layers: TOligoLayers;
+  i: integer;
+  Path, LayerFile: String;
 begin
-  if Length(MyOligoArr)<>0 then
+  if Length(MyOligoArr)=0 then
   begin
-    // Слои удобно складывать в отдельную подпапку data\slices на каждый запуск
-    SDD_Dir.InitialDir:=SlicesDir;
-    if not SDD_Dir.Execute then
-      Exit; // без выбранной папки файлы слоёв записались бы в корень диска
-    Path:=SDD_Dir.FileName;
-
-    SetLength(mySymbolSet,0);
-
-    // копируем массив во временный, с которым будем работать
-    SetLength(TmpOligoArr, Length(MyOligoArr));
-    for i:=0 to Length(MyOligoArr)-1 do
-    begin
-      SetLength(TmpOligoArr[i], Length(MyOligoArr[i]));
-      for j:=0 to Length(MyOligoArr[i])-1 do
-      begin
-        TmpOligoArr[i,j]:=MyOligoArr[i,j];
-        FindUniqueSymbols(TmpOligoArr[i,j],mySymbolSet);
-      end;
-    end;
-
-    // показываем уникальные символы
-    for i:=0 to Length(mySymbolSet)-1 do
-      TmpS:=TmpS+mySymbolSet[i];
-    showMessage(TmpS);
-
-    // Слайсинг
-    i:=0;
-    SetLength(SliceTable,0);
-    LayerChartForm.LS_CharsInLayers.Clear;
-    repeat
-      SetLength(TmpMatrixLayer,0);
-      CreateMatrixLayerFromOligoArr(TmpOligoArr, mySymbolSet, TmpMatrixLayer,
-          MaxLetter, MaxCount);
-      if MaxCount<>0 then
-      begin
-        SaveMatrixAsFile(TmpMatrixLayer,Path+'\Layer'+IntToStr(i+1)+'_'+MaxLetter+IntToStr(MaxCount)+'.txt');   //+1
-        SetLength(SliceTable,Length(SliceTable)+1);
-        SliceTable[i].LayerCount:=i+1;
-        SliceTable[i].Letter:=MaxLetter;                                                                        //+1
-        SliceTable[i].NumOfChar:=MaxCount;
-        SliceTable[i].MatrixFile:=Path+'\Layer'+IntToStr(i+1)+'_'+MaxLetter+IntToStr(MaxCount)+'.txt';          //+1
-        LayerChartForm.LS_CharsInLayers.AddXY(SliceTable[i].LayerCount, SliceTable[i].NumOfChar, SliceTable[i].Letter);
-        Inc(i);
-      end;
-    until (MaxCount=0) or (i>1000);
-    SaveSliceStatistics(Path, SliceTable);
-    LayerChartForm.ShowModal;
-  end
-  else
     ShowMessage('пустой массив!');
+    Exit;
+  end;
+
+  // Слои удобно складывать в отдельную подпапку data\slices на каждый запуск
+  SDD_Dir.InitialDir:=SlicesDir;
+  if not SDD_Dir.Execute then
+    Exit; // без выбранной папки файлы слоёв записались бы в корень диска
+  Path:=SDD_Dir.FileName;
+
+  // показываем уникальные символы
+  Symbols:=CollectSymbols(MyOligoArr);
+  ShowMessage(SymbolsToString(Symbols));
+
+  Layers:=SliceOligoArray(MyOligoArr);
+  SetLength(SliceTable, Length(Layers));
+  LayerChartForm.LS_CharsInLayers.Clear;
+  for i:=0 to High(Layers) do
+  begin
+    LayerFile:=IncludeTrailingPathDelimiter(Path)+LayerFileName(Layers[i]);
+    SaveMatrixAsFile(Layers[i].Matrix, LayerFile);
+    SliceTable[i]:=Default(TSliceStruc);
+    SliceTable[i].LayerCount:=Layers[i].Number;
+    SliceTable[i].Letter:=Layers[i].Letter;
+    SliceTable[i].NumOfChar:=Layers[i].Count;
+    SliceTable[i].MatrixFile:=LayerFile;
+    LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
+                                          Layers[i].Letter);
+  end;
+  SaveSliceStatistics(Path, SliceTable);
+  LayerChartForm.ShowModal;
 end;
 
 procedure TMainForm.B_SetLasPen2Click(Sender: TObject);

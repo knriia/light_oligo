@@ -47,6 +47,11 @@ function ResolvePath(const ABaseDir, AFileName: string): string;
 // настройки станции из профиля пользователя и файлы из папки protocols у exe.
 procedure MigrateLegacyData(const AExecutableFileName: string = '');
 
+// Имя папки или файла без пути: не пустое, без символов \ / : * ? " < > |
+// и не заканчивается точкой или пробелом. ACaption - начало сообщения об ошибке.
+function CheckFileNamePart(const AName, ACaption: string;
+  out ErrorText: string): Boolean;
+
 implementation
 
 function AppDir(const AExecutableFileName: string): string;
@@ -226,6 +231,37 @@ begin
   except
     // Если скопировать не удалось, станция начнёт с настроек по умолчанию.
   end;
+end;
+
+
+function CheckFileNamePart(const AName, ACaption: string;
+  out ErrorText: string): Boolean;
+const
+  BadChars = ['\', '/', ':', '*', '?', '"', '<', '>', '|'];
+var
+  I: Integer;
+begin
+  Result := False;
+  ErrorText := '';
+  if Trim(AName) = '' then
+  begin
+    ErrorText := ACaption + ': имя не задано.';
+    Exit;
+  end;
+  for I := 1 to Length(AName) do
+    if AName[I] in BadChars then
+    begin
+      ErrorText := ACaption + ': недопустимый символ "' + AName[I] + '".' +
+        LineEnding + 'Нельзя использовать \ / : * ? " < > |';
+      Exit;
+    end;
+  if (AName[Length(AName)] = '.') or (AName[Length(AName)] = ' ') then
+  begin
+    ErrorText := ACaption +
+      ': имя не может заканчиваться точкой или пробелом.';
+    Exit;
+  end;
+  Result := True;
 end;
 
 end.
