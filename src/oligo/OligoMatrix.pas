@@ -1,12 +1,16 @@
 unit OligoMatrix;
-// Матрица точек: копирование, центрирование, чтение и запись в файл
+// Матрица точек: копирование, центрирование, текстовый формат файла.
+//
+// Формат файла матрицы:
+//   первая строка - "<столбцов> <строк>";
+//   далее по строке на каждую строку матрицы, значения через пробел.
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, EzCadApi;
+  Classes, SysUtils, MatrixTypes;
 
 Procedure CopyMatrix(aDonorMatrix: TMatrix;
                      var aAcceptorMatrix: TMatrix);
@@ -14,6 +18,13 @@ Function AutoCenterBiasMatrix(aMatrix: TMatrix;
                               aStep: Double;
                               aGStep: Double;
                               aGroup: Integer): TPoint;
+
+// Текст файла матрицы. Для пустой матрицы - пустая строка.
+function FormatMatrixText(const aMatrix: TMatrix): string;
+// Разбор текста файла матрицы. Все строки матрицы должны быть полными.
+function ParseMatrixText(const aText: string; out aMatrix: TMatrix;
+  out aErrorText: string): Boolean;
+
 Function SaveMatrixAsFile(aMatrix: TMatrix;
                           aFName: String): boolean;
 Function ReadMatrixFromFile(const filename: string;
@@ -21,30 +32,34 @@ Function ReadMatrixFromFile(const filename: string;
 
 implementation
 
+uses
+  TextFileUtils;
+
 procedure CopyMatrix(aDonorMatrix: TMatrix; var aAcceptorMatrix: TMatrix);
 // копирование матрицы донора в матрицу акцептора
 var
   i,j: integer;
 begin
-  // устанавливаем размеры матрицы
-  SetLength(aAcceptorMatrix, Length(ADonorMatrix));
-  for i:=0 to Length(ADonorMatrix)-1 do
-    SetLength(aAcceptorMatrix[i], Length(aDonorMatrix[i]));
-
-  // копируем элементы из донор-матрицы в акцептор-матрицу
-  for i:=0 to High(ADonorMatrix) do
+  SetLength(aAcceptorMatrix, Length(aDonorMatrix));
+  for i:=0 to High(aDonorMatrix) do
   begin
-   for j:=0 to High(ADonorMatrix[i]) do
-     aAcceptorMatrix[i][j]:=aDonorMatrix[i][j];
+    SetLength(aAcceptorMatrix[i], Length(aDonorMatrix[i]));
+    for j:=0 to High(aDonorMatrix[i]) do
+      aAcceptorMatrix[i][j]:=aDonorMatrix[i][j];
   end;
- end;
+end;
 
 function AutoCenterBiasMatrix(aMatrix: TMatrix; aStep: Double; aGStep: Double;
   aGroup: Integer): TPoint;
-// Определение смещения для центрирования матрицы с учетом шага, группировки и шага группы
+// Определение смещения для центрирования матрицы с учетом шага, группировки и шага группы.
+// Для пустой матрицы смещение нулевое.
 var
   BX, BY: Double;
 begin
+  Result[0]:=0;
+  Result[1]:=0;
+  if (Length(aMatrix)=0) or (Length(aMatrix[High(aMatrix)])=0) then
+    Exit;
   if aGroup<>0 then
     begin
       BY:=-(-High(aMatrix)*aStep-aGStep*(High(aMatrix) div aGroup))/2;
@@ -59,111 +74,121 @@ begin
   Result[1]:=BY;
 end;
 
-function SaveMatrixAsFile(aMatrix: TMatrix; aFName: String): boolean;
-// Сохраняем матрицу слоя в файл
+function FormatMatrixText(const aMatrix: TMatrix): string;
 var
   i,j: integer;
-  f: TextFile;
-  Col, Row: Integer;
-  TmpS: String;
+  Lines: TStringList;
+  Line: String;
 begin
-try
-  AssignFile(f, aFName);
-  {$I-}
-  Rewrite(f);
-  {$I+}
-  Result:=false;
-  Row:=Length(aMatrix);
-  if Row<>0 then
-  begin
-    Col:=Length(aMatrix[Row-1]);
-    tmpS:=IntToStr(Col)+' '+IntToStr(Row);
-    WriteLN(f,TmpS);
-    for i:=0 to Length(aMatrix)-1 do
+  Result:='';
+  if Length(aMatrix)=0 then
+    Exit;
+  Lines:=TStringList.Create;
+  try
+    // число столбцов берётся по последней строке, как и раньше
+    Lines.Add(IntToStr(Length(aMatrix[High(aMatrix)]))+' '+IntToStr(Length(aMatrix)));
+    for i:=0 to High(aMatrix) do
     begin
-      TmpS:='';
-      for j:=0 to Length(aMAtrix[i])-1 do
-      begin
-        TmpS:=TmpS+' '+IntToStr(aMatrix[i][j]);
-      end;
-      WriteLN(f,TmpS);
+      Line:='';
+      for j:=0 to High(aMatrix[i]) do
+        Line:=Line+' '+IntToStr(aMatrix[i][j]);
+      Lines.Add(Line);
     end;
-    Result:=true;
+    Result:=Lines.Text;
+  finally
+    Lines.Free;
   end;
-finally
-  CloseFile(f);
 end;
+
+function ParseMatrixText(const aText: string; out aMatrix: TMatrix;
+  out aErrorText: string): Boolean;
+var
+  Tokens: TStringArray;
+  Values: array of Integer;
+  Count, i, j, k, Value: Integer;
+  Cols, Rows: Integer;
+begin
+  Result:=false;
+  aMatrix:=nil;
+  aErrorText:='';
+
+  // все числа файла подряд: столбцы, строки, затем значения по строкам
+  Tokens:=aText.Split([' ', #9, #10, #13], TStringSplitOptions.ExcludeEmpty);
+  SetLength(Values, Length(Tokens));
+  Count:=0;
+  for i:=0 to High(Tokens) do
+  begin
+    if not TryStrToInt(Tokens[i], Value) then
+    begin
+      aErrorText:='Не число: "'+Tokens[i]+'".';
+      Exit;
+    end;
+    Values[Count]:=Value;
+    Inc(Count);
+  end;
+
+  if Count<2 then
+  begin
+    aErrorText:='Нет размеров матрицы.';
+    Exit;
+  end;
+  Cols:=Values[0];
+  Rows:=Values[1];
+  if (Cols<=0) or (Rows<=0) then
+  begin
+    aErrorText:='Неверные размеры матрицы: '+IntToStr(Cols)+' x '+IntToStr(Rows)+'.';
+    Exit;
+  end;
+  if Count-2<>Cols*Rows then
+  begin
+    aErrorText:='Ожидалось значений: '+IntToStr(Cols*Rows)+', в файле: '+
+      IntToStr(Count-2)+'.';
+    Exit;
+  end;
+
+  SetLength(aMatrix, Rows);
+  k:=2;
+  for i:=0 to Rows-1 do
+  begin
+    SetLength(aMatrix[i], Cols);
+    for j:=0 to Cols-1 do
+    begin
+      if (Values[k]<0) or (Values[k]>255) then
+      begin
+        aErrorText:='Значение вне диапазона 0..255: '+IntToStr(Values[k])+'.';
+        aMatrix:=nil;
+        Exit;
+      end;
+      aMatrix[i][j]:=Values[k];
+      Inc(k);
+    end;
+  end;
+  Result:=true;
+end;
+
+function SaveMatrixAsFile(aMatrix: TMatrix; aFName: String): boolean;
+// Сохраняем матрицу слоя в файл. Пустая матрица не сохраняется.
+var
+  ErrorText: String;
+begin
+  Result:=false;
+  if Length(aMatrix)=0 then
+    Exit;
+  Result:=WriteUtf8TextFile(aFName, FormatMatrixText(aMatrix), ErrorText);
 end;
 
 function ReadMatrixFromFile(const filename: string;
   var aMatrix: TMatrix): Boolean;
-// Чтение матрицы из файла
-// В первой строке файла должно быть указано количество столбцов и строк
+// Чтение матрицы из файла. При ошибке aMatrix не меняется.
 var
-  f: TextFile;
-  i, j, Nx, Ny: Integer;
-    ch: Char;
+  Text: UTF8String;
+  ErrorText: String;
+  Matrix: TMatrix;
 begin
-  Result := False;
-    try
-      // Открываем файл для чтения
-      AssignFile(f, filename);
-      Reset(f);
-      try
-       if not Eof(f) then
-        // Читаем первую строку с размерами
-       begin
-         Nx:=0;
-         while not Eof(f) and not Eoln(f) do
-          begin
-            Read(f, ch);
-            if ch = ' ' then Break; // Конец первого числа
-            if (ch >= '0') and (ch <= '9') then
-              Nx := Nx * 10 + (Ord(ch) - Ord('0'));
-          end;
-
-         // Читаем второе число (Ny)
-         Ny := 0;
-         while not Eof(f) and not Eoln(f) do
-           begin
-            Read(f, ch);
-            if (ch >= '0') and (ch <= '9') then
-              Ny := Ny * 10 + (Ord(ch) - Ord('0'));
-           end;
-
-         ReadLn(f); // Переходим к следующей строке
-
-         // Устанавливаем размеры массива
-         SetLength(aMatrix, Nx);
-         for i := 0 to (Nx - 1) do
-            SetLength(aMatrix[i], Ny);
-
-       // Читаем данные матрицы
-       for i :=0 to (Nx - 1) do
-         begin
-           if Eof(f) then
-             Exit;  // Недостаточно строк в файле
-           for j := 0 to (Ny - 1) do
-           begin
-             if Eof(f) then
-               Exit; // Недостаточно чисел в строке
-               Read(f, aMatrix[i][j]);
-           end;
-             ReadLn(f); // Переходим к следующей строке
-             Result := True; // Успешное чтение
-         end;
-       end;
-       finally
-          CloseFile(f);
-        end;
-
-    except
-      on E: Exception do
-      begin
-       // Обрабатываем возможные ошибки
-       Result := False;
-      end;
-    end;
+  Result:=ReadUtf8TextFile(filename, Text, ErrorText) and
+          ParseMatrixText(Text, Matrix, ErrorText);
+  if Result then
+    aMatrix:=Matrix;
 end;
 
 end.

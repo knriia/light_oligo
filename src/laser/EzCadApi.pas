@@ -5,7 +5,7 @@ unit EzCadApi;
 interface
 
 uses
-  Classes, SysUtils, Windows, Graphics;
+  Classes, SysUtils, Windows, Graphics, MatrixTypes;
 
 const
 // Все функции возвращают целочисленное значение
@@ -109,16 +109,16 @@ type
   Arr03Dbl = array [0..3] of Double;
 
 type
-  TMatrix = array of array of Byte; // массив точек 0 - пусто, остальное - точка
+  TMatrix = MatrixTypes.TMatrix; // массив точек 0 - пусто, остальное - точка
 
 type
-  TPoint = array [0..1] of double; // 0-x, 1-y
+  TPoint = MatrixTypes.TPoint; // 0-x, 1-y
 
 type
   TArrOfArrOfInt = array of array of Integer;
 
 type
-  TArrOfTPoint = Array of TPoint;
+  TArrOfTPoint = MatrixTypes.TArrOfTPoint;
   pT = ^TArrOfTPoint;
 
 type
