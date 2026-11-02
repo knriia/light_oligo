@@ -144,6 +144,7 @@ type
     procedure LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
   public
     Procedure ShowRez(aFunName: String; aRez:integer);
+    property DispenserStation: TDispenserStationForm read FDispenserStation;
   end;
 
 var
