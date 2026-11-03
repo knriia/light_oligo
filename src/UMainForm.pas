@@ -146,7 +146,7 @@ begin
   EnsureDataDirs;
 
   //интерфейс
-  MyInterface:=TIniFile.Create(ExtractFilePath(ParamStr(0))+'Interface.ini');
+  MyInterface:=TIniFile.Create(ConfigFilePath(INTERFACE_FILE));
 
   MainForm.Caption:=MyInterface.ReadString('Main','MainForm','LightOligo');
   TS_Manual.Caption:=MyInterface.ReadString('Main','TS_Manual','Manual');
@@ -200,7 +200,7 @@ begin
   B_Pause.Caption:=MyInterface.ReadString('Synthesis','B_Pause','Pause');
 
   // значения
-  MyIni:=TIniFile.Create(ExtractFilePath(ParamStr(0))+'ProgConfig.ini');
+  MyIni:=TIniFile.Create(ConfigFilePath(PROG_CONFIG_FILE));
   FSE_Step.Value:=MyIni.ReadFloat('Program','FSE_Step',0.1);
   SE_Group.Value:=MyIni.ReadInteger('Program','SE_Group',10);
   FSE_GroupStep.Value:=MyIni.ReadFloat('Program','FSE_GroupStep',0.1);

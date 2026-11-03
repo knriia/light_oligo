@@ -1,6 +1,8 @@
 unit AppPaths;
-// Папки приложения. Все данные, которые создаёт программа, хранятся в папке
-// data рядом с exe, поэтому программу можно переносить одной папкой.
+// Папки приложения. Данные, которые создаёт программа, хранятся в папке
+// data, а настройки - в папке configs рядом с exe, поэтому программу можно
+// переносить одной папкой. Файлы EzCAD (EZCAD.CFG и др.) остаются рядом с
+// exe: их там ищут EzCAD и MarkEzd.dll.
 
 {$mode ObjFPC}{$H+}
 
@@ -16,11 +18,13 @@ const
   SLICES_FOLDER = 'slices';          // результаты нарезки на слои
   PROTOCOLS_FOLDER = 'protocols';    // протоколы синтеза (.pro)
   AUTOMATION_FOLDER = 'automation';  // сценарии шприцевой станции
-  SETTINGS_FOLDER = 'settings';      // настройки шприцевой станции
+  SETTINGS_FOLDER = 'settings';      // старое место настроек станции (data\settings)
   EZD_FOLDER = 'ezd';                // файлы EzCAD, созданные вручную
   SETTINGS_FILE = 'syringe_pump.ini';
   LAYERS_FOLDER = 'layers';          // файлы слоёв рядом с файлом массива
-  CONFIGS_FOLDER = 'configs';        // настройки вкладок рядом с exe
+  CONFIGS_FOLDER = 'configs';        // настройки программы рядом с exe
+  INTERFACE_FILE = 'Interface.ini';  // надписи интерфейса
+  PROG_CONFIG_FILE = 'ProgConfig.ini'; // настройки ручной вкладки, лазера, станции
   SEQUENCES_CONFIG_FILE = 'sequences.ini'; // настройки вкладки последовательностей
 
 // Папка с exe. Пустой AExecutableFileName означает текущую программу.
@@ -34,15 +38,16 @@ function MatricesDir: string;
 function SlicesDir: string;
 function ProtocolsDir: string;
 function AutomationDir(const AExecutableFileName: string = ''): string;
-function SettingsDir: string;
 function EzdDir: string;
+// Папка настроек (configs рядом с exe) и файлы в ней.
+function ConfigsDir(const AExecutableFileName: string = ''): string;
+function ConfigFilePath(const AFileName: string;
+  const AExecutableFileName: string = ''): string;
+// Настройки шприцевой станции и её окон.
 function SettingsFilePath: string;
-// Папка настроек вкладок (configs рядом с exe) и файл настроек
-// вкладки последовательностей в ней.
-function ConfigsDir: string;
 function SequencesConfigPath: string;
 
-// Создаёт папку data со всеми подпапками.
+// Создаёт папки data (со всеми подпапками) и configs.
 procedure EnsureDataDirs;
 
 // Путь внутри ABaseDir превращает в относительный, остальные не меняет.
@@ -120,19 +125,21 @@ begin
   Result := DataSubDir(AUTOMATION_FOLDER, AExecutableFileName);
 end;
 
-function SettingsDir: string;
+function ConfigsDir(const AExecutableFileName: string): string;
 begin
-  Result := DataSubDir(SETTINGS_FOLDER);
+  Result := AppDir(AExecutableFileName) + CONFIGS_FOLDER;
 end;
 
-function ConfigsDir: string;
+function ConfigFilePath(const AFileName: string;
+  const AExecutableFileName: string): string;
 begin
-  Result := AppDir + CONFIGS_FOLDER;
+  Result := IncludeTrailingPathDelimiter(ConfigsDir(AExecutableFileName)) +
+    AFileName;
 end;
 
 function SequencesConfigPath: string;
 begin
-  Result := IncludeTrailingPathDelimiter(ConfigsDir) + SEQUENCES_CONFIG_FILE;
+  Result := ConfigFilePath(SEQUENCES_CONFIG_FILE);
 end;
 
 function EzdDir: string;
@@ -142,7 +149,7 @@ end;
 
 function SettingsFilePath: string;
 begin
-  Result := IncludeTrailingPathDelimiter(SettingsDir) + SETTINGS_FILE;
+  Result := ConfigFilePath(SETTINGS_FILE);
 end;
 
 procedure EnsureDataDirs;
@@ -152,8 +159,8 @@ begin
   ForceDirectories(SlicesDir);
   ForceDirectories(ProtocolsDir);
   ForceDirectories(AutomationDir);
-  ForceDirectories(SettingsDir);
   ForceDirectories(EzdDir);
+  ForceDirectories(ConfigsDir);
 end;
 
 function IsAbsolutePath(const AFileName: string): Boolean;
@@ -226,8 +233,7 @@ var
   Source: TFileStream;
   Target: TFileStream;
 begin
-  NewFile := IncludeTrailingPathDelimiter(
-    DataSubDir(SETTINGS_FOLDER, AExecutableFileName)) + SETTINGS_FILE;
+  NewFile := ConfigFilePath(SETTINGS_FILE, AExecutableFileName);
   OldFile := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) +
     SETTINGS_FILE;
   if FileExists(NewFile) or not FileExists(OldFile) then
@@ -247,12 +253,46 @@ begin
   end;
 end;
 
+procedure MoveConfigFile(const AOldFile, AExecutableFileName: string);
+// Файл настроек со старого места - в configs, если там его ещё нет.
+var
+  NewFile: string;
+begin
+  NewFile := ConfigFilePath(ExtractFileName(AOldFile), AExecutableFileName);
+  if FileExists(NewFile) or not FileExists(AOldFile) then
+    Exit;
+  ForceDirectories(ExtractFileDir(NewFile));
+  RenameFile(AOldFile, NewFile);
+end;
+
+procedure MoveConfigsToConfigsFolder(const AExecutableFileName: string);
+// Раньше настройки лежали рядом с exe (Interface.ini, ProgConfig.ini) и в
+// data\settings (настройки станции).
+var
+  OldSettingsDir: string;
+begin
+  MoveConfigFile(AppDir(AExecutableFileName) + INTERFACE_FILE,
+    AExecutableFileName);
+  MoveConfigFile(AppDir(AExecutableFileName) + PROG_CONFIG_FILE,
+    AExecutableFileName);
+  OldSettingsDir := DataSubDir(SETTINGS_FOLDER, AExecutableFileName);
+  MoveConfigFile(IncludeTrailingPathDelimiter(OldSettingsDir) + SETTINGS_FILE,
+    AExecutableFileName);
+  // Папку удаляем, только если в ней ничего не осталось.
+  RemoveDir(OldSettingsDir);
+end;
+
 procedure MigrateLegacyData(const AExecutableFileName: string);
 begin
   try
     MoveFilesFromLegacyProtocols(AExecutableFileName);
   except
     // Перенос не обязателен для работы: старые файлы останутся на месте.
+  end;
+  try
+    MoveConfigsToConfigsFolder(AExecutableFileName);
+  except
+    // Не перенеслось - программа начнёт с настроек по умолчанию.
   end;
   try
     CopySettingsFromUserProfile(AExecutableFileName);
