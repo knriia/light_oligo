@@ -46,6 +46,7 @@ type
     procedure WriterFailureIsReported;
     procedure SliceEzdFilesWriteLaysNextToArray;
     procedure SliceEzdFailureDoesNotWriteLays;
+    procedure ArrayOffSubstrateWritesNothing;
   end;
 
 implementation
@@ -155,6 +156,8 @@ function Geometry: TMarkGeometry;
 begin
   Result := Default(TMarkGeometry);
   Result.Step := 1.0;
+  Result.SpotSize := 100;
+  Result.SubstrateDiameter := 100;
 end;
 
 procedure TLayerEzdTests.EzdNameFollowsMatrixName;
@@ -292,6 +295,28 @@ begin
   AssertTrue(Pos('Slices.lays', ErrorText) > 0);
   AssertFalse(FileExists(FilePath('Slices.lays')));
   AssertFalse(FileExists(FilePath(GEOMETRY_FILE)));
+end;
+
+procedure TLayerEzdTests.ArrayOffSubstrateWritesNothing;
+var
+  Table, Done: TSliceLayers;
+  G: TMarkGeometry;
+  ErrorText: string;
+begin
+  // второй слой: точка в (3; 0) мм с пятном 0.1 мм - край на 3.05 мм,
+  // а радиус подложки 3 мм. Первый слой помещается, но и он не пишется.
+  WriteMatrix('Layer1_A1.txt', ['1']);
+  WriteMatrix('Layer2_A1.txt', ['0001']);
+  Table := [Layer(1, 'Layer1_A1.txt'), Layer(2, 'Layer2_A1.txt')];
+  G := Geometry;
+  G.SubstrateDiameter := 6;
+
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, G, Done,
+    ErrorText));
+  AssertTrue(ErrorText, Pos(FormatFloat('0.###', 0.05), ErrorText) > 0);
+  AssertFalse('DLL не подключается', FWriter.Opened);
+  AssertEquals(0, FWriter.Saved.Count);
+  AssertEquals('', Done[0].EZDFile);
 end;
 
 initialization

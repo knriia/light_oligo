@@ -1,5 +1,6 @@
 unit UMarkGeometryForm;
-// Окно параметров геометрии маркировки: шаг, группы и смещение точек.
+// Окно параметров геометрии маркировки: шаг, группы и смещение точек,
+// диаметр пятна и подложки.
 
 {$mode ObjFPC}{$H+}
 
@@ -20,11 +21,15 @@ type
     FSE_BiasY: TFloatSpinEdit;
     FSE_GroupStep: TFloatSpinEdit;
     FSE_Step: TFloatSpinEdit;
+    FSE_SpotSize: TFloatSpinEdit;
+    FSE_Substrate: TFloatSpinEdit;
     L_BiasX: TLabel;
     L_BiasY: TLabel;
     L_Group: TLabel;
     L_GroupStep: TLabel;
     L_Step: TLabel;
+    L_SpotSize: TLabel;
+    L_Substrate: TLabel;
     SE_Group: TSpinEdit;
     procedure CB_AutoCenterChange(Sender: TObject);
   private
@@ -52,6 +57,8 @@ begin
   CB_AutoCenter.Caption:='Центрировать автоматически';
   L_BiasX.Caption:='Смещение по X, мм:';
   L_BiasY.Caption:='Смещение по Y, мм:';
+  L_SpotSize.Caption:='Диаметр пятна, мкм:';
+  L_Substrate.Caption:='Диаметр подложки, мм:';
   B_OK.Caption:='OK';
   B_Cancel.Caption:='Отмена';
 end;
@@ -84,6 +91,8 @@ begin
     Form.CB_AutoCenter.Checked:=AGeometry.AutoCenter;
     Form.FSE_BiasX.Value:=AGeometry.BiasX;
     Form.FSE_BiasY.Value:=AGeometry.BiasY;
+    Form.FSE_SpotSize.Value:=AGeometry.SpotSize;
+    Form.FSE_Substrate.Value:=AGeometry.SubstrateDiameter;
     Form.UpdateBiasEnabled;
     Result:=Form.ShowModal=mrOK;
     if Result then
@@ -94,6 +103,8 @@ begin
       AGeometry.AutoCenter:=Form.CB_AutoCenter.Checked;
       AGeometry.BiasX:=Form.FSE_BiasX.Value;
       AGeometry.BiasY:=Form.FSE_BiasY.Value;
+      AGeometry.SpotSize:=Form.FSE_SpotSize.Value;
+      AGeometry.SubstrateDiameter:=Form.FSE_Substrate.Value;
     end;
   finally
     Form.Free;

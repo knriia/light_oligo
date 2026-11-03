@@ -94,6 +94,7 @@ type
     procedure GeometryFileReadsCommaAndSkipsBadValues;
     procedure GeometrySaveKeepsOtherSections;
     procedure GeometrySaveReportsUnwritableFolder;
+    procedure GeometryFileKeepsSpotAndSubstrate;
     procedure NewArrayIsSuggestedIntoDatedFolder;
     procedure OpenedArrayIsSuggestedIntoItsFile;
   end;
@@ -117,6 +118,7 @@ type
     procedure AutoCenterUsesMatrixAndSteps;
     procedure MarkPointsUseStepGroupsAndBias;
     procedure MarkPointsOfEmptyMatrixAreEmpty;
+    procedure SubstrateOverflowCountsSpotRadius;
   end;
 
   TOligoPasteTests = class(TTestCase)
@@ -1235,6 +1237,37 @@ begin
   end;
 end;
 
+procedure TOligoFileTests.GeometryFileKeepsSpotAndSubstrate;
+var
+  G: TMarkGeometry;
+  Lines: TStringList;
+  ErrorText: string;
+begin
+  AssertEquals(15.0, DefaultMarkGeometry.SpotSize, 1e-9);
+  AssertEquals(20.0, DefaultMarkGeometry.SubstrateDiameter, 1e-9);
+  G := DefaultMarkGeometry;
+  G.SpotSize := 60;
+  G.SubstrateDiameter := 25.5;
+  AssertTrue(ErrorText, SaveMarkGeometry(FilePath('g.ini'), G, ErrorText));
+  G := LoadMarkGeometry(FilePath('g.ini'));
+  AssertEquals(60.0, G.SpotSize, 1e-9);
+  AssertEquals(25.5, G.SubstrateDiameter, 1e-9);
+
+  // ноль и меньше - по умолчанию
+  Lines := TStringList.Create;
+  try
+    Lines.Add('[Geometry]');
+    Lines.Add('SpotSize=0');
+    Lines.Add('SubstrateDiameter=-1');
+    Lines.SaveToFile(FilePath('bad.ini'));
+  finally
+    Lines.Free;
+  end;
+  G := LoadMarkGeometry(FilePath('bad.ini'));
+  AssertEquals(15.0, G.SpotSize, 1e-9);
+  AssertEquals(20.0, G.SubstrateDiameter, 1e-9);
+end;
+
 procedure TOligoFileTests.GeometrySaveReportsUnwritableFolder;
 var
   ErrorText: string;
@@ -1381,6 +1414,26 @@ end;
 procedure TMarkGeometryTests.MarkPointsOfEmptyMatrixAreEmpty;
 begin
   AssertEquals(0, Length(MatrixToMarkPoints(Matrix(['000']), Geometry(False))));
+end;
+
+procedure TMarkGeometryTests.SubstrateOverflowCountsSpotRadius;
+var
+  G: TMarkGeometry;
+  P: TArrOfTPoint;
+begin
+  G := DefaultMarkGeometry;
+  G.SubstrateDiameter := 2;  // радиус 1 мм
+  G.SpotSize := 200;         // радиус пятна 0.1 мм
+  P := nil;
+  SetLength(P, 2);
+  P[0][0] := 0;
+  P[0][1] := 0;
+  P[1][0] := 0;
+  P[1][1] := -0.9;           // край пятна ровно на краю подложки
+  AssertEquals('помещается', 0.0, SubstrateOverflow(P, G), 1e-9);
+  P[1][0] := 0.6;
+  P[1][1] := 0.8;            // до центра 1 мм, край пятна - 1.1 мм
+  AssertEquals('выходит', 0.1, SubstrateOverflow(P, G), 1e-9);
 end;
 
 { TOligoPasteTests }

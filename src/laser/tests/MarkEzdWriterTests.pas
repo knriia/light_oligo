@@ -178,8 +178,9 @@ begin
     Table[I].MatrixFile := FilePath('Layer' + IntToStr(I + 1) + '_A2.txt');
     AssertTrue(SaveMatrixAsFile(Matrix, Table[I].MatrixFile));
   end;
-  Geometry := Default(TMarkGeometry);
+  Geometry := DefaultMarkGeometry;
   Geometry.Step := 0.5;
+  Geometry.AutoCenter := False;
 
   AssertTrue(ErrorText, CreateLayerEzdFiles(FWriter, Table, FDirectory,
     Geometry, Done, ErrorText));

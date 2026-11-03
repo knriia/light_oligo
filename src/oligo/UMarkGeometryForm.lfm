@@ -1,11 +1,11 @@
 object MarkGeometryForm: TMarkGeometryForm
   Left = 400
-  Height = 236
+  Height = 296
   Top = 250
   Width = 330
   BorderStyle = bsDialog
   Caption = 'MarkGeometryForm'
-  ClientHeight = 236
+  ClientHeight = 296
   ClientWidth = 330
   Position = poMainFormCenter
   object L_Step: TLabel
@@ -111,24 +111,62 @@ object MarkGeometryForm: TMarkGeometryForm
     MinValue = -100
     TabOrder = 5
   end
+  object L_SpotSize: TLabel
+    Left = 12
+    Height = 15
+    Top = 196
+    Width = 200
+    Caption = 'L_SpotSize'
+    FocusControl = FSE_SpotSize
+  end
+  object FSE_SpotSize: TFloatSpinEdit
+    Left = 226
+    Height = 23
+    Top = 192
+    Width = 90
+    DecimalPlaces = 1
+    MaxValue = 1000
+    MinValue = 0.1
+    TabOrder = 6
+    Value = 15
+  end
+  object L_Substrate: TLabel
+    Left = 12
+    Height = 15
+    Top = 226
+    Width = 200
+    Caption = 'L_Substrate'
+    FocusControl = FSE_Substrate
+  end
+  object FSE_Substrate: TFloatSpinEdit
+    Left = 226
+    Height = 23
+    Top = 222
+    Width = 90
+    DecimalPlaces = 1
+    MaxValue = 300
+    MinValue = 0.1
+    TabOrder = 7
+    Value = 20
+  end
   object B_OK: TButton
     Left = 146
     Height = 25
-    Top = 200
+    Top = 260
     Width = 80
     Caption = 'B_OK'
     Default = True
     ModalResult = 1
-    TabOrder = 6
+    TabOrder = 8
   end
   object B_Cancel: TButton
     Left = 236
     Height = 25
-    Top = 200
+    Top = 260
     Width = 80
     Cancel = True
     Caption = 'B_Cancel'
     ModalResult = 2
-    TabOrder = 7
+    TabOrder = 9
   end
 end
