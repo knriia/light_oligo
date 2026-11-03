@@ -57,6 +57,8 @@ type
     procedure MatrixFileRoundTrip;
     procedure MatrixReadFailureKeepsOldMatrix;
     procedure EmptyMatrixIsNotSaved;
+    procedure LoadMatrixFileKeepsRowsAndColumns;
+    procedure LoadMatrixFileReportsErrorAndKeepsMatrix;
     procedure DocumentStartsEmptyAndUnmodified;
     procedure NewArrayIsModifiedWithoutFile;
     procedure NewArrayKeepsOwnCopy;
@@ -111,6 +113,8 @@ type
     procedure AutoCenterWithoutGroups;
     procedure AutoCenterWithGroups;
     procedure CopyMatrixMakesIndependentCopy;
+    procedure ResizeMatrixKeepsValuesAndAddsZeros;
+    procedure ResizeMatrixToZero;
   end;
 
   TMarkGeometryTests = class(TTestCase)
@@ -1148,6 +1152,47 @@ begin
   end;
 end;
 
+procedure TOligoFileTests.LoadMatrixFileKeepsRowsAndColumns;
+var
+  M: TMatrix;
+  ErrorText: string;
+begin
+  // 2 строки по 5 столбцов - не квадратная, чтобы не перепутать
+  AssertTrue(SaveMatrixAsFile(Matrix(['10101', '01010']), FilePath('m.txt')));
+  M := nil;
+  AssertTrue(ErrorText, LoadMatrixFile(FilePath('m.txt'), M, ErrorText));
+  AssertEquals('строки', 2, Length(M));
+  AssertEquals('столбцы', 5, Length(M[0]));
+  AssertEquals('10101|01010', MatrixToText(M));
+end;
+
+procedure TOligoFileTests.LoadMatrixFileReportsErrorAndKeepsMatrix;
+var
+  M: TMatrix;
+  ErrorText: string;
+  Lines: TStringList;
+begin
+  M := Matrix(['11']);
+  AssertFalse(LoadMatrixFile(FilePath('missing.txt'), M, ErrorText));
+  AssertTrue('нет файла', ErrorText <> '');
+  AssertEquals('11', MatrixToText(M));
+
+  Lines := TStringList.Create;
+  try
+    Lines.Text := '3 2' + LineEnding + ' 1 0 1';  // второй строки нет
+    Lines.SaveToFile(FilePath('bad.txt'));
+    Lines.Text := '';
+    Lines.SaveToFile(FilePath('empty.txt'));
+  finally
+    Lines.Free;
+  end;
+  AssertFalse(LoadMatrixFile(FilePath('bad.txt'), M, ErrorText));
+  AssertTrue('неполная', ErrorText <> '');
+  AssertFalse(LoadMatrixFile(FilePath('empty.txt'), M, ErrorText));
+  AssertTrue('пустой файл', ErrorText <> '');
+  AssertEquals('11', MatrixToText(M));
+end;
+
 procedure TOligoFileTests.GeometryFileMissingGivesDefaults;
 var
   G: TMarkGeometry;
@@ -1370,6 +1415,29 @@ begin
   CopyMatrix(Source, Target);
   Source[0][0] := 0;
   AssertEquals('10|01', MatrixToText(Target));
+end;
+
+procedure TOligoMatrixTests.ResizeMatrixKeepsValuesAndAddsZeros;
+var
+  M: TMatrix;
+begin
+  M := Matrix(['12', '34']);
+  ResizeMatrix(M, 3, 3);
+  AssertEquals('120|340|000', MatrixToText(M));
+  ResizeMatrix(M, 1, 2);
+  AssertEquals('12', MatrixToText(M));
+end;
+
+procedure TOligoMatrixTests.ResizeMatrixToZero;
+var
+  M: TMatrix;
+begin
+  M := Matrix(['12']);
+  ResizeMatrix(M, 0, 5);
+  AssertEquals(0, Length(M));
+  ResizeMatrix(M, 2, -1);
+  AssertEquals(2, Length(M));
+  AssertEquals(0, Length(M[0]));
 end;
 
 { TMarkGeometryTests }

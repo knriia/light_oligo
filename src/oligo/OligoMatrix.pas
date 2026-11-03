@@ -29,6 +29,13 @@ Function SaveMatrixAsFile(aMatrix: TMatrix;
                           aFName: String): boolean;
 Function ReadMatrixFromFile(const filename: string;
                             var aMatrix: TMatrix): Boolean;
+// То же с текстом ошибки. Матрица без единой строки - тоже ошибка.
+// При ошибке aMatrix не меняется.
+function LoadMatrixFile(const AFileName: string; var AMatrix: TMatrix;
+  out AErrorText: string): Boolean;
+// Новый размер матрицы: значения, попавшие в новый размер, сохраняются,
+// новые ячейки - нули.
+procedure ResizeMatrix(var AMatrix: TMatrix; ARows, ACols: Integer);
 
 implementation
 
@@ -189,6 +196,42 @@ begin
           ParseMatrixText(Text, Matrix, ErrorText);
   if Result then
     aMatrix:=Matrix;
+end;
+
+function LoadMatrixFile(const AFileName: string; var AMatrix: TMatrix;
+  out AErrorText: string): Boolean;
+var
+  Text: UTF8String;
+  Matrix: TMatrix;
+begin
+  Matrix:=nil;
+  Result:=ReadUtf8TextFile(AFileName, Text, AErrorText) and
+          ParseMatrixText(Text, Matrix, AErrorText);
+  if Result and ((Length(Matrix)=0) or (Length(Matrix[0])=0)) then
+  begin
+    Result:=False;
+    AErrorText:='В файле нет ни одной строки матрицы.';
+  end;
+  if Result then
+    AMatrix:=Matrix;
+end;
+
+procedure ResizeMatrix(var AMatrix: TMatrix; ARows, ACols: Integer);
+var
+  i, j, OldCols: Integer;
+begin
+  if ARows<0 then
+    ARows:=0;
+  if ACols<0 then
+    ACols:=0;
+  SetLength(AMatrix, ARows);
+  for i:=0 to High(AMatrix) do
+  begin
+    OldCols:=Length(AMatrix[i]);
+    SetLength(AMatrix[i], ACols);
+    for j:=OldCols to ACols-1 do
+      AMatrix[i][j]:=0;
+  end;
 end;
 
 end.
