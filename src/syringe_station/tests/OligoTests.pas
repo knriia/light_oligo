@@ -87,6 +87,7 @@ type
     procedure DocumentSlicingSurvivesSave;
     procedure DocumentForgetsSlicingWhenArrayIsReplaced;
     procedure DocumentForgetsSlicingOnClearAndClose;
+    procedure DocumentForgetsSlicingWhenCellChanges;
     procedure NewArrayIsSuggestedIntoDatedFolder;
     procedure OpenedArrayIsSuggestedIntoItsFile;
   end;
@@ -1105,6 +1106,27 @@ begin
     Doc.SetSlicing(SliceTableOf(1), FDirectory);
     Doc.Close;
     AssertFalse('удаление из окна', Doc.HasSlicing);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentForgetsSlicingWhenCellChanges;
+var
+  Doc: TOligoArrayDocument;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT;G']));
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    // то же значение (с учётом регистра) - не изменение, слои остаются
+    AssertTrue(Doc.SetCell(0, 0, 'at'));
+    AssertTrue('без изменения', Doc.HasSlicing);
+    // ячейки вне массива нет - ничего не меняется
+    AssertFalse(Doc.SetCell(5, 5, 'C'));
+    AssertTrue('вне массива', Doc.HasSlicing);
+    AssertTrue(Doc.SetCell(0, 1, 'C'));
+    AssertFalse('ячейка изменена', Doc.HasSlicing);
   finally
     Doc.Free;
   end;

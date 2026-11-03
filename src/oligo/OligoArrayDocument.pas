@@ -44,8 +44,8 @@ type
       out AFolder, AFileName: string);
 
     // Результат слайсинга: таблица слоёв и папка, рядом с которой лежат
-    // Slices.txt и Slices.lays. Забывается, когда массив заменяется,
-    // очищается или убирается.
+    // Slices.txt и Slices.lays. Забывается, когда массив меняется,
+    // заменяется, очищается или убирается.
     procedure SetSlicing(const ATable: TArrSliceStruc; const ASliceDir: string);
     procedure ForgetSlicing;
     function HasSlicing: Boolean;
@@ -108,6 +108,7 @@ begin
     Exit;
   FArr[ARow,ACol]:=Value;
   FModified:=True;
+  ForgetSlicing; // слои нарезаны из прежнего содержимого
 end;
 
 function TOligoArrayDocument.Cell(ARow, ACol: Integer): TOlig;
