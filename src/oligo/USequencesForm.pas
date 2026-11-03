@@ -62,7 +62,6 @@ type
     FOnShowLaserSettings: TNotifyEvent;
     FOnBeforeDllInit: TNotifyEvent;
     procedure Log(const AMsg: string);
-    procedure LogDll(const AFunName: string; ARez: Integer);
     procedure DisplayOligoArray;
     procedure ForgetSlicing;
     procedure StoreCell(ACol, ARow: Integer);
@@ -93,8 +92,7 @@ type
 implementation
 
 uses
-  LCLType, Clipbrd, MatrixTypes, AppState, AppPaths, CommonUtils, EzCadApi,
-  Lmc1Results, OligoArray, OligoSlicing, OligoMatrix,
+  LCLType, Clipbrd, AppState, AppPaths, CommonUtils, OligoArray, OligoSlicing, LayerEzd, MarkEzdWriter,
   OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
 
 {$R *.lfm}
@@ -175,11 +173,6 @@ procedure TSequencesForm.Log(const AMsg: string);
 begin
   if Assigned(FOnLog) then
     FOnLog(AMsg);
-end;
-
-procedure TSequencesForm.LogDll(const AFunName: string; ARez: Integer);
-begin
-  Log(Lmc1ResultText(AFunName, ARez));
 end;
 
 procedure TSequencesForm.ForgetSlicing;
@@ -407,9 +400,10 @@ procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);
 // статистика Slices.txt рядом с файлом массива и слайс-таблица
 var
   Layers: TOligoLayers;
+  Table: TArrSliceStruc;
   Existing: TStringArray;
   i: integer;
-  Path, LayerFile, ErrorText: String;
+  Path, ErrorText: String;
 begin
   if FDocument.IsEmpty then
   begin
@@ -458,25 +452,29 @@ begin
   // показываем уникальные символы
   ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
 
+  // прежние слои этого массива больше не действительны
+  ForgetSlicing;
   Layers:=SliceOligoArray(FDocument.Arr);
-  SetLength(FSliceTable, Length(Layers));
-  LayerChartForm.LS_CharsInLayers.Clear;
-  for i:=0 to High(Layers) do
+  if not WriteLayerFiles(Layers, Path, Table, ErrorText) then
   begin
-    LayerFile:=IncludeTrailingPathDelimiter(Path)+LayerFileName(Layers[i]);
-    SaveMatrixAsFile(Layers[i].Matrix, LayerFile);
-    FSliceTable[i]:=Default(TSliceStruc);
-    FSliceTable[i].LayerCount:=Layers[i].Number;
-    FSliceTable[i].Letter:=Layers[i].Letter;
-    FSliceTable[i].NumOfChar:=Layers[i].Count;
-    FSliceTable[i].MatrixFile:=LayerFile;
-    LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
-                                          Layers[i].Letter);
+    ShowMessage(ErrorText);
+    Exit;
   end;
   // пути к слоям в статистике - относительно папки массива
+  if not SaveSliceStatistics(FDocument.ArrayDir, Table, SLICES_STAT_FILE,
+       ErrorText) then
+  begin
+    ShowMessage(ErrorText);
+    Exit;
+  end;
+  FSliceTable:=Table;
   FSliceDir:=FDocument.ArrayDir;
-  SaveSliceStatistics(FSliceDir, FSliceTable);
   SliceTable:=Copy(FSliceTable); // общая таблица слоёв (её использует синтез)
+
+  LayerChartForm.LS_CharsInLayers.Clear;
+  for i:=0 to High(Layers) do
+    LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
+                                          Layers[i].Letter);
   LayerChartForm.ShowModal;
 end;
 
@@ -496,16 +494,15 @@ end;
 
 procedure TSequencesForm.B_CreateArrEzdClick(Sender: TObject);
 // EZD-файл для каждого слоя (по умолчанию в папке ezd рядом с массивом, имя
-// как у файла матрицы слоя) и таблица Slices.lays для синтеза рядом с массивом
+// как у файла матрицы слоя) и таблица Slices.lays для синтеза рядом с массивом.
+// Slices.lays пишется, только если созданы EZD всех слоёв.
 var
-  i, rez: integer;
-  Path, EzdFile, ErrorText: String;
+  Path, ErrorText: String;
   Existing: TStringArray;
   Geometry: TMarkGeometry;
-  LayerMatrix: TMatrix;
-  Spots: TArrOfTPoint;
-  Bias: TPoint;
-  Unread: TStringList;
+  Writer: TMarkEzdWriter;
+  Table: TArrSliceStruc;
+  Done: Boolean;
 begin
   if Length(FSliceTable)=0 then
   begin
@@ -546,59 +543,29 @@ begin
 
   if Assigned(FOnBeforeDllInit) then
     FOnBeforeDllInit(Self);
-  Unread:=TStringList.Create;
+  Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
   try
-    rez:=lmc1_Initial2(WideString(AppDir), true, Application.MainFormHandle);
-    LogDll('lmc1_Initial2',rez); // подключаемся к MarkEzd.dll
-
-    for i:=0 to High(FSliceTable) do
-    begin
-      EzdFile:=IncludeTrailingPathDelimiter(Path)+
-        ChangeFileExt(ExtractFileName(FSliceTable[i].MatrixFile), '.ezd');
-      FSliceTable[i].EZDFile:=EzdFile;
-      LayerMatrix:=nil;
-      if not ReadMatrixFromFile(FSliceTable[i].MatrixFile, LayerMatrix) then
-      begin
-        Log('Не удалось прочитать матрицу слоя: '+FSliceTable[i].MatrixFile);
-        Unread.Add(ExtractFileName(FSliceTable[i].MatrixFile));
-        Continue;
-      end;
-
-      rez:=lmc1_LoadEzdFile(WideString(EzdFile));
-      LogDll('lmc1_LoadEzdFile',rez);
-      rez:=lmc1_ClearEntLib();
-      LogDll('lmc1_ClearEntLib',rez);
-
-      Bias:=MarkBias(LayerMatrix, Geometry);
-      Spots:=nil;
-      rez:=ConvertMatrixToLinearArray(LayerMatrix, Spots, Geometry.Step,
-        Geometry.Group, Geometry.GroupStep, Bias[0], Bias[1]);
-      LogDll('ConvertMatrixToLineArray: '+RemoveFileExt(EzdFile)+' ', rez);
-
-      if Length(Spots)=0 then
-      begin
-        LogDll('Пустой массив! Файл не перезаписан!',-1);
-        Continue;
-      end;
-
-      rez:=lmc1_AddPointToLib(@Spots[0], Length(Spots),
-        'Layer'+IntToStr(FSliceTable[i].LayerCount), 1);
-      LogDll('lmc1_AddPointToLib',rez);
-      rez:=lmc1_SaveEntLibToFile(WideString(EzdFile));
-      LogDll('lmc1_SaveEntLibToFile',rez);
-    end;
-    // пути к EZD в Slices.lays - относительно папки массива
-    SaveSliceStatistics(FSliceDir, FSliceTable, 1);
-    SliceTable:=Copy(FSliceTable); // синтез можно запускать сразу
+    Done:=CreateLayerEzdFiles(Writer, FSliceTable, Path, Geometry, Table,
+      ErrorText);
   finally
-    rez:=lmc1_Close;
-    LogDll('lmc1_Close', rez);
-    if Unread.Count>0 then
-      ShowMessage('Не удалось прочитать матрицы слоёв ('+IntToStr(Unread.Count)+
-        ' из '+IntToStr(Length(FSliceTable))+'), EZD-файлы для них не созданы:'+
-        LineEnding+Unread.Text);
-    Unread.Free;
+    Writer.Free;
   end;
+  if not Done then
+  begin
+    Log(ErrorText);
+    ShowMessage(ErrorText+LineEnding+LineEnding+
+      'Таблица слоёв для синтеза (Slices.lays) не записана.');
+    Exit;
+  end;
+
+  // пути к EZD в Slices.lays - относительно папки массива
+  if not SaveSliceStatistics(FSliceDir, Table, SLICES_EZD_FILE, ErrorText) then
+  begin
+    ShowMessage(ErrorText);
+    Exit;
+  end;
+  FSliceTable:=Table;
+  SliceTable:=Copy(FSliceTable); // синтез можно запускать сразу
 end;
 
 end.

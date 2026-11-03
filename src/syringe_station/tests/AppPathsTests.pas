@@ -121,6 +121,7 @@ procedure TAppPathsTests.SliceFileStoresOnlyFileNames;
 var
   Table: TArrSliceStruc;
   Lines: TStringList;
+  ErrorText: string;
 begin
   SetLength(Table, 1);
   Table[0].LayerCount := 1;
@@ -130,8 +131,10 @@ begin
     'Layer1_A10.txt';
   Table[0].EZDFile := IncludeTrailingPathDelimiter(FDirectory) +
     'Layer1_A10.ezd';
-  SaveSliceStatistics(FDirectory, Table);
-  SaveSliceStatistics(FDirectory, Table, 1);
+  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_STAT_FILE,
+    ErrorText));
+  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_EZD_FILE,
+    ErrorText));
 
   Lines := TStringList.Create;
   try
