@@ -33,14 +33,14 @@ function LayerFileName(const aLayer: TOligoLayer): String;
 // Если хоть один файл не записался - False, текст ошибки и пустая таблица:
 // неполный набор слоёв использовать нельзя.
 function WriteLayerFiles(const aLayers: TOligoLayers; const aDir: String;
-  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+  out aTable: TSliceLayers; out aErrorText: String): Boolean;
 
 // Слайсинг целиком: слои массива, их матрицы в aLayersDir и статистика
 // Slices.txt в aStatDir (пути к слоям в ней - относительно aStatDir).
 // При ошибке - False, текст ошибки и пустая таблица.
 function SliceArrayIntoFolder(const aArr: TOligoArr;
   const aLayersDir, aStatDir: String; out aLayers: TOligoLayers;
-  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+  out aTable: TSliceLayers; out aErrorText: String): Boolean;
 
 implementation
 
@@ -75,7 +75,7 @@ begin
 end;
 
 function WriteLayerFiles(const aLayers: TOligoLayers; const aDir: String;
-  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+  out aTable: TSliceLayers; out aErrorText: String): Boolean;
 var
   i: Integer;
   LayerFile, Failed: String;
@@ -88,10 +88,10 @@ begin
     LayerFile:=IncludeTrailingPathDelimiter(aDir)+LayerFileName(aLayers[i]);
     if not SaveMatrixAsFile(aLayers[i].Matrix, LayerFile) then
       Failed:=Failed+LineEnding+LayerFile;
-    aTable[i]:=Default(TSliceStruc);
-    aTable[i].LayerCount:=aLayers[i].Number;
+    aTable[i]:=Default(TSliceLayer);
+    aTable[i].LayerNumber:=aLayers[i].Number;
     aTable[i].Letter:=aLayers[i].Letter;
-    aTable[i].NumOfChar:=aLayers[i].Count;
+    aTable[i].LetterCount:=aLayers[i].Count;
     aTable[i].MatrixFile:=LayerFile;
   end;
   Result:=Failed='';
@@ -106,7 +106,7 @@ end;
 
 function SliceArrayIntoFolder(const aArr: TOligoArr;
   const aLayersDir, aStatDir: String; out aLayers: TOligoLayers;
-  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+  out aTable: TSliceLayers; out aErrorText: String): Boolean;
 begin
   aLayers:=SliceOligoArray(aArr);
   Result:=WriteLayerFiles(aLayers, aLayersDir, aTable, aErrorText) and

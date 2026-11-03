@@ -16,7 +16,7 @@ type
     FArr: TOligoArr;
     FFileName: string;
     FModified: Boolean;
-    FSliceTable: TArrSliceStruc;
+    FSliceTable: TSliceLayers;
     FSliceDir: string;
   public
     // Новый массив: файла ещё нет, массив считается несохранённым.
@@ -46,10 +46,10 @@ type
     // Результат слайсинга: таблица слоёв и папка, рядом с которой лежат
     // Slices.txt и Slices.lays. Забывается, когда массив меняется,
     // заменяется, очищается или убирается.
-    procedure SetSlicing(const ATable: TArrSliceStruc; const ASliceDir: string);
+    procedure SetSlicing(const ATable: TSliceLayers; const ASliceDir: string);
     procedure ForgetSlicing;
     function HasSlicing: Boolean;
-    property SliceTable: TArrSliceStruc read FSliceTable;
+    property SliceTable: TSliceLayers read FSliceTable;
     property SliceDir: string read FSliceDir;
     // Массив только для чтения: менять его нужно через методы документа.
     property Arr: TOligoArr read FArr;
@@ -173,7 +173,7 @@ begin
   end;
 end;
 
-procedure TOligoArrayDocument.SetSlicing(const ATable: TArrSliceStruc;
+procedure TOligoArrayDocument.SetSlicing(const ATable: TSliceLayers;
   const ASliceDir: string);
 begin
   FSliceTable:=Copy(ATable);

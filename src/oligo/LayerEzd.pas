@@ -21,36 +21,36 @@ type
   end;
 
 // Имя EZD-файла слоя: как у файла матрицы, но с расширением .ezd
-function LayerEzdFileName(const ALayer: TSliceStruc): string;
+function LayerEzdFileName(const ALayer: TSliceLayer): string;
 
 // Создаёт EZD-файл для каждого слоя таблицы в папке AEzdDir.
 // AResult - копия таблицы, EZDFile заполнен только у записанных слоёв.
 // True - записаны все слои. Иначе в AErrorText список слоёв с причинами:
 // неполный набор слоёв для синтеза использовать нельзя.
-function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
+function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir: string; const AGeometry: TMarkGeometry;
-  out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string): Boolean;
 
 // EZD целиком: EZD-файлы всех слоёв в AEzdDir и таблица Slices.lays в
 // ASliceDir (пути к EZD в ней - относительно ASliceDir). Slices.lays
 // пишется, только если созданы EZD всех слоёв.
-function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
+function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
-  out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string): Boolean;
 
 implementation
 
 uses
   OligoMatrix;
 
-function LayerEzdFileName(const ALayer: TSliceStruc): string;
+function LayerEzdFileName(const ALayer: TSliceLayer): string;
 begin
   Result := ChangeFileExt(ExtractFileName(ALayer.MatrixFile), '.ezd');
 end;
 
-function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
+function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir: string; const AGeometry: TMarkGeometry;
-  out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string): Boolean;
 var
   i: Integer;
   Matrix: TMatrix;
@@ -82,7 +82,7 @@ begin
         if Length(Points) = 0 then
           Reason := 'в матрице слоя нет точек'
         else if AWriter.SavePoints(EzdFile,
-          'Layer' + IntToStr(AResult[i].LayerCount), Points, Reason) then
+          'Layer' + IntToStr(AResult[i].LayerNumber), Points, Reason) then
         begin
           AResult[i].EZDFile := EzdFile;
           Continue;
@@ -102,9 +102,9 @@ begin
     AErrorText := 'EZD-файлы созданы не для всех слоёв:' + Failed;
 end;
 
-function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
+function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
-  out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string): Boolean;
 begin
   Result := CreateLayerEzdFiles(AWriter, ATable, AEzdDir, AGeometry, AResult,
     AErrorText);

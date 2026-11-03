@@ -159,7 +159,7 @@ end;
 
 procedure TMarkEzdWriterTests.CreatesLayerEzdFiles;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   Geometry: TMarkGeometry;
   Matrix: TMatrix;
   ErrorText: string;
@@ -172,8 +172,8 @@ begin
   SetLength(Table, 2);
   for I := 0 to 1 do
   begin
-    Table[I] := Default(TSliceStruc);
-    Table[I].LayerCount := I + 1;
+    Table[I] := Default(TSliceLayer);
+    Table[I].LayerNumber := I + 1;
     Table[I].Letter := 'A';
     Table[I].MatrixFile := FilePath('Layer' + IntToStr(I + 1) + '_A2.txt');
     AssertTrue(SaveMatrixAsFile(Matrix, Table[I].MatrixFile));

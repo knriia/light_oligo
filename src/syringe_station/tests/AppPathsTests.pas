@@ -119,14 +119,14 @@ end;
 
 procedure TAppPathsTests.SliceFileStoresOnlyFileNames;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   Lines: TStringList;
   ErrorText: string;
 begin
   SetLength(Table, 1);
-  Table[0].LayerCount := 1;
+  Table[0].LayerNumber := 1;
   Table[0].Letter := 'A';
-  Table[0].NumOfChar := 10;
+  Table[0].LetterCount := 10;
   Table[0].MatrixFile := IncludeTrailingPathDelimiter(FDirectory) +
     'Layer1_A10.txt';
   Table[0].EZDFile := IncludeTrailingPathDelimiter(FDirectory) +
@@ -149,7 +149,7 @@ end;
 
 procedure TAppPathsTests.SliceFileIsReadAfterFolderMove;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   MovedDir: string;
 begin
   // Файл слоёв с одними именами: путь строится от его новой папки.
@@ -167,7 +167,7 @@ end;
 
 procedure TAppPathsTests.SliceFileWithAbsolutePathsStillLoads;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.lays',
     'Layer'#9'Letter'#9'Filepath' + LineEnding +

@@ -122,7 +122,7 @@ begin
     if not IsStarted then Break;
     //Определяем, какая буква в текущем слое, находим ее номер и открываем ее протокол
     a:=AlphabetNum(SliceTable[sl].Letter); // a хранит номер текущего протокола в массиве протоколов
-    OutS:='CICLE='+IntToStr(sl)+';    PROTOCOL LETTER='+Alphabet[a]+'; '+ 'LAYER NUMBER='+IntToStr(SliceTable[sl].LayerCount);
+    OutS:='CICLE='+IntToStr(sl)+';    PROTOCOL LETTER='+Alphabet[a]+'; '+ 'LAYER NUMBER='+IntToStr(SliceTable[sl].LayerNumber);
     Synchronize(@OutLog);
     for i:=0 to High(MySynthProt[a]) do // проходим все операции в протоколе
     begin

@@ -799,16 +799,16 @@ end;
 
 procedure TOligoFileTests.SliceStatisticsInArrayFolderPointsIntoLayers;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   Lines: TStringList;
   ErrorText: string;
 begin
   AssertTrue(ForceDirectories(FilePath('layers')));
   SetLength(Table, 1);
-  Table[0] := Default(TSliceStruc);
-  Table[0].LayerCount := 1;
+  Table[0] := Default(TSliceLayer);
+  Table[0].LayerNumber := 1;
   Table[0].Letter := 'T';
-  Table[0].NumOfChar := 2;
+  Table[0].LetterCount := 2;
   Table[0].MatrixFile := FilePath('layers\Layer1_T2.txt');
   AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_STAT_FILE,
     ErrorText));
@@ -837,17 +837,17 @@ end;
 
 procedure TOligoFileTests.LaysInArrayFolderPointsIntoEzdAndLoads;
 var
-  Table, Loaded: TArrSliceStruc;
+  Table, Loaded: TSliceLayers;
   Lines: TStringList;
   ErrorText: string;
 begin
   SetLength(Table, 2);
-  Table[0] := Default(TSliceStruc);
-  Table[0].LayerCount := 1;
+  Table[0] := Default(TSliceLayer);
+  Table[0].LayerNumber := 1;
   Table[0].Letter := 'T';
   Table[0].EZDFile := FilePath('ezd\Layer1_T2.ezd');
-  Table[1] := Default(TSliceStruc);
-  Table[1].LayerCount := 2;
+  Table[1] := Default(TSliceLayer);
+  Table[1].LayerNumber := 2;
   Table[1].Letter := 'A';
   Table[1].EZDFile := FilePath('ezd\Layer2_A1.ezd');
   AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_EZD_FILE,
@@ -869,7 +869,7 @@ end;
 
 procedure TOligoFileTests.SliceStatisticsReportsUnwritableFolder;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   ErrorText: string;
 begin
   Table := nil;
@@ -897,7 +897,7 @@ const
 
 procedure TOligoFileTests.SliceFileMissingFails;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   SetLength(Table, 1);
   AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
@@ -906,7 +906,7 @@ end;
 
 procedure TOligoFileTests.SliceFileRejectsBadLayerNumber;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   WriteText(FilePath('Slices.lays'), LAYS_HEADER + 'x'#9'A'#9'a.ezd');
   AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
@@ -915,7 +915,7 @@ end;
 
 procedure TOligoFileTests.SliceFileWithBadLineGivesEmptyTable;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   // первая строка хорошая, вторая - нет: наполовину прочитанной таблицы нет
   WriteText(FilePath('Slices.lays'), LAYS_HEADER + '1'#9'A'#9'a.ezd' +
@@ -926,7 +926,7 @@ end;
 
 procedure TOligoFileTests.SliceFileWithoutLayersFails;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   WriteText(FilePath('Slices.lays'), LAYS_HEADER);
   AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
@@ -935,20 +935,20 @@ end;
 
 procedure TOligoFileTests.SliceFileSkipsEmptyLines;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   WriteText(FilePath('Slices.lays'), LAYS_HEADER + '1'#9'A'#9'a.ezd' +
     LineEnding + LineEnding + '2'#9'T'#9'b.ezd' + LineEnding + LineEnding);
   AssertEquals(0, LoadSliceFile(Table, FilePath('Slices.lays')));
   AssertEquals(2, Length(Table));
-  AssertEquals(2, Table[1].LayerCount);
+  AssertEquals(2, Table[1].LayerNumber);
   AssertEquals(FilePath('b.ezd'), Table[1].EZDFile);
 end;
 
 procedure TOligoFileTests.WriteLayerFilesBuildsTableAndFiles;
 var
   Layers: TOligoLayers;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   Loaded: TMatrix;
   ErrorText: string;
   I: Integer;
@@ -958,9 +958,9 @@ begin
   AssertEquals(Length(Layers), Length(Table));
   for I := 0 to High(Layers) do
   begin
-    AssertEquals(Layers[I].Number, Table[I].LayerCount);
+    AssertEquals(Layers[I].Number, Table[I].LayerNumber);
     AssertEquals(Layers[I].Letter, Table[I].Letter);
-    AssertEquals(Layers[I].Count, Table[I].NumOfChar);
+    AssertEquals(Layers[I].Count, Table[I].LetterCount);
     AssertEquals(FilePath(LayerFileName(Layers[I])), Table[I].MatrixFile);
     Loaded := nil;
     AssertTrue(ReadMatrixFromFile(Table[I].MatrixFile, Loaded));
@@ -970,7 +970,7 @@ end;
 
 procedure TOligoFileTests.WriteLayerFilesFailureGivesEmptyTable;
 var
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   ErrorText: string;
 begin
   AssertFalse(WriteLayerFiles(SliceOligoArray(Arr(['AT;GT'])),
@@ -982,7 +982,7 @@ end;
 procedure TOligoFileTests.SliceArrayIntoFolderWritesLayersAndStatistics;
 var
   Layers: TOligoLayers;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   Lines: TStringList;
   ErrorText: string;
 begin
@@ -1004,7 +1004,7 @@ end;
 procedure TOligoFileTests.SliceArrayIntoFolderFailureGivesEmptyTable;
 var
   Layers: TOligoLayers;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   ErrorText: string;
 begin
   // папки для слоёв нет - матрицы не записать
@@ -1015,7 +1015,7 @@ begin
   AssertFalse(FileExists(FilePath('Slices.txt')));
 end;
 
-function SliceTableOf(ACount: Integer): TArrSliceStruc;
+function SliceTableOf(ACount: Integer): TSliceLayers;
 var
   I: Integer;
 begin
@@ -1023,8 +1023,8 @@ begin
   SetLength(Result, ACount);
   for I := 0 to ACount - 1 do
   begin
-    Result[I] := Default(TSliceStruc);
-    Result[I].LayerCount := I + 1;
+    Result[I] := Default(TSliceLayer);
+    Result[I].LayerNumber := I + 1;
     Result[I].Letter := 'A';
   end;
 end;
@@ -1032,7 +1032,7 @@ end;
 procedure TOligoFileTests.DocumentSlicingIsKeptAsCopy;
 var
   Doc: TOligoArrayDocument;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
 begin
   Doc := TOligoArrayDocument.Create;
   try
