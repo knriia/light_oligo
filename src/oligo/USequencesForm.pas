@@ -24,17 +24,16 @@ type
   TSequencesForm = class(TForm)
     B_ClearOligoArr: TButton;
     B_CloseOligoArr: TButton;
-    B_CreateArrEzd: TButton;
+    B_CreateLayerEzd: TButton;
     B_CreateOligoArr: TButton;
-    B_LoadOligs: TButton;
-    B_SaveOligs: TButton;
-    B_SetGeomParam: TButton;
-    B_SetLasPen2: TButton;
+    B_LoadOligoArr: TButton;
+    B_SaveOligoArr: TButton;
+    B_GeometryParams: TButton;
+    B_LaserParams: TButton;
     B_SliceOligoArr: TButton;
     GB_OligControl: TGroupBox;
     OD_File: TOpenDialog;
-    Panel4: TPanel;
-    SD_File: TSaveDialog;
+    P_OligoArr: TPanel;
     SG_OligoArr: TStringGrid;
     procedure B_ClearOligoArrClick(Sender: TObject);
     procedure B_CloseOligoArrClick(Sender: TObject);
@@ -113,15 +112,15 @@ end;
 procedure TSequencesForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
   GB_OligControl.Caption:=AIni.ReadString('Oligo','GB_OligControl','Oligonucleotides');
-  B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','Create OligoArray');
-  B_ClearOligoArr.Caption:=AIni.ReadString('Oligo','B_ClearOligoArr','Clear OligoArray');
-  B_CloseOligoArr.Caption:=AIni.ReadString('Oligo','B_CloseOligoArr','Remove OligoArray');
-  B_LoadOligs.Caption:=AIni.ReadString('Oligo','B_LoadOligs','Load Oligs');
-  B_SaveOligs.Caption:=AIni.ReadString('Oligo','B_SaveOligs','Save Oligs');
-  B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slice');
-  B_SetLasPen2.Caption:=AIni.ReadString('Oligo','B_SetLasPen2','SetLasPen');
-  B_SetGeomParam.Caption:=AIni.ReadString('Oligo','B_SetGeomParam','SetGeomParam');
-  B_CreateArrEzd.Caption:=AIni.ReadString('Oligo','B_CreateArrEzd','EZD Files');
+  B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','Create array');
+  B_ClearOligoArr.Caption:=AIni.ReadString('Oligo','B_ClearOligoArr','Clear array');
+  B_CloseOligoArr.Caption:=AIni.ReadString('Oligo','B_CloseOligoArr','Remove array');
+  B_LoadOligoArr.Caption:=AIni.ReadString('Oligo','B_LoadOligoArr','Load array');
+  B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save array');
+  B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slicing');
+  B_LaserParams.Caption:=AIni.ReadString('Oligo','B_LaserParams','Laser parameters');
+  B_GeometryParams.Caption:=AIni.ReadString('Oligo','B_GeometryParams','Geometry parameters');
+  B_CreateLayerEzd.Caption:=AIni.ReadString('Oligo','B_CreateLayerEzd','EZD files');
   LayoutButtons;
 end;
 
@@ -154,9 +153,9 @@ var
   end;
 
 begin
-  Buttons:=[B_CreateOligoArr, B_LoadOligs, B_SaveOligs, B_ClearOligoArr,
-            B_CloseOligoArr, B_SliceOligoArr, B_SetLasPen2, B_SetGeomParam,
-            B_CreateArrEzd];
+  Buttons:=[B_CreateOligoArr, B_LoadOligoArr, B_SaveOligoArr, B_ClearOligoArr,
+            B_CloseOligoArr, B_SliceOligoArr, B_LaserParams, B_GeometryParams,
+            B_CreateLayerEzd];
   X:=8;
   for i:=0 to High(Buttons) do
   begin
@@ -410,13 +409,13 @@ procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);
 // статистика Slices.txt рядом с файлом массива и слайс-таблица
 var
   Layers: TOligoLayers;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   i: integer;
   Path, ErrorText: String;
 begin
   if FDocument.IsEmpty then
   begin
-    ShowMessage('пустой массив!');
+    ShowMessage('Массив пуст.');
     Exit;
   end;
   // слои пишутся рядом с файлом массива и должны совпадать с ним,
@@ -435,9 +434,6 @@ begin
   if not ChooseLayerFolder('Слайсинг', 'Папка для файлов слоёв:',
        'файлы слоёв', @ListLayerFiles, @DeleteLayerFiles, Path) then
     Exit;
-
-  // показываем уникальные символы
-  ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
 
   // прежние слои этого массива больше не действительны
   FDocument.ForgetSlicing;
@@ -478,7 +474,7 @@ var
   Path, ErrorText: String;
   Geometry: TMarkGeometry;
   Writer: TMarkEzdWriter;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   Done: Boolean;
 begin
   if not FDocument.HasSlicing then

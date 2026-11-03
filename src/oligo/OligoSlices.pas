@@ -9,18 +9,14 @@ uses
   Classes, SysUtils;
 
 type
-  TSliceStruc = record  // запись слайсинга слоя
-    LayerCount: Integer; // номер слоя
-    Col: Integer;        //кол-во колонок
-    Row: Integer;        //кол-во строк
-    Letter: String;      //буква нуклеотида слоя
-    NumOfChar: Integer;  //число букв в слое
-    MatrixFile: String;  //путь к файлу матрицы
-    EZDFile: String;     //путь к файлу EZD
+  TSliceLayer = record   // слой после слайсинга
+    LayerNumber: Integer;  // номер слоя с 1
+    Letter: String;        // буква нуклеотида слоя
+    LetterCount: Integer;  // сколько точек с этой буквой в слое
+    MatrixFile: String;    // путь к файлу матрицы слоя
+    EZDFile: String;       // путь к EZD-файлу слоя
   end;
-
-  type
-   TArrSliceStruc = array of TSliceStruc;
+  TSliceLayers = array of TSliceLayer;
 
 const
   SLICES_STAT_FILE = 0; // Slices.txt - статистика слайсинга, пути к матрицам
@@ -29,12 +25,12 @@ const
 // Записывает таблицу слоёв в aDir (Slices.txt или Slices.lays).
 // False и текст ошибки, если файл записать не удалось.
 function SaveSliceStatistics(const aDir: String;
-  const aTable: array of TSliceStruc; aFileType: Word;
+  const aTable: array of TSliceLayer; aFileType: Word;
   out aErrorText: String): Boolean;
 // Читает Slices.lays: 0 - прочитан, -1 - ошибка (файла нет, строка не из
 // трёх полей, номер слоя не число, нет ни одного слоя). При ошибке
 // таблица пустая - наполовину прочитанной она не бывает.
-Function LoadSliceFile(var aSliceTable: TArrSliceStruc; aSliceFile: String): integer;
+Function LoadSliceFile(var aSliceTable: TSliceLayers; aSliceFile: String): integer;
 
 // Файлы слоёв в папке (Layer*.txt и Layer*.ezd), полные пути по алфавиту.
 // Для несуществующей папки - пустой список.
@@ -51,7 +47,7 @@ uses
   AppPaths, TextFileUtils;
 
 function SaveSliceStatistics(const aDir: String;
-  const aTable: array of TSliceStruc; aFileType: Word;
+  const aTable: array of TSliceLayer; aFileType: Word;
   out aErrorText: String): Boolean;
 // Файлы слоёв из папки aDir записываются только по имени, чтобы папку
 // с результатами нарезки можно было переносить.
@@ -72,11 +68,11 @@ begin
 
   for i:=0 to High(aTable) do
     if aFileType=SLICES_EZD_FILE then
-      Text:=Text+IntToStr(aTable[i].LayerCount)+#9+aTable[i].Letter+#9+
+      Text:=Text+IntToStr(aTable[i].LayerNumber)+#9+aTable[i].Letter+#9+
             MakePathRelative(aDir, aTable[i].EZDFile)+LineEnding
     else
-      Text:=Text+IntToStr(aTable[i].LayerCount)+#9+aTable[i].Letter+#9+
-            IntToStr(aTable[i].NumOfChar)+#9+
+      Text:=Text+IntToStr(aTable[i].LayerNumber)+#9+aTable[i].Letter+#9+
+            IntToStr(aTable[i].LetterCount)+#9+
             MakePathRelative(aDir, aTable[i].MatrixFile)+LineEnding;
 
   FileName:=IncludeTrailingPathDelimiter(aDir)+FileName;
@@ -86,12 +82,12 @@ begin
                 aErrorText;
 end;
 
-function LoadSliceFile(var aSliceTable: TArrSliceStruc;
+function LoadSliceFile(var aSliceTable: TSliceLayers;
   aSliceFile: String): integer;
 var
   Lines: TStringList;
   Parts: TStringArray;
-  Table: TArrSliceStruc;
+  Table: TSliceLayers;
   i, n: integer;
 begin
   Result:=-1;
@@ -116,8 +112,8 @@ begin
         Exit;
       n:=Length(Table);
       SetLength(Table, n+1);
-      Table[n]:=Default(TSliceStruc);
-      if not TryStrToInt(Trim(Parts[0]), Table[n].LayerCount) then
+      Table[n]:=Default(TSliceLayer);
+      if not TryStrToInt(Trim(Parts[0]), Table[n].LayerNumber) then
         Exit;
       Table[n].Letter:=Trim(Parts[1]);
       // Имя файла ищем рядом с файлом слоёв; старые файлы с полными

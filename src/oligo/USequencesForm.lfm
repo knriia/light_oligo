@@ -53,53 +53,53 @@ object SequencesForm: TSequencesForm
       TabOrder = 1
       OnClick = B_SliceOligoArrClick
     end
-    object B_CreateArrEzd: TButton
+    object B_CreateLayerEzd: TButton
       Left = 688
       Height = 25
       Top = 12
       Width = 90
-      Caption = 'B_CreateArrEzd'
+      Caption = 'B_CreateLayerEzd'
       TabOrder = 2
       OnClick = B_CreateArrEzdClick
     end
-    object B_LoadOligs: TButton
+    object B_LoadOligoArr: TButton
       Left = 116
       Height = 25
       Top = -4
       Width = 90
-      Caption = 'B_LoadOligs'
+      Caption = 'B_LoadOligoArr'
       TabOrder = 3
       OnClick = B_LoadOligsClick
     end
-    object B_SaveOligs: TButton
+    object B_SaveOligoArr: TButton
       Left = 116
       Height = 25
       Top = 24
       Width = 90
-      Caption = 'B_SaveOligs'
+      Caption = 'B_SaveOligoArr'
       TabOrder = 4
       OnClick = B_SaveOligsClick
     end
-    object B_SetLasPen2: TButton
+    object B_LaserParams: TButton
       Left = 456
       Height = 25
       Top = 12
       Width = 90
-      Caption = 'B_SetLasPen2'
+      Caption = 'B_LaserParams'
       TabOrder = 5
       OnClick = B_SetLasPen2Click
     end
-    object B_SetGeomParam: TButton
+    object B_GeometryParams: TButton
       Left = 564
       Height = 25
       Top = 12
       Width = 90
-      Caption = 'B_SetGeomParam'
+      Caption = 'B_GeometryParams'
       TabOrder = 6
       OnClick = B_SetGeomParamClick
     end
   end
-  object Panel4: TPanel
+  object P_OligoArr: TPanel
     Left = 0
     Height = 438
     Top = 0
@@ -128,10 +128,6 @@ object SequencesForm: TSequencesForm
   end
   object OD_File: TOpenDialog
     Left = 40
-    Top = 40
-  end
-  object SD_File: TSaveDialog
-    Left = 120
     Top = 40
   end
 end

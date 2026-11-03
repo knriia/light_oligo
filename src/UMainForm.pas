@@ -1196,8 +1196,8 @@ begin
       NumOfL:=NumOfL+1;
     end;
   Memo1.Lines.Add('Число слоев='+IntToStr(NumOfL));
-  Memo1.Lines.Add('Первыйслой='+IntToStr(SliceTable[0].LayerCount)+' '+SliceTable[0].EZDFile);
-  Memo1.Lines.Add('Последний слой='+IntToStr(SliceTable[High(SliceTable)].LayerCount)+' '
+  Memo1.Lines.Add('Первыйслой='+IntToStr(SliceTable[0].LayerNumber)+' '+SliceTable[0].EZDFile);
+  Memo1.Lines.Add('Последний слой='+IntToStr(SliceTable[High(SliceTable)].LayerNumber)+' '
                                    +SliceTable[High(SliceTable)].EZDFile);
 
   if Length(arrWrongLet)=0 then

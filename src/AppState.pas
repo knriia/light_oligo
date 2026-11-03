@@ -19,7 +19,7 @@ var
   BiasX, BiasY: Double;              // смещение массива по X и Y (для центрирования)
   MyMatrix: TMatrix;                 // матрица точек
   ArrOfSpots: TArrOfTPoint;          // линейный массив маркируемых точек
-  SliceTable: TArrSliceStruc;        // массив записей о слайсах
+  SliceTable: TSliceLayers;        // массив записей о слайсах
   MyLasPen: TLasPen2;                // Запись с параметрами маркера
 
   MyOper: TOperRec;

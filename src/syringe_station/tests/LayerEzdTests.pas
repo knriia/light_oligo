@@ -31,7 +31,7 @@ type
     FDirectory: string;
     FWriter: TFakeEzdWriter;
     function FilePath(const AName: string): string;
-    function Layer(ANumber: Integer; const AMatrixName: string): TSliceStruc;
+    function Layer(ANumber: Integer; const AMatrixName: string): TSliceLayer;
     procedure WriteMatrix(const AName: string; const ARows: array of string);
   protected
     procedure SetUp; override;
@@ -100,10 +100,10 @@ begin
 end;
 
 function TLayerEzdTests.Layer(ANumber: Integer;
-  const AMatrixName: string): TSliceStruc;
+  const AMatrixName: string): TSliceLayer;
 begin
-  Result := Default(TSliceStruc);
-  Result.LayerCount := ANumber;
+  Result := Default(TSliceLayer);
+  Result.LayerNumber := ANumber;
   Result.Letter := 'A';
   Result.MatrixFile := FilePath(AMatrixName);
 end;
@@ -165,7 +165,7 @@ end;
 
 procedure TLayerEzdTests.CreatesEzdForEveryLayer;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer1_A2.txt', ['11']);
@@ -184,7 +184,7 @@ end;
 
 procedure TLayerEzdTests.SourceTableIsNotChanged;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer1_A1.txt', ['1']);
@@ -197,7 +197,7 @@ end;
 
 procedure TLayerEzdTests.OpenFailureWritesNothing;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer1_A1.txt', ['1']);
@@ -215,7 +215,7 @@ end;
 
 procedure TLayerEzdTests.UnreadMatrixLeavesLayerWithoutEzd;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer2_A1.txt', ['1']);
@@ -232,7 +232,7 @@ end;
 
 procedure TLayerEzdTests.LayerWithoutPointsFails;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer1_A0.txt', ['00']);
@@ -247,7 +247,7 @@ end;
 
 procedure TLayerEzdTests.WriterFailureIsReported;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer1_A1.txt', ['1']);
@@ -265,7 +265,7 @@ end;
 
 procedure TLayerEzdTests.SliceEzdFilesWriteLaysNextToArray;
 var
-  Table, Done, Loaded: TArrSliceStruc;
+  Table, Done, Loaded: TSliceLayers;
   ErrorText: string;
 begin
   WriteMatrix('Layer1_A1.txt', ['1']);
@@ -279,7 +279,7 @@ end;
 
 procedure TLayerEzdTests.SliceEzdFailureDoesNotWriteLays;
 var
-  Table, Done: TArrSliceStruc;
+  Table, Done: TSliceLayers;
   ErrorText: string;
 begin
   // матрицы слоя нет - EZD для него не создать
