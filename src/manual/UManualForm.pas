@@ -9,7 +9,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ExtCtrls, Spin,
-  Windows, IniFiles;
+  Windows, IniFiles, MatrixDocument;
 
 type
   TManualLogEvent = procedure(const AMsg: string) of object;
@@ -66,6 +66,7 @@ type
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
     FOnLog: TManualLogEvent;
+    FMatrix: TMatrixDocument; // матрица точек (окно матрицы её показывает и меняет)
     procedure Log(const AMsg: string);
     procedure ShowRez(aFunName: String; aRez: integer);
     procedure UpdateManualArrayControlsLayout;
@@ -73,6 +74,7 @@ type
     procedure ToggleManualOptionLabel(Sender: TObject);
   public
     constructor Create(TheOwner: TComponent); override;
+    destructor Destroy; override;
     // Надписи из файла интерфейса (раздел [Manual]).
     procedure ApplyCaptions(AIni: TCustomIniFile);
     // Значения полей из файла настроек (раздел [Program]).
@@ -96,9 +98,16 @@ uses
 constructor TManualForm.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
+  FMatrix:=TMatrixDocument.Create(20, 20);
   //для экранов с включенным масштабированием
   GB_Laser.Tag:=GB_Laser.Height;
   GB_Array.Tag:=GB_Array.Height;
+end;
+
+destructor TManualForm.Destroy;
+begin
+  FMatrix.Free;
+  inherited Destroy;
 end;
 
 procedure TManualForm.ApplyCaptions(AIni: TCustomIniFile);
@@ -143,6 +152,8 @@ begin
   SE_SubstrateDiameter.Value:=AIni.ReadInteger('Program','SE_SubstrateDiameter',20);
   CB_AutoCenter.Checked:=AIni.ReadBool('Program','CB_AutoCenter',true);
   CB_ShowSubstrate.Checked:=AIni.ReadBool('Program','CB_ShowSubstrate',true);
+  FMatrix.Resize(AIni.ReadInteger('Matrix','SE_NRows',20),
+    AIni.ReadInteger('Matrix','SE_NCols',20));
 end;
 
 procedure TManualForm.Log(const AMsg: string);
@@ -516,7 +527,7 @@ begin
    myGroup:=SE_Group.Value;
    if CB_AutoCenter.Checked then
     begin
-     TmpP:=AutoCenterBiasMatrix(MyMatrix, myStep, MyGStep, MyGroup);
+     TmpP:=AutoCenterBiasMatrix(FMatrix.Matrix, myStep, MyGStep, MyGroup);
      BiasX:=TmpP[0];
      BiasY:=TmpP[1];
     end
@@ -527,7 +538,7 @@ begin
     end;
 
    // добавляем споты в линейный массив
-   rez:=ConvertMatrixToLinearArray(MyMatrix, ArrOfSpots, myStep, myGroup, myGStep, BiasX, BiasY);
+   rez:=ConvertMatrixToLinearArray(FMatrix.Matrix, ArrOfSpots, myStep, myGroup, myGStep, BiasX, BiasY);
    ShowRez('ConvertMatrixToLineArray', rez);
 
    if Length(ArrOfSpots)=0 then
@@ -584,6 +595,7 @@ end;
 
 procedure TManualForm.B_MatrixClick(Sender: TObject);
 begin
+  MatrixForm.Document:=FMatrix;
   MatrixForm.OnMatrixChanged:=@B_PreviewClick;
   MatrixForm.Show;
 end;
@@ -646,7 +658,7 @@ begin
   // определяем смещение
   if CB_AutoCenter.Checked then
    begin
-    TmpP:=AutoCenterBiasMatrix(MyMatrix, myStep, MyGStep, MyGroup);
+    TmpP:=AutoCenterBiasMatrix(FMatrix.Matrix, myStep, MyGStep, MyGroup);
     BiasX:=TmpP[0];
     BiasY:=TmpP[1];
    end
@@ -658,10 +670,10 @@ begin
 
   // заполняем серию спотами из матрицы
   mySpotR:=SE_SpotSize.Value/2000;  // переход от диаметра в мкм к радиусу в мм
-  for i:=0 to Length(MyMatrix)-1 do
-    for j:=0 to Length(MyMatrix[i])-1 do
+  for i:=0 to Length(FMatrix.Matrix)-1 do
+    for j:=0 to Length(FMatrix.Matrix[i])-1 do
     begin
-      if myMatrix[i,j]<>0 then
+      if FMatrix.Matrix[i,j]<>0 then
        begin
         if myGroup=0 then
           PreviewForm.AddSpot(j*myStep+BiasX, -i*myStep+BiasY, mySpotR)
