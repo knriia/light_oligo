@@ -683,6 +683,14 @@ end;
 
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
+  // сначала массив: вопрос о сохранении ничего не меняет в оборудовании
+  if Assigned(FSequencesForm) and
+     not FSequencesForm.CanCloseFromHost then
+  begin
+    CloseAction := caNone;
+    Exit;
+  end;
+
   if Assigned(FDispenserStation) and
      not FDispenserStation.CanCloseFromHost then
   begin
