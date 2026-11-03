@@ -10,13 +10,12 @@ object LaserPenForm: TLaserPenForm
   Constraints.MinWidth = 400
   Position = poMainFormCenter
   LCLVersion = '4.4.0.0'
-  OnClose = FormClose
   OnCreate = FormCreate
   object B_GetPen: TButton
-    Left = 76
+    Left = 12
     Height = 25
     Top = 284
-    Width = 75
+    Width = 150
     Caption = 'B_GetPen'
     TabOrder = 0
     OnClick = B_GetPenClick
@@ -216,14 +215,25 @@ object LaserPenForm: TLaserPenForm
     Anchors = [akTop, akRight]
     Caption = 'L_PolyTC'
   end
-  object B_SetPen: TButton
-    Left = 272
+  object B_OK: TButton
+    Left = 248
     Height = 25
     Top = 284
-    Width = 75
-    Caption = 'B_SetPen'
+    Width = 80
+    Caption = 'B_OK'
+    Default = True
+    ModalResult = 1
     TabOrder = 12
-    OnClick = B_SetPenClick
+  end
+  object B_Cancel: TButton
+    Left = 334
+    Height = 25
+    Top = 284
+    Width = 80
+    Cancel = True
+    Caption = 'B_Cancel'
+    ModalResult = 2
+    TabOrder = 30
   end
   object FSE_JumpSpeed: TFloatSpinEdit
     Left = 360

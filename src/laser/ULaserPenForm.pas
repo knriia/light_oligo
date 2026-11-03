@@ -6,14 +6,19 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, Spin, SpinEx,
-  EzCadApi, AppState;
+  LaserPen;
 
 type
+  // Перо APenNo со значениями EzCAD по умолчанию; False и текст ошибки,
+  // если прочитать не удалось.
+  TReadDefaultPenFunc = function(APenNo: Integer; out APen: TLaserPen;
+    out AErrorText: string): Boolean of object;
 
   { TLaserPenForm }
 
   TLaserPenForm = class(TForm)
-    B_SetPen: TButton;
+    B_Cancel: TButton;
+    B_OK: TButton;
     B_GetPen: TButton;
     CB_WobbleMode: TCheckBox;
     FSE_WobbleDiameter: TFloatSpinEdit;
@@ -53,20 +58,21 @@ type
     SE_PolyTC: TSpinEdit;
     SE_JumpPosTC: TSpinEdit;
     procedure B_GetPenClick(Sender: TObject);
-    procedure B_SetPenClick(Sender: TObject);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
   private
-    procedure FillGUIFromLasPen(aPen: TLasPen2);
-    procedure FillLasPenFromGUI(var aPen: TLasPen2);
+    FReadDefaultPen: TReadDefaultPenFunc;
+    procedure FillGUIFromLasPen(const aPen: TLaserPen);
+    procedure FillLasPenFromGUI(var aPen: TLaserPen);
   public
-
+    // Правка параметров пера. True - нажали OK, APen - введённые значения;
+    // при отмене APen не меняется. AReadDefaultPen - для кнопки «Значения
+    // из EzCAD» (nil - кнопка недоступна).
+    class function Execute(const ACaption: string; var APen: TLaserPen;
+      AReadDefaultPen: TReadDefaultPenFunc): Boolean;
   end;
 
-var
-  LaserPenForm: TLaserPenForm;
-
 implementation
+
 Uses UMainForm;
 
 {$R *.lfm}
@@ -74,59 +80,25 @@ Uses UMainForm;
 { TLaserPenForm }
 
 procedure TLaserPenForm.B_GetPenClick(Sender: TObject);
+// значения EzCAD по умолчанию для пера с введённым номером
 var
-  rez: integer;
+  Pen: TLaserPen;
+  ErrorText: string;
 begin
-  rez:=lmc1_GetPenParam2(MyLasPen.nPenNo,          // номер пера, который нужно установить (0-255)
-                        MyLasPen.nMarkLoop,        // количество обработок
-                        MyLasPen.dMarkSpeed,       // количество маркировок мм/с
-                        MyLasPen.dPowerRatio,      // Процент мощности (0-100%)
-                        MyLasPen.dCurrent,         // Текущий A
-                        MyLasPen.nFreq,            // частота Гц
-                        MyLasPen.dQPulseWidth,     // ширина Q-импульса us
-                        MyLasPen.nStartTC,         // Старт задержит нас
-                        MyLasPen.nLaserOffTC,      // задержка выключения лазера
-                        MyLasPen.nEndTC,           // завершим задержку
-                        MyLasPen.nPolyTC,          // задержка угла
-                        MyLasPen.dJumpSpeed,       // Скорость прыжка мм/с
-                        MyLasPen.nJumpPosTC,       // задержка позиции перехода
-                        MyLasPen.nJumpDistTC,      // задержка на расстояние прыжка
-                        MyLasPen.dPointTime,
-                        MyLasPen.nSpiWave,
-                        MyLasPen.bWobbleMode,
-                        MyLasPen.dWobbleDiameter,
-                        MyLasPen.dWobbleDist);
-  FillGUIFromLasPen(MyLasPen);
-  MainForm.ShowRez('lmc1_GetPenParam2', rez);
-end;
-
-procedure TLaserPenForm.B_SetPenClick(Sender: TObject);
-var
-  rez: integer;
-begin
-  FillLasPenFromGUI(MyLasPen);
-  rez:=lmc1_SetPenParam2(MyLasPen.nPenNo,MyLasPen.nMarkLoop, MyLasPen.dMarkSpeed,
-                   MyLasPen.dPowerRatio, MyLasPen.dCurrent,MyLasPen.nFreq,
-                   MyLasPen.dQPulseWidth, MyLasPen.nStartTC, MyLasPen.nLaserOffTC,
-                   MyLasPen.nEndTC, MyLasPen.nPolyTC, MyLasPen.dJumpSpeed,
-                   MyLasPen.nJumpPosTC, MyLasPen.nJumpDistTC, MyLasPen.dPointTime,
-                   MyLasPen.nSpiWave, MyLasPen.bWobbleMode, MyLasPen.dWobbleDiameter,
-                   MyLasPen.dWobbleDist);
-  MainForm.ShowRez('lmc1_SetPenParam2', rez);
-end;
-
-procedure TLaserPenForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
-var
-  rez: integer;
-begin
-  rez:=lmc1_Close;
-  MainForm.ShowRez('lmc1_Close', rez);
+  if not Assigned(FReadDefaultPen) then
+    Exit;
+  if not FReadDefaultPen(SE_PenNo.Value, Pen, ErrorText) then
+  begin
+    ShowMessage('Не удалось получить значения из EzCAD:'+LineEnding+ErrorText);
+    Exit;
+  end;
+  FillGUIFromLasPen(Pen);
 end;
 
 procedure TLaserPenForm.FormCreate(Sender: TObject);
 begin
   // интерфейс
-    LaserPenForm.Caption:=MyInterface.ReadString('LaserParam','LaserPenForm','Laser Parameters');
+    Caption:=MyInterface.ReadString('LaserParam','LaserPenForm','Laser Parameters');
     L_PenNo.Caption:=MyInterface.ReadString('LaserParam','L_PenNo','Pen No');
     L_MarkLoop.Caption:=MyInterface.ReadString('LaserParam','L_MarkLoop','Mark Loops');
     L_MarkSpeed.Caption:=MyInterface.ReadString('LaserParam','L_MarkSpeed','MarkSpeed');
@@ -146,40 +118,20 @@ begin
     CB_WobbleMode.Caption:=MyInterface.ReadString('LaserParam','CB_WobbleMode','Wobble Mode');
     L_WobbleDiameter.Caption:=MyInterface.ReadString('LaserParam','L_WobbleDiameter','Wobble Diam, mm');
     L_WobbleDist.Caption:=MyInterface.ReadString('LaserParam','L_WobbleDist','Wobble Dist, mm');
-    B_GetPen.Caption:=MyInterface.ReadString('LaserParam','B_GetPen','GetPen');
-    B_SetPen.Caption:=MyInterface.ReadString('LaserParam','B_SetPen','SetPen');
-
-  // параметры
-    SE_PenNo.Value:=MyIni.ReadInteger('LaserParam','SE_PenNo',10);
-    SE_MarkLoop.Value:=MyIni.ReadInteger('LaserParam','SE_MarkLoop',1);
-    FSE_MarkSpeed.Value:=MyIni.ReadFloat('LaserParam','FSE_MarkSpeed',500);
-    FSE_Power.Value:=MyIni.ReadFloat('LaserParam','FSE_Power',100);
-    FSE_Current.Value:=MyIni.ReadFloat('LaserParam','FSE_Current',10);
-    SE_Freq.Value:=MyIni.ReadFloat('LaserParam','SE_Freq',30);
-    SE_QPulse.Value:=MyIni.ReadFloat('LaserParam','SE_QPulse',10);
-    SE_StartTC.Value:=MyIni.ReadFloat('LaserParam','SE_StartTC',150);
-    SE_LaserOffTC.Value:=MyIni.ReadFloat('LaserParam','SE_LaserOffTC',150);
-    SE_EndTC.Value:=MyIni.ReadFloat('LaserParam','SE_EndTC',300);
-    SE_PolyTC.Value:=MyIni.ReadFloat('LaserParam','SE_PolyTC',100);
-    FSE_JumpSpeed.Value:=MyIni.ReadFloat('LaserParam','FSE_JumpSpeed',1000);
-    SE_JumpPosTC.Value:=MyIni.ReadFloat('LaserParam','SE_JumpPosTC',10);
-    SE_JumpDistTC.Value:=MyIni.ReadFloat('LaserParam','SE_JumpDistTC',10);
-    FSE_PointTime.Value:=MyIni.ReadFloat('LaserParam','FSE_PointTime',10);
-    SE_SpiWave.Value:=MyIni.ReadInteger('LaserParam','SE_SpiWave',0);
-    CB_WobbleMode.Checked:=MyIni.ReadBool('LaserParam','CB_WobbleMode',false);
-    FSE_WobbleDiameter.Value:=MyIni.ReadFloat('LaserParam','FSE_WobbleDiameter',0);
-    FSE_WobbleDist.Value:=MyIni.ReadFloat('LaserParam','FSE_WobbleDist',0);
+    B_GetPen.Caption:=MyInterface.ReadString('LaserParam','B_GetPen','Значения из EzCAD');
+    B_OK.Caption:='OK';
+    B_Cancel.Caption:='Отмена';
 end;
 
-procedure TLaserPenForm.FillGUIFromLasPen(aPen: TLasPen2);
+procedure TLaserPenForm.FillGUIFromLasPen(const aPen: TLaserPen);
 begin
     SE_PenNo.Value:=aPen.nPenNo;
     SE_MarkLoop.Value:=aPen.nMarkLoop;
     FSE_MarkSpeed.Value:=aPen.dMarkSpeed;
     FSE_Power.Value:=aPen.dPowerRatio;
     FSE_Current.Value:=aPen.dCurrent;
-    SE_Freq.Value:=aPen.nFreq/1000;
-    SE_QPulse.Value:=aPen.dQPulseWidth;
+    SE_Freq.Value:=aPen.nFreq div 1000; // в окне - кГц
+    SE_QPulse.Value:=Round(aPen.dQPulseWidth);
     SE_StartTC.Value:=aPen.nStartTC;
     SE_LaserOffTC.Value:=aPen.nLaserOffTC;
     SE_EndTC.Value:=aPen.nEndTC;
@@ -194,14 +146,14 @@ begin
     FSE_WobbleDist.Value:=aPen.dWobbleDist;
 end;
 
-procedure TLaserPenForm.FillLasPenFromGUI(var aPen: TLasPen2);
+procedure TLaserPenForm.FillLasPenFromGUI(var aPen: TLaserPen);
 begin
     aPen.nPenNo:=SE_PenNo.Value;
     aPen.nMarkLoop:=SE_MarkLoop.Value;
     aPen.dMarkSpeed:=FSE_MarkSpeed.Value;
     aPen.dPowerRatio:=FSE_Power.Value;
     aPen.dCurrent:=FSE_Current.Value;
-    aPen.nFreq:=SE_Freq.Value*1000;
+    aPen.nFreq:=SE_Freq.Value*1000; // в окне - кГц
     aPen.dQPulseWidth:=SE_QPulse.Value;
     aPen.nStartTC:=SE_StartTC.Value;
     aPen.nLaserOffTC:=SE_LaserOffTC.Value;
@@ -217,5 +169,23 @@ begin
     aPen.dWobbleDist:=FSE_WobbleDist.Value;
 end;
 
-end.
+class function TLaserPenForm.Execute(const ACaption: string; var APen: TLaserPen;
+  AReadDefaultPen: TReadDefaultPenFunc): Boolean;
+var
+  Form: TLaserPenForm;
+begin
+  Form:=TLaserPenForm.Create(nil);
+  try
+    Form.Caption:=ACaption;
+    Form.FReadDefaultPen:=AReadDefaultPen;
+    Form.B_GetPen.Enabled:=Assigned(AReadDefaultPen);
+    Form.FillGUIFromLasPen(APen);
+    Result:=Form.ShowModal=mrOK;
+    if Result then
+      Form.FillLasPenFromGUI(APen);
+  finally
+    Form.Free;
+  end;
+end;
 
+end.

@@ -9,6 +9,7 @@ uses
   Spin, Windows, Graphics, Grids, Buttons,
   StrUtils, EzCadApi, UMatrixForm, UOligoArrayForm, UProtocolOperationForm, ULayerChartForm,
   UDispenserStationHost, DispenserLayout, ManualControlsLayout, ULaserPenForm,
+  LaserPen, MarkEzdWriter,
   AppState, CommonUtils, WinProcessUtils, OligoMatrix, OligoArray,
   OligoSlices, SynthesisProtocol, ProtocolFormat, AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread, UPreviewForm,
   USequencesForm, MarkGeometry, Lmc1Results;
@@ -226,7 +227,6 @@ begin
   FSequencesForm.Align := alClient;
   FSequencesForm.ApplyCaptions(MyInterface);
   FSequencesForm.OnLog := @SequencesLog;
-  FSequencesForm.OnShowLaserSettings := @B_SetLasPenClick;
   FSequencesForm.Show;
   Randomize();
   UpdateMinimumWindowWidth();
@@ -696,6 +696,7 @@ var
    pMyArr: pointer;
    TmpP: TPoint;
    EzdFile: string;
+   Pen: TLaserPen;
 begin
    path:=ExtractFilePath(ParamStr(0));
 
@@ -753,16 +754,12 @@ begin
    // добавляем наш массив в файл
    pMyArr:=@ArrOfSpots[0];
 
-   rez:=lmc1_SetPenParam2(MyLasPen.nPenNo,MyLasPen.nMarkLoop, MyLasPen.dMarkSpeed,
-                         MyLasPen.dPowerRatio, MyLasPen.dCurrent,MyLasPen.nFreq,
-                         MyLasPen.dQPulseWidth, MyLasPen.nStartTC, MyLasPen.nLaserOffTC,
-                         MyLasPen.nEndTC, MyLasPen.nPolyTC, MyLasPen.dJumpSpeed,
-                         MyLasPen.nJumpPosTC, MyLasPen.nJumpDistTC, MyLasPen.dPointTime,
-                         MyLasPen.nSpiWave, MyLasPen.bWobbleMode, MyLasPen.dWobbleDiameter,
-                         MyLasPen.dWobbleDist);
+   // параметры пера записываются в EZD: с ними пойдёт маркировка
+   Pen:=LoadLaserPen(ManualConfigPath);
+   rez:=SetLaserPen(Pen);
    ShowRez('lmc1_SetPenParam2',rez);
 
-   rez:=lmc1_AddPointToLib(pMyArr,Length(ArrOfSpots),'arr',MyLasPen.nPenNo);
+   rez:=lmc1_AddPointToLib(pMyArr,Length(ArrOfSpots),'arr',Pen.nPenNo);
    ShowRez('lmc1_AddPointToLib',rez);
 
    // сохраняем файл
@@ -877,21 +874,23 @@ begin
 end;
 
 procedure TMainForm.B_SetLasPenClick(Sender: TObject);
-// Открываем окно задания параметров лазера(LasPen)
+// перо лазера ручной вкладки; хранится в configs\manual.ini
 var
-   rez: integer;
-   path: string;
+  Pen: TLaserPen;
+  Reader: TMarkEzdWriter;
+  ErrorText: string;
 begin
-   path:=ExtractFilePath(ParamStr(0));
-
-   // строка заголовка сообщения об ошибке (путь к проге)
-   TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
-
-   // запускаем таймер закрывающий сообщение об ошибке
-   Tmr_Closer.Enabled:=true;
-   rez:=lmc1_Initial2(WideString(path), true, MainForm.Handle);
-   ShowRez('lmc1_Initial2',rez);
-   LaserPenForm.ShowModal;
+  Pen:=LoadLaserPen(ManualConfigPath);
+  Reader:=TMarkEzdWriter.Create(AppDir, Handle, @SequencesLog);
+  try
+    if not TLaserPenForm.Execute('Параметры лазера (ручной режим)', Pen,
+         @Reader.ReadDefaultPen) then
+      Exit;
+  finally
+    Reader.Free;
+  end;
+  if not SaveLaserPen(ManualConfigPath, Pen, ErrorText) then
+    ShowMessage(ErrorText);
 end;
 
 procedure TMainForm.B_CloseEzCADClick(Sender: TObject);

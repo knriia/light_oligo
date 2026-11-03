@@ -37,6 +37,7 @@ Desktop.ini
 /bin/data/
 # Settings the program writes (Interface.ini and ProgConfig.ini are kept in git)
 /bin/configs/sequences.ini
+/bin/configs/manual.ini
 /bin/configs/syringe_pump.ini
 # Old location of station scenarios (moved to bin/data/automation on start)
 /bin/protocols/

@@ -26,6 +26,7 @@ const
   INTERFACE_FILE = 'Interface.ini';  // надписи интерфейса
   PROG_CONFIG_FILE = 'ProgConfig.ini'; // настройки ручной вкладки, лазера, станции
   SEQUENCES_CONFIG_FILE = 'sequences.ini'; // настройки вкладки последовательностей
+  MANUAL_CONFIG_FILE = 'manual.ini'; // настройки ручной вкладки
 
 // Папка с exe. Пустой AExecutableFileName означает текущую программу.
 function AppDir(const AExecutableFileName: string = ''): string;
@@ -46,6 +47,7 @@ function ConfigFilePath(const AFileName: string;
 // Настройки шприцевой станции и её окон.
 function SettingsFilePath: string;
 function SequencesConfigPath: string;
+function ManualConfigPath: string;
 
 // Создаёт папки data (со всеми подпапками) и configs.
 procedure EnsureDataDirs;
@@ -140,6 +142,11 @@ end;
 function SequencesConfigPath: string;
 begin
   Result := ConfigFilePath(SEQUENCES_CONFIG_FILE);
+end;
+
+function ManualConfigPath: string;
+begin
+  Result := ConfigFilePath(MANUAL_CONFIG_FILE);
 end;
 
 function EzdDir: string;

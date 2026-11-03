@@ -5,7 +5,7 @@ unit EzCadApi;
 interface
 
 uses
-  Classes, SysUtils, Windows, Graphics, MatrixTypes;
+  Classes, SysUtils, Windows, Graphics, MatrixTypes, LaserPen;
 
 const
 // Все функции возвращают целочисленное значение
@@ -124,52 +124,8 @@ type
 type
   CBitmap = TBitmap;
 
-{type  // Запись параметров лазера
-  TLasPen = record
-    nPenNo: Integer;          // номер пера, который нужно установить (0-255)
-    nMarkLoop: Integer;       // количество обработок
-    dMarkSpeed: Double;       // скорость маркировки мм/с
-    dPowerRatio: Double;      // Процент мощности (0-100%)
-    dCurrent: Double;         // Текущий A
-    nFreq: Integer;           // частота Гц
-    nQPulseWidth: Integer;    // ширина Q-импульса us
-    nStartTC: Integer;        // Старт задержит нас
-    nLaserOffTC: Integer;     // задержка выключения лазера
-    nEndTC: Integer;          // завершим задержку
-    nPolyTC: Integer;         // задержка угла
-    dJumpSpeed: Double;       // Скорость прыжка мм/с
-    nJumpPosTC: Integer;      // задержка позиции перехода
-    nJumpDistTC: Integer;     // задержка на расстояние прыжка
-    dEndComp: Double;         // компенсация конечной точки мм
-    dAccDist: Double;         // Дистанция ускорения мм
-    dPointTime: Double;       // задержка точки, мс
-    bPulsePointMode: boolean; // Режим точки пульса
-    nPulseNum: Integer;       // Количество точек пульса
-    dFlySpeed: Double         // Скорость производственной линии
-  end;      }
-
-type  // Запись параметров лазера
-  TLasPen2 = record
-    nPenNo: Integer;          // номер пера, который нужно установить (0-255)
-    nMarkLoop: Integer;       // количество обработок
-    dMarkSpeed: Double;       // скорость маркировки мм/с
-    dPowerRatio: Double;      // Процент мощности (0-100%)
-    dCurrent: Double;         // Текущий A
-    nFreq: Integer;           // частота Гц
-    dQPulseWidth: Double;    // ширина Q-импульса us
-    nStartTC: Integer;        // Старт задержит нас
-    nLaserOffTC: Integer;     // задержка выключения лазера
-    nEndTC: Integer;          // завершим задержку
-    nPolyTC: Integer;         // задержка угла
-    dJumpSpeed: Double;       // Скорость прыжка мм/с
-    nJumpPosTC: Integer;      // задержка позиции перехода
-    nJumpDistTC: Integer;     // задержка на расстояние прыжка
-    dPointTime: Double;       // задержка точки, мс
-    nSpiWave: Integer;        // выбрать тип волны SPI
-    bWobbleMode: boolean;     // Режим воблинга
-    dWobbleDiameter: Double;  // Диаметр воблинга
-    dWobbleDist: Double;      // Дистанция воблинга
-  end;
+type  // Запись параметров лазера (поля - как у lmc1_SetPenParam2)
+  TLasPen2 = LaserPen.TLaserPen;
 
 // Запись шрифта
 type
@@ -605,6 +561,11 @@ function lmc1_GetTextByName(strTextName: WideString; var strText: array of Char)
 
 
 
+// Перо из записи - в текущий сеанс DLL (lmc1_SetPenParam2).
+function SetLaserPen(const APen: TLaserPen): Integer;
+// Перо APenNo из текущего сеанса DLL (lmc1_GetPenParam2).
+function GetLaserPen(APenNo: Integer; out APen: TLaserPen): Integer;
+
 implementation
 
 
@@ -736,5 +697,25 @@ Function lmc1_GetEntityName(nEntityIndex: Integer;
 Function lmc1_GetClientId: Word; cdecl;                                       external 'MarkEzd.dll' name 'lmc1_GetClientId';
 Function lmc1_GetTextByName(strTextName: WideString;
     var strText: array of Char):Integer; cdecl;                               external 'MarkEzd.dll' name 'lmc1_GetTextByName';
+
+function SetLaserPen(const APen: TLaserPen): Integer;
+begin
+  Result := lmc1_SetPenParam2(APen.nPenNo, APen.nMarkLoop, APen.dMarkSpeed,
+    APen.dPowerRatio, APen.dCurrent, APen.nFreq, APen.dQPulseWidth,
+    APen.nStartTC, APen.nLaserOffTC, APen.nEndTC, APen.nPolyTC,
+    APen.dJumpSpeed, APen.nJumpPosTC, APen.nJumpDistTC, APen.dPointTime,
+    APen.nSpiWave, APen.bWobbleMode, APen.dWobbleDiameter, APen.dWobbleDist);
+end;
+
+function GetLaserPen(APenNo: Integer; out APen: TLaserPen): Integer;
+begin
+  APen := Default(TLaserPen);
+  APen.nPenNo := APenNo;
+  Result := lmc1_GetPenParam2(APenNo, APen.nMarkLoop, APen.dMarkSpeed,
+    APen.dPowerRatio, APen.dCurrent, APen.nFreq, APen.dQPulseWidth,
+    APen.nStartTC, APen.nLaserOffTC, APen.nEndTC, APen.nPolyTC,
+    APen.dJumpSpeed, APen.nJumpPosTC, APen.nJumpDistTC, APen.dPointTime,
+    APen.nSpiWave, APen.bWobbleMode, APen.dWobbleDiameter, APen.dWobbleDist);
+end;
 
 end.

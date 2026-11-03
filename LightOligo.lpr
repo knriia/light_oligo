@@ -28,7 +28,6 @@ begin
   Application.CreateForm(TMatrixForm, MatrixForm);
   Application.CreateForm(TOligoArrayForm, OligoArrayForm);
   Application.CreateForm(TLayerChartForm, LayerChartForm);
-  Application.CreateForm(TLaserPenForm, LaserPenForm);
   Application.CreateForm(TProtocolBlockForm, ProtocolBlockForm);
   Application.CreateForm(TProtocolOperationForm, ProtocolOperationForm);
   Application.Run;

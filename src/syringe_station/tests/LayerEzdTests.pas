@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, MatrixTypes, MarkGeometry,
-  OligoSlices, OligoMatrix, LayerEzd;
+  OligoSlices, OligoMatrix, LaserPen, LayerEzd;
 
 type
   // Запоминает вызовы; может отказать при подключении или на заданном файле.
@@ -17,12 +17,13 @@ type
     OpenFails: Boolean;
     FailOnFile: string;
     Opened, Closed: Boolean;
-    Saved: TStringList;    // "<файл>|<имя объекта>|<число точек>"
+    Saved: TStringList;    // "<файл>|<имя объекта>|<число точек>|<перо>"
     constructor Create;
     destructor Destroy; override;
     function Open(out AErrorText: string): Boolean; override;
     function SavePoints(const AEzdFile, AEntityName: string;
-      const APoints: TArrOfTPoint; out AErrorText: string): Boolean; override;
+      const APoints: TArrOfTPoint; const APen: TLaserPen;
+      out AErrorText: string): Boolean; override;
     procedure Close; override;
   end;
 
@@ -47,6 +48,7 @@ type
     procedure SliceEzdFilesWriteLaysNextToArray;
     procedure SliceEzdFailureDoesNotWriteLays;
     procedure ArrayOffSubstrateWritesNothing;
+    procedure EveryLayerGetsTheTabPen;
   end;
 
 implementation
@@ -76,7 +78,8 @@ begin
 end;
 
 function TFakeEzdWriter.SavePoints(const AEzdFile, AEntityName: string;
-  const APoints: TArrOfTPoint; out AErrorText: string): Boolean;
+  const APoints: TArrOfTPoint; const APen: TLaserPen;
+  out AErrorText: string): Boolean;
 begin
   Result := ExtractFileName(AEzdFile) <> FailOnFile;
   if not Result then
@@ -85,7 +88,8 @@ begin
     Exit;
   end;
   AErrorText := '';
-  Saved.Add(AEzdFile + '|' + AEntityName + '|' + IntToStr(Length(APoints)));
+  Saved.Add(AEzdFile + '|' + AEntityName + '|' + IntToStr(Length(APoints)) +
+    '|' + IntToStr(APen.nPenNo));
 end;
 
 procedure TFakeEzdWriter.Close;
@@ -152,6 +156,12 @@ begin
   inherited TearDown;
 end;
 
+function Pen: TLaserPen;
+begin
+  Result := DefaultLaserPen;
+  Result.nPenNo := 7;
+end;
+
 function Geometry: TMarkGeometry;
 begin
   Result := Default(TMarkGeometry);
@@ -176,12 +186,12 @@ begin
   Table := [Layer(1, 'Layer1_A2.txt'), Layer(2, 'Layer2_A1.txt')];
 
   AssertTrue(ErrorText, CreateLayerEzdFiles(FWriter, Table, FilePath('ezd'),
-    Geometry, Done, ErrorText));
+    Geometry, Pen, Done, ErrorText));
   AssertEquals(FilePath('ezd' + PathDelim + 'Layer1_A2.ezd'), Done[0].EZDFile);
   AssertEquals(FilePath('ezd' + PathDelim + 'Layer2_A1.ezd'), Done[1].EZDFile);
   AssertEquals(2, FWriter.Saved.Count);
-  AssertEquals(Done[0].EZDFile + '|Layer1|2', FWriter.Saved[0]);
-  AssertEquals(Done[1].EZDFile + '|Layer2|1', FWriter.Saved[1]);
+  AssertEquals(Done[0].EZDFile + '|Layer1|2|7', FWriter.Saved[0]);
+  AssertEquals(Done[1].EZDFile + '|Layer2|1|7', FWriter.Saved[1]);
   AssertTrue(FWriter.Closed);
 end;
 
@@ -194,7 +204,7 @@ begin
   Table := [Layer(1, 'Layer1_A1.txt')];
   Table[0].EZDFile := 'old.ezd';
   AssertTrue(ErrorText, CreateLayerEzdFiles(FWriter, Table, FDirectory,
-    Geometry, Done, ErrorText));
+    Geometry, Pen, Done, ErrorText));
   AssertEquals('old.ezd', Table[0].EZDFile);
 end;
 
@@ -208,7 +218,7 @@ begin
   Table[0].EZDFile := 'old.ezd';
   FWriter.OpenFails := True;
 
-  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Done,
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Pen, Done,
     ErrorText));
   AssertTrue(ErrorText <> '');
   AssertEquals(0, FWriter.Saved.Count);
@@ -224,7 +234,7 @@ begin
   WriteMatrix('Layer2_A1.txt', ['1']);
   Table := [Layer(1, 'Layer1_A1.txt'), Layer(2, 'Layer2_A1.txt')];
 
-  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Done,
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Pen, Done,
     ErrorText));
   AssertTrue(Pos('Layer1_A1.txt', ErrorText) > 0);
   AssertEquals('', Done[0].EZDFile);
@@ -241,7 +251,7 @@ begin
   WriteMatrix('Layer1_A0.txt', ['00']);
   Table := [Layer(1, 'Layer1_A0.txt')];
 
-  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Done,
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Pen, Done,
     ErrorText));
   AssertTrue(Pos('Layer1_A0.txt', ErrorText) > 0);
   AssertEquals('', Done[0].EZDFile);
@@ -258,7 +268,7 @@ begin
   Table := [Layer(1, 'Layer1_A1.txt'), Layer(2, 'Layer2_A1.txt')];
   FWriter.FailOnFile := 'Layer1_A1.ezd';
 
-  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Done,
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, Geometry, Pen, Done,
     ErrorText));
   AssertTrue(Pos('save failed', ErrorText) > 0);
   AssertEquals('', Done[0].EZDFile);
@@ -274,13 +284,30 @@ begin
   WriteMatrix('Layer1_A1.txt', ['1']);
   Table := [Layer(1, 'Layer1_A1.txt')];
   AssertTrue(ErrorText, CreateSliceEzdFiles(FWriter, Table, FilePath('ezd'),
-    FDirectory, Geometry, Done, ErrorText));
+    FDirectory, Geometry, Pen, Done, ErrorText));
   AssertEquals(0, LoadSliceFile(Loaded, FilePath('Slices.lays')));
   AssertEquals(1, Length(Loaded));
   AssertEquals(Done[0].EZDFile, Loaded[0].EZDFile);
   // рядом - геометрия, с которой созданы EZD
   AssertEquals(Geometry.Step, LoadMarkGeometry(FilePath(GEOMETRY_FILE)).Step, 1e-9);
   AssertFalse(LoadMarkGeometry(FilePath(GEOMETRY_FILE)).AutoCenter);
+end;
+
+procedure TLayerEzdTests.EveryLayerGetsTheTabPen;
+var
+  Table, Done: TSliceLayers;
+  ErrorText: string;
+  Saved: TLaserPen;
+begin
+  WriteMatrix('Layer1_A1.txt', ['1']);
+  Table := [Layer(1, 'Layer1_A1.txt')];
+  AssertTrue(ErrorText, CreateSliceEzdFiles(FWriter, Table, FDirectory,
+    FDirectory, Geometry, Pen, Done, ErrorText));
+  AssertTrue(Pos('|7', FWriter.Saved[0]) > 0);
+  // рядом со Slices.lays - перо, с которым созданы EZD
+  Saved := LoadLaserPen(FilePath(LASER_PEN_FILE));
+  AssertEquals(7, Saved.nPenNo);
+  AssertEquals(DefaultLaserPen.dMarkSpeed, Saved.dMarkSpeed, 1e-9);
 end;
 
 procedure TLayerEzdTests.SliceEzdFailureDoesNotWriteLays;
@@ -291,7 +318,7 @@ begin
   // матрицы слоя нет - EZD для него не создать
   Table := [Layer(1, 'Layer1_A1.txt')];
   AssertFalse(CreateSliceEzdFiles(FWriter, Table, FDirectory, FDirectory,
-    Geometry, Done, ErrorText));
+    Geometry, Pen, Done, ErrorText));
   AssertTrue(Pos('Slices.lays', ErrorText) > 0);
   AssertFalse(FileExists(FilePath('Slices.lays')));
   AssertFalse(FileExists(FilePath(GEOMETRY_FILE)));
@@ -311,7 +338,7 @@ begin
   G := Geometry;
   G.SubstrateDiameter := 6;
 
-  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, G, Done,
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FDirectory, G, Pen, Done,
     ErrorText));
   AssertTrue(ErrorText, Pos(FormatFloat('0.###', 0.05), ErrorText) > 0);
   AssertFalse('DLL не подключается', FWriter.Opened);
