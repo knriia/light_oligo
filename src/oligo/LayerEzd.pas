@@ -31,6 +31,13 @@ function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
   const AEzdDir: string; const AGeometry: TMarkGeometry;
   out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
 
+// EZD целиком: EZD-файлы всех слоёв в AEzdDir и таблица Slices.lays в
+// ASliceDir (пути к EZD в ней - относительно ASliceDir). Slices.lays
+// пишется, только если созданы EZD всех слоёв.
+function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
+  const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
+  out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
+
 implementation
 
 uses
@@ -93,6 +100,21 @@ begin
     AErrorText := ''
   else
     AErrorText := 'EZD-файлы созданы не для всех слоёв:' + Failed;
+end;
+
+function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TArrSliceStruc;
+  const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
+  out AResult: TArrSliceStruc; out AErrorText: string): Boolean;
+begin
+  Result := CreateLayerEzdFiles(AWriter, ATable, AEzdDir, AGeometry, AResult,
+    AErrorText);
+  if not Result then
+  begin
+    AErrorText := AErrorText + LineEnding + LineEnding +
+      'Таблица слоёв для синтеза (Slices.lays) не записана.';
+    Exit;
+  end;
+  Result := SaveSliceStatistics(ASliceDir, AResult, SLICES_EZD_FILE, AErrorText);
 end;
 
 end.

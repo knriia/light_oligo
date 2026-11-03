@@ -35,6 +35,13 @@ function LayerFileName(const aLayer: TOligoLayer): String;
 function WriteLayerFiles(const aLayers: TOligoLayers; const aDir: String;
   out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
 
+// Слайсинг целиком: слои массива, их матрицы в aLayersDir и статистика
+// Slices.txt в aStatDir (пути к слоям в ней - относительно aStatDir).
+// При ошибке - False, текст ошибки и пустая таблица.
+function SliceArrayIntoFolder(const aArr: TOligoArr;
+  const aLayersDir, aStatDir: String; out aLayers: TOligoLayers;
+  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+
 implementation
 
 uses
@@ -95,6 +102,17 @@ begin
     aTable:=nil;
     aErrorText:='Не удалось записать файлы слоёв:'+Failed;
   end;
+end;
+
+function SliceArrayIntoFolder(const aArr: TOligoArr;
+  const aLayersDir, aStatDir: String; out aLayers: TOligoLayers;
+  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+begin
+  aLayers:=SliceOligoArray(aArr);
+  Result:=WriteLayerFiles(aLayers, aLayersDir, aTable, aErrorText) and
+    SaveSliceStatistics(aStatDir, aTable, SLICES_STAT_FILE, aErrorText);
+  if not Result then
+    aTable:=nil;
 end;
 
 end.

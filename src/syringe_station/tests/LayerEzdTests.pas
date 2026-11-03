@@ -44,6 +44,8 @@ type
     procedure UnreadMatrixLeavesLayerWithoutEzd;
     procedure LayerWithoutPointsFails;
     procedure WriterFailureIsReported;
+    procedure SliceEzdFilesWriteLaysNextToArray;
+    procedure SliceEzdFailureDoesNotWriteLays;
   end;
 
 implementation
@@ -259,6 +261,33 @@ begin
   AssertEquals('', Done[0].EZDFile);
   AssertEquals(FilePath('Layer2_A1.ezd'), Done[1].EZDFile);
   AssertTrue(FWriter.Closed);
+end;
+
+procedure TLayerEzdTests.SliceEzdFilesWriteLaysNextToArray;
+var
+  Table, Done, Loaded: TArrSliceStruc;
+  ErrorText: string;
+begin
+  WriteMatrix('Layer1_A1.txt', ['1']);
+  Table := [Layer(1, 'Layer1_A1.txt')];
+  AssertTrue(ErrorText, CreateSliceEzdFiles(FWriter, Table, FilePath('ezd'),
+    FDirectory, Geometry, Done, ErrorText));
+  AssertEquals(0, LoadSliceFile(Loaded, FilePath('Slices.lays')));
+  AssertEquals(1, Length(Loaded));
+  AssertEquals(Done[0].EZDFile, Loaded[0].EZDFile);
+end;
+
+procedure TLayerEzdTests.SliceEzdFailureDoesNotWriteLays;
+var
+  Table, Done: TArrSliceStruc;
+  ErrorText: string;
+begin
+  // матрицы слоя нет - EZD для него не создать
+  Table := [Layer(1, 'Layer1_A1.txt')];
+  AssertFalse(CreateSliceEzdFiles(FWriter, Table, FDirectory, FDirectory,
+    Geometry, Done, ErrorText));
+  AssertTrue(Pos('Slices.lays', ErrorText) > 0);
+  AssertFalse(FileExists(FilePath('Slices.lays')));
 end;
 
 initialization
