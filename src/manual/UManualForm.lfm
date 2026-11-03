@@ -310,13 +310,6 @@ object ManualForm: TManualForm
       TabOrder = 2
     end
   end
-  object Tmr_Closer: TTimer
-    Enabled = False
-    Interval = 100
-    OnTimer = Tmr_CloserTimer
-    Left = 72
-    Top = 548
-  end
   object Tmr_EzCADer: TTimer
     Enabled = False
     Interval = 100

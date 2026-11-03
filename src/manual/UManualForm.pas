@@ -9,7 +9,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ExtCtrls, Spin,
-  Windows, IniFiles, MatrixDocument;
+  Windows, IniFiles, MarkGeometry, MatrixDocument;
 
 type
   TManualLogEvent = procedure(const AMsg: string) of object;
@@ -50,7 +50,6 @@ type
     SE_SubstrateDiameter: TSpinEdit;
     SD_File: TSaveDialog;
     OD_File: TOpenDialog;
-    Tmr_Closer: TTimer;
     Tmr_EzCADer: TTimer;
     procedure B_CloseEzCADClick(Sender: TObject);
     procedure B_CreateEZDClick(Sender: TObject);
@@ -62,11 +61,14 @@ type
     procedure CollapseExpand(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FormResize(Sender: TObject);
-    procedure Tmr_CloserTimer(Sender: TObject);
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
     FOnLog: TManualLogEvent;
     FMatrix: TMatrixDocument; // матрица точек (окно матрицы её показывает и меняет)
+    FLoading: Boolean; // поля заполняются из настроек - не сохранять
+    function EnteredGeometry: TMarkGeometry;
+    procedure SaveSettings;
+    procedure SettingsChanged(Sender: TObject);
     procedure Log(const AMsg: string);
     procedure ShowRez(aFunName: String; aRez: integer);
     procedure UpdateManualArrayControlsLayout;
@@ -77,8 +79,9 @@ type
     destructor Destroy; override;
     // Надписи из файла интерфейса (раздел [Manual]).
     procedure ApplyCaptions(AIni: TCustomIniFile);
-    // Значения полей из файла настроек (раздел [Program]).
-    procedure LoadSettings(AIni: TCustomIniFile);
+    // Значения полей из configs\manual.ini. Дальше каждое изменение
+    // сохраняется туда же.
+    procedure LoadSettings;
     // Раскладка элементов под текущий размер формы.
     procedure UpdateLayout;
     property OnLog: TManualLogEvent read FOnLog write FOnLog;
@@ -87,8 +90,9 @@ type
 implementation
 
 uses
-  EzCadApi, AppState, AppPaths, WinProcessUtils, OligoMatrix, ManualControlsLayout,
-  UMatrixForm, UPreviewForm, ULaserPenForm, LaserPen, MarkEzdWriter, MarkGeometry,
+  AppState, AppPaths, WinProcessUtils, ManualControlsLayout,
+  UMatrixForm, UPreviewForm, ULaserPenForm, LaserPen, MarkEzdWriter,
+  MatrixTypes, ManualSettings,
   Lmc1Results;
 
 {$R *.lfm}
@@ -99,6 +103,15 @@ constructor TManualForm.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   FMatrix:=TMatrixDocument.Create(20, 20);
+  FSE_Step.OnChange:=@SettingsChanged;
+  SE_Group.OnChange:=@SettingsChanged;
+  FSE_GroupStep.OnChange:=@SettingsChanged;
+  SE_SpotSize.OnChange:=@SettingsChanged;
+  FSE_XBias.OnChange:=@SettingsChanged;
+  FSE_YBias.OnChange:=@SettingsChanged;
+  SE_SubstrateDiameter.OnChange:=@SettingsChanged;
+  CB_AutoCenter.OnChange:=@SettingsChanged;
+  CB_ShowSubstrate.OnChange:=@SettingsChanged;
   //для экранов с включенным масштабированием
   GB_Laser.Tag:=GB_Laser.Height;
   GB_Array.Tag:=GB_Array.Height;
@@ -141,19 +154,61 @@ begin
   GB_PumpStation.Caption:=AIni.ReadString('Manual','GB_PumpStation','PumpStation');
 end;
 
-procedure TManualForm.LoadSettings(AIni: TCustomIniFile);
+procedure TManualForm.LoadSettings;
+// настройки ручной вкладки из configs\manual.ini
+var
+  Settings: TManualSettings;
 begin
-  FSE_Step.Value:=AIni.ReadFloat('Program','FSE_Step',0.1);
-  SE_Group.Value:=AIni.ReadInteger('Program','SE_Group',10);
-  FSE_GroupStep.Value:=AIni.ReadFloat('Program','FSE_GroupStep',0.1);
-  SE_SpotSize.Value:=AIni.ReadInteger('Program','SE_SpotSize',15);
-  FSE_XBias.Value:=AIni.ReadFloat('Program','FSE_XBias',0.0);
-  FSE_YBias.Value:=AIni.ReadFloat('Program','FSE_YBias',0.0);
-  SE_SubstrateDiameter.Value:=AIni.ReadInteger('Program','SE_SubstrateDiameter',20);
-  CB_AutoCenter.Checked:=AIni.ReadBool('Program','CB_AutoCenter',true);
-  CB_ShowSubstrate.Checked:=AIni.ReadBool('Program','CB_ShowSubstrate',true);
-  FMatrix.Resize(AIni.ReadInteger('Matrix','SE_NRows',20),
-    AIni.ReadInteger('Matrix','SE_NCols',20));
+  Settings:=LoadManualSettings(ManualConfigPath);
+  FLoading:=True;
+  try
+    FSE_Step.Value:=Settings.Geometry.Step;
+    SE_Group.Value:=Settings.Geometry.Group;
+    FSE_GroupStep.Value:=Settings.Geometry.GroupStep;
+    SE_SpotSize.Value:=Round(Settings.Geometry.SpotSize);
+    FSE_XBias.Value:=Settings.Geometry.BiasX;
+    FSE_YBias.Value:=Settings.Geometry.BiasY;
+    SE_SubstrateDiameter.Value:=Round(Settings.Geometry.SubstrateDiameter);
+    CB_AutoCenter.Checked:=Settings.Geometry.AutoCenter;
+    CB_ShowSubstrate.Checked:=Settings.ShowSubstrate;
+    FMatrix.Resize(Settings.MatrixRows, Settings.MatrixCols);
+  finally
+    FLoading:=False;
+  end;
+end;
+
+function TManualForm.EnteredGeometry: TMarkGeometry;
+begin
+  Result:=DefaultMarkGeometry;
+  Result.Step:=FSE_Step.Value;
+  Result.Group:=SE_Group.Value;
+  Result.GroupStep:=FSE_GroupStep.Value;
+  Result.AutoCenter:=CB_AutoCenter.Checked;
+  Result.BiasX:=FSE_XBias.Value;
+  Result.BiasY:=FSE_YBias.Value;
+  Result.SpotSize:=SE_SpotSize.Value;
+  Result.SubstrateDiameter:=SE_SubstrateDiameter.Value;
+end;
+
+procedure TManualForm.SaveSettings;
+// сохраняем сразу после изменения; ошибку - в журнал, чтобы не мешать вводу
+var
+  Settings: TManualSettings;
+  ErrorText: string;
+begin
+  if FLoading then
+    Exit;
+  Settings.Geometry:=EnteredGeometry;
+  Settings.ShowSubstrate:=CB_ShowSubstrate.Checked;
+  Settings.MatrixRows:=FMatrix.Rows;
+  Settings.MatrixCols:=FMatrix.Cols;
+  if not SaveManualSettings(ManualConfigPath, Settings, ErrorText) then
+    Log(ErrorText);
+end;
+
+procedure TManualForm.SettingsChanged(Sender: TObject);
+begin
+  SaveSettings;
 end;
 
 procedure TManualForm.Log(const AMsg: string);
@@ -496,107 +551,73 @@ begin
     UpdateLayout();
 end;
 
-procedure TManualForm.Tmr_CloserTimer(Sender: TObject);
-var
-   S: string;
-   h: HWND;
-begin
-  h:=0;
-  S:=TmrCloserStr;
-  h:=FindWindow(nil,pchar(S));
-  if h<>0 then
-   begin
-    postMessage(h,WM_CLOSE,0,0);
-    Tmr_Closer.Enabled:=false;
-   end;
-end;
-
 procedure TManualForm.B_CreateEZDClick(Sender: TObject);
+// EZD-файл из матрицы с геометрией и пером лазера ручной вкладки
 var
-   rez: integer;
-   path: string;
-   pMyArr: pointer;
-   TmpP: TPoint;
-   EzdFile: string;
-   Pen: TLaserPen;
+  Geometry: TMarkGeometry;
+  Points: TArrOfTPoint;
+  EzdFile, ErrorText: string;
+  Writer: TMarkEzdWriter;
+  Saved: Boolean;
 begin
-   path:=ExtractFilePath(ParamStr(0));
+  Geometry:=EnteredGeometry;
+  Points:=MatrixToMarkPoints(FMatrix.Matrix, Geometry);
+  if Length(Points)=0 then
+  begin
+    ShowMessage('Массив пустой: сначала задайте матрицу.');
+    Exit;
+  end;
+  if not CheckArrayFitsSubstrate(Points, Geometry, ErrorText) then
+  begin
+    ShowMessage('EZD-файл не создан: '+ErrorText);
+    Exit;
+  end;
 
-   myStep:=FSE_Step.Value;
-   myGStep:=FSE_GroupStep.Value;
-   myGroup:=SE_Group.Value;
-   if CB_AutoCenter.Checked then
+  // куда сохранить файл: по умолчанию data\ezd, имя по дате и времени
+  SD_File.Filter:='EzCAD|*.ezd';
+  SD_File.DefaultExt:='ezd';
+  SD_File.InitialDir:=EzdDir;
+  SD_File.FilterIndex:=1;
+  SD_File.FileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now)+'.ezd';
+  try
+    if not SD_File.Execute then
+      Exit;
+    EzdFile:=SD_File.FileName;
+  finally
+    SD_File.DefaultExt:='';
+  end;
+
+  // сообщение MarkEzd.dll при подключении (например, что платы нет) не
+  // закрываем: пользователь должен его увидеть
+  Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
+  try
+    if not Writer.Open(ErrorText) then
     begin
-     TmpP:=AutoCenterBiasMatrix(FMatrix.Matrix, myStep, MyGStep, MyGroup);
-     BiasX:=TmpP[0];
-     BiasY:=TmpP[1];
-    end
-   else
-    begin
-     BiasX:=FSE_XBias.Value;
-     BiasY:=FSE_YBias.Value;
+      ShowMessage('Не удалось подключиться к MarkEzd.dll: '+ErrorText);
+      Exit;
     end;
-
-   // добавляем споты в линейный массив
-   rez:=ConvertMatrixToLinearArray(FMatrix.Matrix, ArrOfSpots, myStep, myGroup, myGStep, BiasX, BiasY);
-   ShowRez('ConvertMatrixToLineArray', rez);
-
-   if Length(ArrOfSpots)=0 then
-   begin
-     ShowMessage('Массив пустой: сначала задайте матрицу.');
-     Exit;
-   end;
-
-   // куда сохранить файл: по умолчанию data\ezd, имя по дате и времени
-   SD_File.Filter:='EzCAD|*.ezd';
-   SD_File.DefaultExt:='ezd';
-   SD_File.InitialDir:=EzdDir;
-   SD_File.FilterIndex:=1;
-   SD_File.FileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now)+'.ezd';
-   try
-     if not SD_File.Execute then
-       Exit;
-     EzdFile:=SD_File.FileName;
-   finally
-     SD_File.DefaultExt:='';
-   end;
-
-   // строка заголовка сообщения об ошибке (путь к проге)
-   TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
-
-   // запускаем таймер закрывающий сообщение об ошибке
-   Tmr_Closer.Enabled:=true;
-   rez:=lmc1_Initial2(WideString(path), true, Application.MainFormHandle);
-   ShowRez('lmc1_Initial2',rez);
-
-   // очищаем библиотеку объектов: файл создаётся с нуля
-   rez:=lmc1_ClearEntLib();
-   ShowRez('lmc1_ClearEntLib',rez);
-
-   // добавляем наш массив в файл
-   pMyArr:=@ArrOfSpots[0];
-
-   // параметры пера записываются в EZD: с ними пойдёт маркировка
-   Pen:=LoadLaserPen(ManualConfigPath);
-   rez:=SetLaserPen(Pen);
-   ShowRez('lmc1_SetPenParam2',rez);
-
-   rez:=lmc1_AddPointToLib(pMyArr,Length(ArrOfSpots),'arr',Pen.nPenNo);
-   ShowRez('lmc1_AddPointToLib',rez);
-
-   // сохраняем файл
-   rez:=lmc1_SaveEntLibToFile(WideString(EzdFile));
-   ShowRez('lmc1_SaveEntLibToFile: '+EzdFile,rez);
-
-   // отключаемся от библиотеки
-   rez:=lmc1_Close();
-   ShowRez('lmc1_Close',rez);
+    try
+      // перо записывается в EZD: с ним пойдёт маркировка
+      Saved:=Writer.SavePoints(EzdFile, 'arr', Points,
+        LoadLaserPen(ManualConfigPath), ErrorText);
+    finally
+      Writer.Close;
+    end;
+  finally
+    Writer.Free;
+  end;
+  if Saved then
+    Log('EZD-файл создан: '+EzdFile)
+  else
+    ShowMessage('Не удалось создать EZD-файл:'+LineEnding+EzdFile+LineEnding+
+      ErrorText);
 end;
 
 procedure TManualForm.B_MatrixClick(Sender: TObject);
 begin
   MatrixForm.Document:=FMatrix;
   MatrixForm.OnMatrixChanged:=@B_PreviewClick;
+  MatrixForm.OnSizeChanged:=@SettingsChanged;
   MatrixForm.Show;
 end;
 
@@ -627,61 +648,35 @@ begin
 end;
 
 procedure TManualForm.B_PreviewClick(Sender: TObject);
+// матрица на подложке с введёнными параметрами
+const
+  OUTLINE_POINTS = 100;
 var
-  SubRadius, Angle: Double;
-   i,j: integer;
-   numPoints: integer;
-   TmpP: TPoint;
+  Geometry: TMarkGeometry;
+  Points, Outline: TArrOfTPoint;
+  Overflow: Double;
+  i: Integer;
 begin
   if not Assigned(PreviewForm) then
-  begin
     PreviewForm:=TPreviewForm.Create(Application);
-    PreviewForm.Caption:=B_Preview.Caption;
-  end;
   PreviewForm.ClearPreview;
+  PreviewForm.Caption:=B_Preview.Caption;
 
-  if CB_ShowSubstrate.Checked then // если нужно показать контур подложки
+  Geometry:=EnteredGeometry;
+  if CB_ShowSubstrate.Checked then
   begin
-    SubRadius:=SE_SubstrateDiameter.Value/2;
-    numPoints:=100;
-    for i:=0 to numPoints-1 do
-    begin
-      Angle:=2*Pi*i/numPoints; // Угол в радианах
-      PreviewForm.AddSubstratePoint(SubRadius*Cos(Angle), SubRadius*Sin(Angle));
-    end
+    Outline:=SubstrateOutline(Geometry, OUTLINE_POINTS);
+    for i:=0 to High(Outline) do
+      PreviewForm.AddSubstratePoint(Outline[i][0], Outline[i][1]);
   end;
 
-  myStep:=FSE_Step.Value;
-  myGStep:=FSE_GroupStep.Value;
-  myGroup:=SE_Group.Value;
-
-  // определяем смещение
-  if CB_AutoCenter.Checked then
-   begin
-    TmpP:=AutoCenterBiasMatrix(FMatrix.Matrix, myStep, MyGStep, MyGroup);
-    BiasX:=TmpP[0];
-    BiasY:=TmpP[1];
-   end
-  else
-   begin
-     BiasX:=FSE_XBias.Value;
-     BiasY:=FSE_YBias.Value;
-   end;
-
-  // заполняем серию спотами из матрицы
-  mySpotR:=SE_SpotSize.Value/2000;  // переход от диаметра в мкм к радиусу в мм
-  for i:=0 to Length(FMatrix.Matrix)-1 do
-    for j:=0 to Length(FMatrix.Matrix[i])-1 do
-    begin
-      if FMatrix.Matrix[i,j]<>0 then
-       begin
-        if myGroup=0 then
-          PreviewForm.AddSpot(j*myStep+BiasX, -i*myStep+BiasY, mySpotR)
-        else
-          PreviewForm.AddSpot(j*myStep+myGStep*(j div myGroup)+BiasX,
-            -i*myStep-myGStep*(i div myGroup)+BiasY, mySpotR);
-       end;
-    end;
+  Points:=MatrixToMarkPoints(FMatrix.Matrix, Geometry);
+  for i:=0 to High(Points) do
+    PreviewForm.AddSpot(Points[i][0], Points[i][1], Geometry.SpotSize/2000);
+  Overflow:=SubstrateOverflow(Points, Geometry);
+  if (Length(Points)>0) and (Overflow>1e-9) then
+    PreviewForm.Caption:=PreviewForm.Caption+' - массив выходит за подложку на '+
+      FormatFloat('0.###', Overflow)+' мм';
   PreviewForm.ShowPreview;
 end;
 

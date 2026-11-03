@@ -61,8 +61,9 @@ var
   Matrix: TMatrix;
   Points: array of TArrOfTPoint;
   Reasons: array of string;
-  EzdFile, Reason, Failed: string;
-  Overflow, LayerOverflow: Double;
+  EzdFile, Reason, Failed, FitError: string;
+  AllPoints: TArrOfTPoint;
+  n, k: Integer;
 begin
   AResult := Copy(ATable);
   for i := 0 to High(AResult) do
@@ -74,7 +75,7 @@ begin
   Reasons := nil;
   SetLength(Points, Length(AResult));
   SetLength(Reasons, Length(AResult));
-  Overflow := -1e300;
+  AllPoints := nil;
   for i := 0 to High(AResult) do
   begin
     Matrix := nil;
@@ -87,19 +88,17 @@ begin
         Reasons[i] := 'в матрице слоя нет точек'
       else
       begin
-        LayerOverflow := SubstrateOverflow(Points[i], AGeometry);
-        if LayerOverflow > Overflow then
-          Overflow := LayerOverflow;
+        // точки всех слоёв вместе - это весь массив на подложке
+        n := Length(AllPoints);
+        SetLength(AllPoints, n + Length(Points[i]));
+        for k := 0 to High(Points[i]) do
+          AllPoints[n + k] := Points[i][k];
       end;
     end;
   end;
-  if Overflow > 1e-9 then
+  if not CheckArrayFitsSubstrate(AllPoints, AGeometry, FitError) then
   begin
-    AErrorText := Format('Массив не помещается на подложку диаметром %s мм: ' +
-      'пятна выходят за край на %s мм.' + LineEnding +
-      'Измените шаг, смещение или диаметр подложки в параметрах геометрии.',
-      [FormatFloat('0.###', AGeometry.SubstrateDiameter),
-       FormatFloat('0.###', Overflow)]);
+    AErrorText := 'EZD-файлы не созданы: ' + FitError;
     Exit(False);
   end;
 

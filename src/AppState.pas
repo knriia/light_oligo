@@ -7,17 +7,12 @@ unit AppState;
 interface
 
 uses
-  Classes, SysUtils, EzCadApi, OligoSlices, SynthesisProtocol;
+  Classes, SysUtils, OligoSlices, SynthesisProtocol;
 
 Function AlphabetNum(anLetter: String): Integer;
 
 var
   GlobalI: Integer=0;              // глобальный итератор, сколько раз будет таймер EzCADer пытаться убить предупреждения, прежде чем остановиться
-  TmrCloserStr: String='';
-  myStep, myGStep, mySpotR: Double;  // шаг между точками, между группами точек и радиус точек (для отображения) в мм
-  myGroup: Integer;                  // группировка точек
-  BiasX, BiasY: Double;              // смещение массива по X и Y (для центрирования)
-  ArrOfSpots: TArrOfTPoint;          // линейный массив маркируемых точек
   SliceTable: TSliceLayers;        // массив записей о слайсах
 
   MyOper: TOperRec;
