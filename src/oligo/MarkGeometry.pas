@@ -63,6 +63,9 @@ function MatrixToMarkPoints(const AMatrix: TMatrix;
 // подложки. 0 или меньше - все точки помещаются.
 function SubstrateOverflow(const APoints: TArrOfTPoint;
   const AGeometry: TMarkGeometry): Double;
+// Контур подложки (окружность с центром в нуле) из ACount точек.
+function SubstrateOutline(const AGeometry: TMarkGeometry;
+  ACount: Integer): TArrOfTPoint;
 
 implementation
 
@@ -266,6 +269,23 @@ begin
       AGeometry.SpotSize / 2000 - AGeometry.SubstrateDiameter / 2;
     if Edge > Result then
       Result := Edge;
+  end;
+end;
+
+function SubstrateOutline(const AGeometry: TMarkGeometry;
+  ACount: Integer): TArrOfTPoint;
+var
+  i: Integer;
+  Angle, Radius: Double;
+begin
+  Result := nil;
+  SetLength(Result, ACount);
+  Radius := AGeometry.SubstrateDiameter / 2;
+  for i := 0 to ACount - 1 do
+  begin
+    Angle := 2 * Pi * i / ACount;
+    Result[i][0] := Radius * Cos(Angle);
+    Result[i][1] := Radius * Sin(Angle);
   end;
 end;
 

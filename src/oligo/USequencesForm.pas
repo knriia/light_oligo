@@ -466,7 +466,8 @@ var
   ErrorText: String;
 begin
   Geometry:=LoadMarkGeometry(SequencesConfigPath);
-  if not TMarkGeometryForm.Execute('Параметры геометрии', Geometry) then
+  if not TMarkGeometryForm.Execute('Параметры геометрии', Geometry,
+       OccupiedCellsMatrix(FDocument.Arr)) then
     Exit;
   if not ForceDirectories(ConfigsDir) then
   begin

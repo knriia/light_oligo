@@ -149,6 +149,15 @@ object MarkGeometryForm: TMarkGeometryForm
     TabOrder = 7
     Value = 20
   end
+  object B_Preview: TButton
+    Left = 12
+    Height = 25
+    Top = 260
+    Width = 100
+    Caption = 'B_Preview'
+    OnClick = B_PreviewClick
+    TabOrder = 10
+  end
   object B_OK: TButton
     Left = 146
     Height = 25
