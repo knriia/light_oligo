@@ -28,6 +28,9 @@ type
     procedure SliceFileIsReadAfterFolderMove;
     procedure SliceFileWithAbsolutePathsStillLoads;
     procedure MigrationMovesLegacyProtocolsFolder;
+    procedure ConfigsAreNextToExecutable;
+    procedure MigrationMovesConfigsIntoConfigsFolder;
+    procedure MigrationKeepsExistingConfigs;
   end;
 
 implementation
@@ -193,6 +196,57 @@ begin
   AssertTrue(FileExists(IncludeTrailingPathDelimiter(
     AutomationDir(FExecutableFileName)) + 'scenario.txt'));
   AssertFalse(DirectoryExists(OldDir));
+end;
+
+procedure TAppPathsTests.ConfigsAreNextToExecutable;
+begin
+  AssertEquals(IncludeTrailingPathDelimiter(FDirectory) + 'configs',
+    ConfigsDir(FExecutableFileName));
+  AssertEquals(IncludeTrailingPathDelimiter(FDirectory) + 'configs' + PathDelim +
+    'Interface.ini', ConfigFilePath(INTERFACE_FILE, FExecutableFileName));
+end;
+
+procedure TAppPathsTests.MigrationMovesConfigsIntoConfigsFolder;
+var
+  Dir, OldSettingsDir: string;
+begin
+  Dir := IncludeTrailingPathDelimiter(FDirectory);
+  OldSettingsDir := Dir + 'data' + PathDelim + 'settings';
+  WriteTextFile(Dir + 'Interface.ini', '[Oligo]');
+  WriteTextFile(Dir + 'ProgConfig.ini', '[Program]');
+  WriteTextFile(IncludeTrailingPathDelimiter(OldSettingsDir) +
+    'syringe_pump.ini', '[Station]');
+
+  MigrateLegacyData(FExecutableFileName);
+
+  AssertTrue(FileExists(ConfigFilePath(INTERFACE_FILE, FExecutableFileName)));
+  AssertTrue(FileExists(ConfigFilePath(PROG_CONFIG_FILE, FExecutableFileName)));
+  AssertTrue(FileExists(ConfigFilePath(SETTINGS_FILE, FExecutableFileName)));
+  AssertFalse(FileExists(Dir + 'Interface.ini'));
+  AssertFalse(FileExists(Dir + 'ProgConfig.ini'));
+  AssertFalse('пустая data\settings удалена', DirectoryExists(OldSettingsDir));
+end;
+
+procedure TAppPathsTests.MigrationKeepsExistingConfigs;
+var
+  Dir: string;
+  Lines: TStringList;
+begin
+  // в configs уже есть свой файл - старый не переносится и не затирает его
+  Dir := IncludeTrailingPathDelimiter(FDirectory);
+  WriteTextFile(Dir + 'ProgConfig.ini', '[Old]');
+  WriteTextFile(ConfigFilePath(PROG_CONFIG_FILE, FExecutableFileName), '[New]');
+
+  MigrateLegacyData(FExecutableFileName);
+
+  Lines := TStringList.Create;
+  try
+    Lines.LoadFromFile(ConfigFilePath(PROG_CONFIG_FILE, FExecutableFileName));
+    AssertEquals('[New]', Lines[0]);
+  finally
+    Lines.Free;
+  end;
+  AssertTrue(FileExists(Dir + 'ProgConfig.ini'));
 end;
 
 initialization
