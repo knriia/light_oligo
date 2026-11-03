@@ -73,6 +73,14 @@ type
     procedure SliceStatisticsInArrayFolderPointsIntoLayers;
     procedure DeleteLayerEzdFilesKeepsMatrices;
     procedure LaysInArrayFolderPointsIntoEzdAndLoads;
+    procedure SliceStatisticsReportsUnwritableFolder;
+    procedure SliceFileMissingFails;
+    procedure SliceFileRejectsBadLayerNumber;
+    procedure SliceFileWithBadLineGivesEmptyTable;
+    procedure SliceFileWithoutLayersFails;
+    procedure SliceFileSkipsEmptyLines;
+    procedure WriteLayerFilesBuildsTableAndFiles;
+    procedure WriteLayerFilesFailureGivesEmptyTable;
   end;
 
   TOligoMatrixTests = class(TTestCase)
@@ -87,6 +95,8 @@ type
   published
     procedure ManualBiasIsTakenAsIs;
     procedure AutoCenterUsesMatrixAndSteps;
+    procedure MarkPointsUseStepGroupsAndBias;
+    procedure MarkPointsOfEmptyMatrixAreEmpty;
   end;
 
   TOligoPasteTests = class(TTestCase)
@@ -777,6 +787,7 @@ procedure TOligoFileTests.SliceStatisticsInArrayFolderPointsIntoLayers;
 var
   Table: TArrSliceStruc;
   Lines: TStringList;
+  ErrorText: string;
 begin
   AssertTrue(ForceDirectories(FilePath('layers')));
   SetLength(Table, 1);
@@ -785,7 +796,8 @@ begin
   Table[0].Letter := 'T';
   Table[0].NumOfChar := 2;
   Table[0].MatrixFile := FilePath('layers\Layer1_T2.txt');
-  SaveSliceStatistics(FDirectory, Table);
+  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_STAT_FILE,
+    ErrorText));
   Lines := TStringList.Create;
   try
     Lines.LoadFromFile(FilePath('Slices.txt'));
@@ -813,6 +825,7 @@ procedure TOligoFileTests.LaysInArrayFolderPointsIntoEzdAndLoads;
 var
   Table, Loaded: TArrSliceStruc;
   Lines: TStringList;
+  ErrorText: string;
 begin
   SetLength(Table, 2);
   Table[0] := Default(TSliceStruc);
@@ -823,7 +836,8 @@ begin
   Table[1].LayerCount := 2;
   Table[1].Letter := 'A';
   Table[1].EZDFile := FilePath('ezd\Layer2_A1.ezd');
-  SaveSliceStatistics(FDirectory, Table, 1);
+  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_EZD_FILE,
+    ErrorText));
 
   Lines := TStringList.Create;
   try
@@ -837,6 +851,118 @@ begin
   AssertEquals(2, Length(Loaded));
   AssertEquals(FilePath('ezd\Layer1_T2.ezd'), Loaded[0].EZDFile);
   AssertEquals('A', Loaded[1].Letter);
+end;
+
+procedure TOligoFileTests.SliceStatisticsReportsUnwritableFolder;
+var
+  Table: TArrSliceStruc;
+  ErrorText: string;
+begin
+  Table := nil;
+  // папки нет - файл не записать
+  AssertFalse(SaveSliceStatistics(FilePath('missing'), Table, SLICES_EZD_FILE,
+    ErrorText));
+  AssertTrue(ErrorText <> '');
+end;
+
+procedure WriteText(const AFileName, AText: string);
+var
+  Lines: TStringList;
+begin
+  Lines := TStringList.Create;
+  try
+    Lines.Text := AText;
+    Lines.SaveToFile(AFileName);
+  finally
+    Lines.Free;
+  end;
+end;
+
+const
+  LAYS_HEADER = 'Layer'#9'Letter'#9'Filepath' + LineEnding;
+
+procedure TOligoFileTests.SliceFileMissingFails;
+var
+  Table: TArrSliceStruc;
+begin
+  SetLength(Table, 1);
+  AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
+  AssertEquals(0, Length(Table));
+end;
+
+procedure TOligoFileTests.SliceFileRejectsBadLayerNumber;
+var
+  Table: TArrSliceStruc;
+begin
+  WriteText(FilePath('Slices.lays'), LAYS_HEADER + 'x'#9'A'#9'a.ezd');
+  AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
+  AssertEquals(0, Length(Table));
+end;
+
+procedure TOligoFileTests.SliceFileWithBadLineGivesEmptyTable;
+var
+  Table: TArrSliceStruc;
+begin
+  // первая строка хорошая, вторая - нет: наполовину прочитанной таблицы нет
+  WriteText(FilePath('Slices.lays'), LAYS_HEADER + '1'#9'A'#9'a.ezd' +
+    LineEnding + '2'#9'T');
+  AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
+  AssertEquals(0, Length(Table));
+end;
+
+procedure TOligoFileTests.SliceFileWithoutLayersFails;
+var
+  Table: TArrSliceStruc;
+begin
+  WriteText(FilePath('Slices.lays'), LAYS_HEADER);
+  AssertEquals(-1, LoadSliceFile(Table, FilePath('Slices.lays')));
+  AssertEquals(0, Length(Table));
+end;
+
+procedure TOligoFileTests.SliceFileSkipsEmptyLines;
+var
+  Table: TArrSliceStruc;
+begin
+  WriteText(FilePath('Slices.lays'), LAYS_HEADER + '1'#9'A'#9'a.ezd' +
+    LineEnding + LineEnding + '2'#9'T'#9'b.ezd' + LineEnding + LineEnding);
+  AssertEquals(0, LoadSliceFile(Table, FilePath('Slices.lays')));
+  AssertEquals(2, Length(Table));
+  AssertEquals(2, Table[1].LayerCount);
+  AssertEquals(FilePath('b.ezd'), Table[1].EZDFile);
+end;
+
+procedure TOligoFileTests.WriteLayerFilesBuildsTableAndFiles;
+var
+  Layers: TOligoLayers;
+  Table: TArrSliceStruc;
+  Loaded: TMatrix;
+  ErrorText: string;
+  I: Integer;
+begin
+  Layers := SliceOligoArray(Arr(['AT;GT']));
+  AssertTrue(ErrorText, WriteLayerFiles(Layers, FDirectory, Table, ErrorText));
+  AssertEquals(Length(Layers), Length(Table));
+  for I := 0 to High(Layers) do
+  begin
+    AssertEquals(Layers[I].Number, Table[I].LayerCount);
+    AssertEquals(Layers[I].Letter, Table[I].Letter);
+    AssertEquals(Layers[I].Count, Table[I].NumOfChar);
+    AssertEquals(FilePath(LayerFileName(Layers[I])), Table[I].MatrixFile);
+    Loaded := nil;
+    AssertTrue(ReadMatrixFromFile(Table[I].MatrixFile, Loaded));
+    AssertEquals(MatrixToText(Layers[I].Matrix), MatrixToText(Loaded));
+  end;
+end;
+
+procedure TOligoFileTests.WriteLayerFilesFailureGivesEmptyTable;
+var
+  Table: TArrSliceStruc;
+  ErrorText: string;
+begin
+  AssertFalse(WriteLayerFiles(SliceOligoArray(Arr(['AT;GT'])),
+    FilePath('missing'), Table, ErrorText));
+  AssertEquals(0, Length(Table));
+  AssertTrue(ErrorText <> '');
 end;
 
 { TOligoMatrixTests }
@@ -911,6 +1037,26 @@ begin
   P := MarkBias(Matrix(['00000']), Geometry(True));
   AssertEquals(-2.5, P[0], 1e-9);
   AssertEquals(0.0, P[1], 1e-9);
+end;
+
+procedure TMarkGeometryTests.MarkPointsUseStepGroupsAndBias;
+var
+  Points: TArrOfTPoint;
+begin
+  // шаг 1, группы по 2 с доп. шагом 0.5, ручное смещение (3.25; -1.5)
+  Points := MatrixToMarkPoints(Matrix(['101', '010']), Geometry(False));
+  AssertEquals(3, Length(Points));
+  AssertEquals(3.25, Points[0][0], 1e-9);
+  AssertEquals(-1.5, Points[0][1], 1e-9);
+  AssertEquals(5.75, Points[1][0], 1e-9); // 2*1 + 0.5 за группу + 3.25
+  AssertEquals(-1.5, Points[1][1], 1e-9);
+  AssertEquals(4.25, Points[2][0], 1e-9);
+  AssertEquals(-2.5, Points[2][1], 1e-9);
+end;
+
+procedure TMarkGeometryTests.MarkPointsOfEmptyMatrixAreEmpty;
+begin
+  AssertEquals(0, Length(MatrixToMarkPoints(Matrix(['000']), Geometry(False))));
 end;
 
 { TOligoPasteTests }

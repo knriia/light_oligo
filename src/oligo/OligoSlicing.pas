@@ -9,7 +9,7 @@ unit OligoSlicing;
 interface
 
 uses
-  Classes, SysUtils, MatrixTypes, OligoArray;
+  Classes, SysUtils, MatrixTypes, OligoArray, OligoSlices;
 
 const
   MAX_SLICE_LAYERS = 1001; // защита от зацикливания, как и раньше
@@ -29,7 +29,16 @@ function SliceOligoArray(const aArr: TOligoArr): TOligoLayers;
 // Имя файла матрицы слоя: Layer<номер>_<буква><количество>.txt
 function LayerFileName(const aLayer: TOligoLayer): String;
 
+// Записывает матрицы слоёв в папку aDir и строит по ним таблицу слоёв.
+// Если хоть один файл не записался - False, текст ошибки и пустая таблица:
+// неполный набор слоёв использовать нельзя.
+function WriteLayerFiles(const aLayers: TOligoLayers; const aDir: String;
+  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+
 implementation
+
+uses
+  OligoMatrix;
 
 function SliceOligoArray(const aArr: TOligoArr): TOligoLayers;
 var
@@ -56,6 +65,36 @@ function LayerFileName(const aLayer: TOligoLayer): String;
 begin
   Result:='Layer'+IntToStr(aLayer.Number)+'_'+aLayer.Letter+
     IntToStr(aLayer.Count)+'.txt';
+end;
+
+function WriteLayerFiles(const aLayers: TOligoLayers; const aDir: String;
+  out aTable: TArrSliceStruc; out aErrorText: String): Boolean;
+var
+  i: Integer;
+  LayerFile, Failed: String;
+begin
+  aTable:=nil;
+  Failed:='';
+  SetLength(aTable, Length(aLayers));
+  for i:=0 to High(aLayers) do
+  begin
+    LayerFile:=IncludeTrailingPathDelimiter(aDir)+LayerFileName(aLayers[i]);
+    if not SaveMatrixAsFile(aLayers[i].Matrix, LayerFile) then
+      Failed:=Failed+LineEnding+LayerFile;
+    aTable[i]:=Default(TSliceStruc);
+    aTable[i].LayerCount:=aLayers[i].Number;
+    aTable[i].Letter:=aLayers[i].Letter;
+    aTable[i].NumOfChar:=aLayers[i].Count;
+    aTable[i].MatrixFile:=LayerFile;
+  end;
+  Result:=Failed='';
+  if Result then
+    aErrorText:=''
+  else
+  begin
+    aTable:=nil;
+    aErrorText:='Не удалось записать файлы слоёв:'+Failed;
+  end;
 end;
 
 end.

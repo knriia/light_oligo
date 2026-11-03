@@ -6,7 +6,7 @@ program markezd_tests;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, consoletestrunner, EzCadApiTests;
+  Classes, consoletestrunner, EzCadApiTests, MarkEzdWriterTests;
 
 var
   Application: TTestRunner;

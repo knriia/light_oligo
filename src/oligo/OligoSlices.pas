@@ -22,8 +22,18 @@ type
   type
    TArrSliceStruc = array of TSliceStruc;
 
-procedure SaveSliceStatistics(aDir: String;
-                              const aTable: array of TSliceStruc; aFileType: word=0);
+const
+  SLICES_STAT_FILE = 0; // Slices.txt - статистика слайсинга, пути к матрицам
+  SLICES_EZD_FILE = 1;  // Slices.lays - таблица для синтеза, пути к EZD
+
+// Записывает таблицу слоёв в aDir (Slices.txt или Slices.lays).
+// False и текст ошибки, если файл записать не удалось.
+function SaveSliceStatistics(const aDir: String;
+  const aTable: array of TSliceStruc; aFileType: Word;
+  out aErrorText: String): Boolean;
+// Читает Slices.lays: 0 - прочитан, -1 - ошибка (файла нет, строка не из
+// трёх полей, номер слоя не число, нет ни одного слоя). При ошибке
+// таблица пустая - наполовину прочитанной она не бывает.
 Function LoadSliceFile(var aSliceTable: TArrSliceStruc; aSliceFile: String): integer;
 
 // Файлы слоёв в папке (Layer*.txt и Layer*.ezd), полные пути по алфавиту.
@@ -38,98 +48,89 @@ function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolea
 implementation
 
 uses
-  AppPaths;
+  AppPaths, TextFileUtils;
 
-procedure SaveSliceStatistics(aDir: String;
-  const aTable: array of TSliceStruc; aFileType: word=0);
-// Сохранение статистики слайсинга
-//aFileType=0 - txt, aFileType=1 ezd
+function SaveSliceStatistics(const aDir: String;
+  const aTable: array of TSliceStruc; aFileType: Word;
+  out aErrorText: String): Boolean;
 // Файлы слоёв из папки aDir записываются только по имени, чтобы папку
 // с результатами нарезки можно было переносить.
 var
-   i: integer;
-   s: String;
-   f: TextFile;
-   aFTStr: String;
+  i: integer;
+  Text, FileName: String;
 begin
-case aFileType of
-0: aFTStr:='.txt';
-1: aFTStr:='.lays';
-end;
-
-  if Length(aTable)<>0 then
-  try
-    AssignFile(f, aDir+'\Slices'+aFTStr);
-    {$I-}
-    Rewrite(f);
-    {$I+}
-    case aFileType of
-    0: s:='Layer'+#9+'Letter'+#9+'NumOfLetters'+#9+'Filepath';
-    1: s:='Layer'+#9+'Letter'+#9+'Filepath';
-    end;
-    WriteLN(f,S);
-
-    for i:=0 to Length(aTable)-1 do
-     case aFileType of
-      0: begin
-          s:=IntToStr(aTable[i].LayerCount)+
-          #9+aTable[i].Letter+
-          #9+IntToStr(aTable[i].NumOfChar)+
-          #9+MakePathRelative(aDir, aTable[i].MatrixFile);
-          WriteLN(f,S);
-         end;
-      1: begin
-          s:=IntToStr(aTable[i].LayerCount)+
-          #9+aTable[i].Letter+
-          #9+MakePathRelative(aDir, aTable[i].EZDFile);
-          WriteLN(f,S);
-         end;
-    end;
-  finally
-    CloseFile(f);
+  if aFileType=SLICES_EZD_FILE then
+  begin
+    FileName:='Slices.lays';
+    Text:='Layer'#9'Letter'#9'Filepath'+LineEnding;
+  end
+  else
+  begin
+    FileName:='Slices.txt';
+    Text:='Layer'#9'Letter'#9'NumOfLetters'#9'Filepath'+LineEnding;
   end;
+
+  for i:=0 to High(aTable) do
+    if aFileType=SLICES_EZD_FILE then
+      Text:=Text+IntToStr(aTable[i].LayerCount)+#9+aTable[i].Letter+#9+
+            MakePathRelative(aDir, aTable[i].EZDFile)+LineEnding
+    else
+      Text:=Text+IntToStr(aTable[i].LayerCount)+#9+aTable[i].Letter+#9+
+            IntToStr(aTable[i].NumOfChar)+#9+
+            MakePathRelative(aDir, aTable[i].MatrixFile)+LineEnding;
+
+  FileName:=IncludeTrailingPathDelimiter(aDir)+FileName;
+  Result:=WriteUtf8TextFile(FileName, Text, aErrorText);
+  if not Result then
+    aErrorText:='Не удалось записать файл:'+LineEnding+FileName+LineEnding+
+                aErrorText;
 end;
 
 function LoadSliceFile(var aSliceTable: TArrSliceStruc;
   aSliceFile: String): integer;
 var
-  F: TextFile;
-  S: String;
+  Lines: TStringList;
   Parts: TStringArray;
+  Table: TArrSliceStruc;
+  i, n: integer;
 begin
   Result:=-1;
-  if FileExists(aSliceFile) then
-  begin
+  aSliceTable:=nil;
+  if not FileExists(aSliceFile) then
+    Exit;
+  Table:=nil;
+  Lines:=TStringList.Create;
+  try
     try
-      AssignFile(F,aSliceFile);
-      Reset(F);
-      SetLength(aSliceTable,0);
-      ReadLN(F,S); //просто считываем первую строку с заголовками
-      while not EOF(F) do
-      begin
-        ReadLN(F,S);
-          // Разделяем входную строку по символу табуляции
-        Parts:=S.Split(#9); // #9 - символ табуляции
-          // Проверяем, что строка содержит 3 части
-        if Length(Parts) <> 3 then
-        begin
-          Result:=-1;
-          Exit;
-        end
-        else
-        SetLength(aSliceTable, Length(aSliceTable)+1); //увеличиваем размер на 1
-        TryStrToInt(Parts[0], aSliceTable[High(aSliceTable)].LayerCount);
-        aSliceTable[High(aSliceTable)].Letter:=trim(Parts[1]);
-        // Имя файла ищем рядом с файлом слоёв; старые файлы с полными
-        // путями читаются как раньше.
-        aSliceTable[High(aSliceTable)].EZDFile:=
-          ResolvePath(ExtractFileDir(aSliceFile), trim(Parts[2]));
-      end;
-      Result:=0;
-    finally
-      CloseFile(F);
+      Lines.LoadFromFile(aSliceFile);
+    except
+      Exit; // файл не читается (занят, нет доступа)
     end;
+    // строка 0 - заголовки; пустые строки пропускаем
+    for i:=1 to Lines.Count-1 do
+    begin
+      if Trim(Lines[i])='' then
+        Continue;
+      Parts:=Lines[i].Split(#9);
+      if Length(Parts)<>3 then
+        Exit;
+      n:=Length(Table);
+      SetLength(Table, n+1);
+      Table[n]:=Default(TSliceStruc);
+      if not TryStrToInt(Trim(Parts[0]), Table[n].LayerCount) then
+        Exit;
+      Table[n].Letter:=Trim(Parts[1]);
+      // Имя файла ищем рядом с файлом слоёв; старые файлы с полными
+      // путями читаются как раньше.
+      Table[n].EZDFile:=ResolvePath(ExtractFileDir(aSliceFile), Trim(Parts[2]));
+    end;
+  finally
+    Lines.Free;
   end;
+  if Length(Table)=0 then
+    Exit;
+  aSliceTable:=Table;
+  Result:=0;
 end;
 
 function ListFilesByMasks(const aDir: String;
