@@ -36,12 +36,12 @@ type
     SG_OligoArr: TStringGrid;
     procedure B_ClearOligoArrClick(Sender: TObject);
     procedure B_CloseOligoArrClick(Sender: TObject);
-    procedure B_CreateArrEzdClick(Sender: TObject);
+    procedure B_CreateLayerEzdClick(Sender: TObject);
     procedure B_CreateOligoArrClick(Sender: TObject);
-    procedure B_LoadOligsClick(Sender: TObject);
-    procedure B_SaveOligsClick(Sender: TObject);
-    procedure B_SetGeomParamClick(Sender: TObject);
-    procedure B_SetLasPen2Click(Sender: TObject);
+    procedure B_LoadOligoArrClick(Sender: TObject);
+    procedure B_SaveOligoArrClick(Sender: TObject);
+    procedure B_GeometryParamsClick(Sender: TObject);
+    procedure B_LaserParamsClick(Sender: TObject);
     procedure B_SliceOligoArrClick(Sender: TObject);
     procedure SG_OligoArrEditingDone(Sender: TObject);
     procedure SG_OligoArrHeaderClick(Sender: TObject; IsColumn: Boolean;
@@ -249,7 +249,7 @@ begin
   StoreCell(FEditedCol, FEditedRow);
 end;
 
-procedure TSequencesForm.B_LoadOligsClick(Sender: TObject);
+procedure TSequencesForm.B_LoadOligoArrClick(Sender: TObject);
 var
   ErrorText: String;
 begin
@@ -269,7 +269,7 @@ begin
   DisplayOligoArray;
 end;
 
-procedure TSequencesForm.B_SaveOligsClick(Sender: TObject);
+procedure TSequencesForm.B_SaveOligoArrClick(Sender: TObject);
 begin
   SaveArray;
 end;
@@ -452,14 +452,14 @@ begin
   LayerChartForm.ShowModal;
 end;
 
-procedure TSequencesForm.B_SetLasPen2Click(Sender: TObject);
+procedure TSequencesForm.B_LaserParamsClick(Sender: TObject);
 // настройки лазерного маркера - то же окно, что на вкладке ручного управления
 begin
   if Assigned(FOnShowLaserSettings) then
     FOnShowLaserSettings(Self);
 end;
 
-procedure TSequencesForm.B_SetGeomParamClick(Sender: TObject);
+procedure TSequencesForm.B_GeometryParamsClick(Sender: TObject);
 // геометрия, с которой создаются EZD слоёв; хранится в configs\sequences.ini
 var
   Geometry: TMarkGeometry;
@@ -477,7 +477,7 @@ begin
     ShowMessage(ErrorText);
 end;
 
-procedure TSequencesForm.B_CreateArrEzdClick(Sender: TObject);
+procedure TSequencesForm.B_CreateLayerEzdClick(Sender: TObject);
 // EZD-файл для каждого слоя (по умолчанию в папке ezd рядом с массивом, имя
 // как у файла матрицы слоя) и таблица Slices.lays для синтеза рядом с массивом.
 var
