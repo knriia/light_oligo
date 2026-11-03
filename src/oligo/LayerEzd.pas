@@ -24,6 +24,7 @@ type
 function LayerEzdFileName(const ALayer: TSliceLayer): string;
 
 // Создаёт EZD-файл для каждого слоя таблицы в папке AEzdDir.
+// Если пятна точек выходят за край подложки, ни одного файла не создаётся.
 // AResult - копия таблицы, EZDFile заполнен только у записанных слоёв.
 // True - записаны все слои. Иначе в AErrorText список слоёв с причинами:
 // неполный набор слоёв для синтеза использовать нельзя.
@@ -55,12 +56,49 @@ function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
 var
   i: Integer;
   Matrix: TMatrix;
-  Points: TArrOfTPoint;
+  Points: array of TArrOfTPoint;
+  Reasons: array of string;
   EzdFile, Reason, Failed: string;
+  Overflow, LayerOverflow: Double;
 begin
   AResult := Copy(ATable);
   for i := 0 to High(AResult) do
     AResult[i].EZDFile := '';
+
+  // точки всех слоёв считаем заранее: если массив не помещается на
+  // подложку, ни одного файла не создаём
+  Points := nil;
+  Reasons := nil;
+  SetLength(Points, Length(AResult));
+  SetLength(Reasons, Length(AResult));
+  Overflow := -1e300;
+  for i := 0 to High(AResult) do
+  begin
+    Matrix := nil;
+    if not ReadMatrixFromFile(AResult[i].MatrixFile, Matrix) then
+      Reasons[i] := 'не удалось прочитать матрицу слоя'
+    else
+    begin
+      Points[i] := MatrixToMarkPoints(Matrix, AGeometry);
+      if Length(Points[i]) = 0 then
+        Reasons[i] := 'в матрице слоя нет точек'
+      else
+      begin
+        LayerOverflow := SubstrateOverflow(Points[i], AGeometry);
+        if LayerOverflow > Overflow then
+          Overflow := LayerOverflow;
+      end;
+    end;
+  end;
+  if Overflow > 1e-9 then
+  begin
+    AErrorText := Format('Массив не помещается на подложку диаметром %s мм: ' +
+      'пятна выходят за край на %s мм.' + LineEnding +
+      'Измените шаг, смещение или диаметр подложки в параметрах геометрии.',
+      [FormatFloat('0.###', AGeometry.SubstrateDiameter),
+       FormatFloat('0.###', Overflow)]);
+    Exit(False);
+  end;
 
   if not AWriter.Open(Reason) then
   begin
@@ -72,18 +110,13 @@ begin
   try
     for i := 0 to High(AResult) do
     begin
-      EzdFile := IncludeTrailingPathDelimiter(AEzdDir) +
-        LayerEzdFileName(AResult[i]);
-      Matrix := nil;
-      if not ReadMatrixFromFile(AResult[i].MatrixFile, Matrix) then
-        Reason := 'не удалось прочитать матрицу слоя'
-      else
+      Reason := Reasons[i];
+      if Reason = '' then
       begin
-        Points := MatrixToMarkPoints(Matrix, AGeometry);
-        if Length(Points) = 0 then
-          Reason := 'в матрице слоя нет точек'
-        else if AWriter.SavePoints(EzdFile,
-          'Layer' + IntToStr(AResult[i].LayerNumber), Points, Reason) then
+        EzdFile := IncludeTrailingPathDelimiter(AEzdDir) +
+          LayerEzdFileName(AResult[i]);
+        if AWriter.SavePoints(EzdFile,
+          'Layer' + IntToStr(AResult[i].LayerNumber), Points[i], Reason) then
         begin
           AResult[i].EZDFile := EzdFile;
           Continue;

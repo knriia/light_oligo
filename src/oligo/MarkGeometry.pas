@@ -21,10 +21,14 @@ type
     AutoCenter: Boolean;// центрировать массив автоматически
     BiasX: Double;      // ручное смещение по X, мм
     BiasY: Double;      // ручное смещение по Y, мм
+    // Диаметр пятна лазера, мкм. Его задаёт оптика и режим лазера, а не
+    // программа: здесь - значение, которое вводит пользователь.
+    SpotSize: Double;
+    SubstrateDiameter: Double; // диаметр подложки, мм (центр - в нуле)
   end;
 
 // Значения по умолчанию: шаг 0.1 мм, группы по 10 с доп. шагом 0.1 мм,
-// автоцентр, без ручного смещения.
+// автоцентр, без ручного смещения, пятно 15 мкм, подложка 20 мм.
 function DefaultMarkGeometry: TMarkGeometry;
 // Геометрия из раздела [Geometry] ini-файла. Нет файла, ключа или значение
 // недопустимо - для этого параметра берётся значение по умолчанию.
@@ -55,6 +59,11 @@ Function ConvertMatrixToLinearArray(const aMatrix: TMatrix; // конверти�
 function MatrixToMarkPoints(const AMatrix: TMatrix;
   const AGeometry: TMarkGeometry): TArrOfTPoint;
 
+// На сколько мм пятна точек (с учётом их радиуса) выходят за край
+// подложки. 0 или меньше - все точки помещаются.
+function SubstrateOverflow(const APoints: TArrOfTPoint;
+  const AGeometry: TMarkGeometry): Double;
+
 implementation
 
 uses
@@ -73,6 +82,8 @@ begin
   Result.GroupStep := 0.1;
   Result.Group := 10;
   Result.AutoCenter := True;
+  Result.SpotSize := 15;
+  Result.SubstrateDiameter := 20;
 end;
 
 function LoadMarkGeometry(const AFileName: string): TMarkGeometry;
@@ -112,6 +123,13 @@ begin
       Result.AutoCenter);
     Result.BiasX := ReadNumber('BiasX', Result.BiasX);
     Result.BiasY := ReadNumber('BiasY', Result.BiasY);
+    Result.SpotSize := ReadNumber('SpotSize', Result.SpotSize);
+    if Result.SpotSize <= 0 then
+      Result.SpotSize := DefaultMarkGeometry.SpotSize;
+    Result.SubstrateDiameter := ReadNumber('SubstrateDiameter',
+      Result.SubstrateDiameter);
+    if Result.SubstrateDiameter <= 0 then
+      Result.SubstrateDiameter := DefaultMarkGeometry.SubstrateDiameter;
   finally
     Ini.Free;
   end;
@@ -137,6 +155,10 @@ begin
         FloatToStr(AGeometry.BiasX, PointFormat));
       Ini.WriteString(GEOMETRY_SECTION, 'BiasY',
         FloatToStr(AGeometry.BiasY, PointFormat));
+      Ini.WriteString(GEOMETRY_SECTION, 'SpotSize',
+        FloatToStr(AGeometry.SpotSize, PointFormat));
+      Ini.WriteString(GEOMETRY_SECTION, 'SubstrateDiameter',
+        FloatToStr(AGeometry.SubstrateDiameter, PointFormat));
       Ini.UpdateFile;
       Result := True;
     finally
@@ -228,6 +250,23 @@ begin
   Bias := MarkBias(AMatrix, AGeometry);
   ConvertMatrixToLinearArray(AMatrix, Result, AGeometry.Step, AGeometry.Group,
     AGeometry.GroupStep, Bias[0], Bias[1]);
+end;
+
+function SubstrateOverflow(const APoints: TArrOfTPoint;
+  const AGeometry: TMarkGeometry): Double;
+var
+  i: Integer;
+  Edge: Double;
+begin
+  Result := -1e300;
+  for i := 0 to High(APoints) do
+  begin
+    // дальний край пятна от центра подложки минус её радиус
+    Edge := Sqrt(Sqr(APoints[i][0]) + Sqr(APoints[i][1])) +
+      AGeometry.SpotSize / 2000 - AGeometry.SubstrateDiameter / 2;
+    if Edge > Result then
+      Result := Edge;
+  end;
 end;
 
 end.
