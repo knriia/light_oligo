@@ -125,6 +125,7 @@ type
     procedure MarkPointsOfEmptyMatrixAreEmpty;
     procedure SubstrateOverflowCountsSpotRadius;
     procedure SubstrateOutlineIsCircleOfDiameter;
+    procedure ZeroDiameterMeansNoSubstrate;
     procedure FitCheckExplainsWhatIsWrong;
   end;
 
@@ -1320,6 +1321,18 @@ begin
   G := LoadMarkGeometry(FilePath('bad.ini'));
   AssertEquals(15.0, G.SpotSize, 1e-9);
   AssertEquals(20.0, G.SubstrateDiameter, 1e-9);
+
+  // диаметр 0 - подложки нет, это допустимое значение
+  Lines := TStringList.Create;
+  try
+    Lines.Add('[Geometry]');
+    Lines.Add('SubstrateDiameter=0');
+    Lines.SaveToFile(FilePath('nosubstrate.ini'));
+  finally
+    Lines.Free;
+  end;
+  G := LoadMarkGeometry(FilePath('nosubstrate.ini'));
+  AssertEquals(0.0, G.SubstrateDiameter, 1e-9);
 end;
 
 procedure TOligoFileTests.GeometrySaveReportsUnwritableFolder;
@@ -1527,6 +1540,26 @@ begin
   AssertEquals(0.0, P[0][1], 1e-9);
   for I := 0 to High(P) do
     AssertEquals(5.0, Sqrt(Sqr(P[I][0]) + Sqr(P[I][1])), 1e-9);
+end;
+
+procedure TMarkGeometryTests.ZeroDiameterMeansNoSubstrate;
+var
+  G: TMarkGeometry;
+  P: TArrOfTPoint;
+  ErrorText: string;
+begin
+  G := DefaultMarkGeometry;
+  AssertTrue(HasSubstrate(G));
+  G.SubstrateDiameter := 0;
+  AssertFalse(HasSubstrate(G));
+  AssertEquals('нет контура', 0, Length(SubstrateOutline(G, 8)));
+  P := nil;
+  SetLength(P, 1);
+  P[0][0] := 500;            // далеко, но подложки нет
+  P[0][1] := 500;
+  AssertTrue(SubstrateOverflow(P, G) < 0);
+  AssertTrue(CheckArrayFitsSubstrate(P, G, ErrorText));
+  AssertEquals('', ErrorText);
 end;
 
 procedure TMarkGeometryTests.FitCheckExplainsWhatIsWrong;

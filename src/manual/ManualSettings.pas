@@ -1,6 +1,6 @@
 unit ManualSettings;
-// Настройки ручной вкладки (configs\manual.ini): геометрия массива точек,
-// показывать ли подложку в просмотре и размер матрицы. Перо лазера лежит
+// Настройки ручной вкладки (configs\manual.ini): геометрия массива точек
+// (диаметр подложки 0 - подложки нет) и размер матрицы. Перо лазера лежит
 // в том же файле, но читается и пишется модулем LaserPen.
 
 {$mode ObjFPC}{$H+}
@@ -16,7 +16,6 @@ const
 type
   TManualSettings = record
     Geometry: TMarkGeometry;
-    ShowSubstrate: Boolean;
     MatrixRows: Integer;
     MatrixCols: Integer;
   end;
@@ -38,7 +37,6 @@ function DefaultManualSettings: TManualSettings;
 begin
   Result.Geometry := DefaultMarkGeometry;
   Result.Geometry.SpotSize := 60;
-  Result.ShowSubstrate := False;
   Result.MatrixRows := 30;
   Result.MatrixCols := 30;
 end;
@@ -67,8 +65,6 @@ begin
     Exit;
   end;
   try
-    Result.ShowSubstrate := Ini.ReadBool(MANUAL_SECTION, 'ShowSubstrate',
-      D.ShowSubstrate);
     Result.MatrixRows := Size('MatrixRows', D.MatrixRows);
     Result.MatrixCols := Size('MatrixCols', D.MatrixCols);
   finally
@@ -88,7 +84,7 @@ begin
   try
     Ini := TMemIniFile.Create(AFileName);
     try
-      Ini.WriteBool(MANUAL_SECTION, 'ShowSubstrate', ASettings.ShowSubstrate);
+      Ini.DeleteKey(MANUAL_SECTION, 'ShowSubstrate'); // старый ключ
       Ini.WriteInteger(MANUAL_SECTION, 'MatrixRows', ASettings.MatrixRows);
       Ini.WriteInteger(MANUAL_SECTION, 'MatrixCols', ASettings.MatrixCols);
       Ini.UpdateFile;
