@@ -17,7 +17,6 @@ var
   myStep, myGStep, mySpotR: Double;  // шаг между точками, между группами точек и радиус точек (для отображения) в мм
   myGroup: Integer;                  // группировка точек
   BiasX, BiasY: Double;              // смещение массива по X и Y (для центрирования)
-  MyMatrix: TMatrix;                 // матрица точек
   ArrOfSpots: TArrOfTPoint;          // линейный массив маркируемых точек
   SliceTable: TSliceLayers;        // массив записей о слайсах
 

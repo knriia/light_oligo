@@ -180,7 +180,7 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\oligo\UMatrixForm.pas"/>
+        <Filename Value="src\manual\UMatrixForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="MatrixForm"/>
         <HasResources Value="True"/>
@@ -429,6 +429,10 @@
         <ComponentName Value="ManualForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\manual\MatrixDocument.pas"/>
+        <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
   </ProjectOptions>
