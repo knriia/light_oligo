@@ -24,6 +24,9 @@ type
     procedure AddSpot(AX, AY, ARadius: Double);
     procedure AddSubstratePoint(AX, AY: Double);
     procedure ShowPreview;
+    // Модально - для показа из модального окна (например, параметров
+    // геометрии), где обычное окно было бы недоступно.
+    procedure ShowPreviewModal;
   end;
 
 var
@@ -64,6 +67,12 @@ begin
   Chart1.ZoomFull;
   Show;
   BringToFront;
+end;
+
+procedure TPreviewForm.ShowPreviewModal;
+begin
+  Chart1.ZoomFull;
+  ShowModal;
 end;
 
 end.
