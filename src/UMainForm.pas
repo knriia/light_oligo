@@ -135,7 +135,7 @@ begin
   FManualForm.Parent := TS_Manual;
   FManualForm.Align := alClient;
   FManualForm.ApplyCaptions(MyInterface);
-  FManualForm.LoadSettings(MyIni);
+  FManualForm.LoadSettings;
   FManualForm.OnLog := @SequencesLog;
   FManualForm.Show;
   FDispenserStation := TDispenserStationForm.Create(Self);

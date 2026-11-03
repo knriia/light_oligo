@@ -35,6 +35,7 @@ type
   private
     FDocument: TMatrixDocument;
     FOnMatrixChanged: TNotifyEvent;
+    FOnSizeChanged: TNotifyEvent;
     FResizing: Boolean; // размер меняется из кода - поля размера не трогают матрицу
     procedure SetDocument(ADocument: TMatrixDocument);
     procedure DisplayMatrix;
@@ -46,6 +47,9 @@ type
     // Матрица изменилась (загрузка из файла, случайное заполнение).
     property OnMatrixChanged: TNotifyEvent read FOnMatrixChanged
       write FOnMatrixChanged;
+    // Размер матрицы изменился (поля размера или загрузка из файла).
+    property OnSizeChanged: TNotifyEvent read FOnSizeChanged
+      write FOnSizeChanged;
   end;
 
 var
@@ -150,6 +154,8 @@ begin
   end;
   ShowSize;
   DisplayMatrix;
+  if Assigned(FOnSizeChanged) then
+    FOnSizeChanged(Self);
   MatrixChanged;
 end;
 
@@ -170,6 +176,8 @@ begin
     Exit;
   FDocument.Resize(SE_NRows.Value, SE_NCols.Value);
   DisplayMatrix;
+  if Assigned(FOnSizeChanged) then
+    FOnSizeChanged(Self);
 end;
 
 procedure TMatrixForm.SE_NRowsChange(Sender: TObject);

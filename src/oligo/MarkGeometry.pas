@@ -34,6 +34,9 @@ function DefaultMarkGeometry: TMarkGeometry;
 // недопустимо - для этого параметра берётся значение по умолчанию.
 // Дробные числа - с точкой, но запятая тоже читается.
 function LoadMarkGeometry(const AFileName: string): TMarkGeometry;
+// То же, но отсутствующие и недопустимые значения берутся из ADefaults.
+function LoadMarkGeometry(const AFileName: string;
+  const ADefaults: TMarkGeometry): TMarkGeometry;
 // Записывает раздел [Geometry]; другие разделы файла сохраняются.
 function SaveMarkGeometry(const AFileName: string;
   const AGeometry: TMarkGeometry; out AErrorText: string): Boolean;
@@ -63,6 +66,13 @@ function MatrixToMarkPoints(const AMatrix: TMatrix;
 // подложки. 0 или меньше - все точки помещаются.
 function SubstrateOverflow(const APoints: TArrOfTPoint;
   const AGeometry: TMarkGeometry): Double;
+// Помещаются ли пятна точек на подложку. Если нет - False и объяснение
+// для пользователя: диаметр подложки, размер массива вместе с пятнами, на
+// сколько он выходит за край и что можно поменять. Текст начинается со
+// строчной буквы, чтобы вызывающий мог добавить, что именно не сделано.
+function CheckArrayFitsSubstrate(const APoints: TArrOfTPoint;
+  const AGeometry: TMarkGeometry; out AErrorText: string): Boolean;
+
 // Контур подложки (окружность с центром в нуле) из ACount точек.
 function SubstrateOutline(const AGeometry: TMarkGeometry;
   ACount: Integer): TArrOfTPoint;
@@ -84,6 +94,12 @@ begin
 end;
 
 function LoadMarkGeometry(const AFileName: string): TMarkGeometry;
+begin
+  Result := LoadMarkGeometry(AFileName, DefaultMarkGeometry);
+end;
+
+function LoadMarkGeometry(const AFileName: string;
+  const ADefaults: TMarkGeometry): TMarkGeometry;
 var
   Ini: TMemIniFile;
 
@@ -93,7 +109,7 @@ var
   end;
 
 begin
-  Result := DefaultMarkGeometry;
+  Result := ADefaults;
   if not FileExists(AFileName) then
     Exit;
   try
@@ -104,24 +120,24 @@ begin
   try
     Result.Step := ReadNumber('Step', Result.Step);
     if Result.Step <= 0 then
-      Result.Step := DefaultMarkGeometry.Step;
+      Result.Step := ADefaults.Step;
     Result.GroupStep := ReadNumber('GroupStep', Result.GroupStep);
     if Result.GroupStep < 0 then
-      Result.GroupStep := DefaultMarkGeometry.GroupStep;
+      Result.GroupStep := ADefaults.GroupStep;
     Result.Group := Ini.ReadInteger(GEOMETRY_SECTION, 'Group', Result.Group);
     if Result.Group < 0 then
-      Result.Group := DefaultMarkGeometry.Group;
+      Result.Group := ADefaults.Group;
     Result.AutoCenter := Ini.ReadBool(GEOMETRY_SECTION, 'AutoCenter',
       Result.AutoCenter);
     Result.BiasX := ReadNumber('BiasX', Result.BiasX);
     Result.BiasY := ReadNumber('BiasY', Result.BiasY);
     Result.SpotSize := ReadNumber('SpotSize', Result.SpotSize);
     if Result.SpotSize <= 0 then
-      Result.SpotSize := DefaultMarkGeometry.SpotSize;
+      Result.SpotSize := ADefaults.SpotSize;
     Result.SubstrateDiameter := ReadNumber('SubstrateDiameter',
       Result.SubstrateDiameter);
     if Result.SubstrateDiameter <= 0 then
-      Result.SubstrateDiameter := DefaultMarkGeometry.SubstrateDiameter;
+      Result.SubstrateDiameter := ADefaults.SubstrateDiameter;
   finally
     Ini.Free;
   end;
@@ -259,6 +275,47 @@ begin
     if Edge > Result then
       Result := Edge;
   end;
+end;
+
+function CheckArrayFitsSubstrate(const APoints: TArrOfTPoint;
+  const AGeometry: TMarkGeometry; out AErrorText: string): Boolean;
+var
+  Overflow, MinX, MaxX, MinY, MaxY, Spot: Double;
+  i: Integer;
+
+  function Mm(AValue: Double): string;
+  begin
+    Result := FormatFloat('0.##', AValue);
+  end;
+
+begin
+  AErrorText := '';
+  Result := True;
+  if Length(APoints) = 0 then
+    Exit;
+  Overflow := SubstrateOverflow(APoints, AGeometry);
+  if Overflow <= 1e-9 then
+    Exit;
+  Result := False;
+  MinX := APoints[0][0];
+  MaxX := MinX;
+  MinY := APoints[0][1];
+  MaxY := MinY;
+  for i := 1 to High(APoints) do
+  begin
+    if APoints[i][0] < MinX then MinX := APoints[i][0];
+    if APoints[i][0] > MaxX then MaxX := APoints[i][0];
+    if APoints[i][1] < MinY then MinY := APoints[i][1];
+    if APoints[i][1] > MaxY then MaxY := APoints[i][1];
+  end;
+  Spot := AGeometry.SpotSize / 1000; // диаметр пятна в мм
+  AErrorText := 'массив не помещается на подложку.' + LineEnding +
+    'Диаметр подложки: ' + Mm(AGeometry.SubstrateDiameter) + ' мм.' + LineEnding +
+    'Размер массива вместе с пятнами: ' + Mm(MaxX - MinX + Spot) + ' × ' +
+    Mm(MaxY - MinY + Spot) + ' мм.' + LineEnding +
+    'Пятна выходят за край подложки на ' + Mm(Overflow) + ' мм.' + LineEnding +
+    'Уменьшите шаг или размер матрицы, проверьте смещение или укажите ' +
+    'больший диаметр подложки в параметрах геометрии.';
 end;
 
 function SubstrateOutline(const AGeometry: TMarkGeometry;

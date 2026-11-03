@@ -125,6 +125,7 @@ type
     procedure MarkPointsOfEmptyMatrixAreEmpty;
     procedure SubstrateOverflowCountsSpotRadius;
     procedure SubstrateOutlineIsCircleOfDiameter;
+    procedure FitCheckExplainsWhatIsWrong;
   end;
 
   TOligoPasteTests = class(TTestCase)
@@ -1526,6 +1527,38 @@ begin
   AssertEquals(0.0, P[0][1], 1e-9);
   for I := 0 to High(P) do
     AssertEquals(5.0, Sqrt(Sqr(P[I][0]) + Sqr(P[I][1])), 1e-9);
+end;
+
+procedure TMarkGeometryTests.FitCheckExplainsWhatIsWrong;
+var
+  G: TMarkGeometry;
+  P: TArrOfTPoint;
+  ErrorText: string;
+begin
+  G := DefaultMarkGeometry;
+  G.SubstrateDiameter := 2;  // радиус 1 мм
+  G.SpotSize := 200;         // пятно 0.2 мм
+  P := nil;
+  SetLength(P, 2);
+  P[0][0] := -0.5;
+  P[0][1] := 0;
+  P[1][0] := 0.5;
+  P[1][1] := 0;
+  AssertTrue('помещается', CheckArrayFitsSubstrate(P, G, ErrorText));
+  AssertEquals('', ErrorText);
+
+  P[1][0] := 1.5;            // край пятна на 1.6 мм от центра
+  AssertFalse(CheckArrayFitsSubstrate(P, G, ErrorText));
+  // русский текст между модулями с разной кодировкой исходников не
+  // сравнить, поэтому проверяем числа: диаметр, размер 2.2 x 0.2, выход 0.6
+  AssertTrue('диаметр', Pos(': 2 ', ErrorText) > 0);
+  AssertTrue('ширина', Pos(' 2' + DefaultFormatSettings.DecimalSeparator + '2 ',
+    ErrorText) > 0);
+  AssertTrue('высота', Pos(' 0' + DefaultFormatSettings.DecimalSeparator + '2 ',
+    ErrorText) > 0);
+  AssertTrue('выход', Pos(' 0' + DefaultFormatSettings.DecimalSeparator + '6 ',
+    ErrorText) > 0);
+  AssertEquals('пять строк', 5, Length(ErrorText.Split([LineEnding])));
 end;
 
 { TOligoPasteTests }
