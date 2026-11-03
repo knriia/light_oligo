@@ -435,6 +435,9 @@ begin
        'файлы слоёв', @ListLayerFiles, @DeleteLayerFiles, Path) then
     Exit;
 
+  // показываем уникальные буквы массива
+  ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
+
   // прежние слои этого массива больше не действительны
   FDocument.ForgetSlicing;
   if not SliceArrayIntoFolder(FDocument.Arr, Path, FDocument.ArrayDir, Layers,
