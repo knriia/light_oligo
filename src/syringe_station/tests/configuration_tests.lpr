@@ -5,7 +5,7 @@ program configuration_tests;
 uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
-  WorkDispatcherTests, ManualControlsLayoutTests, AppPathsTests,
+  WorkDispatcherTests, AppPathsTests,
   ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests;
 
 var

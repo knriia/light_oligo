@@ -62,6 +62,9 @@ Function ConvertMatrixToLinearArray(const aMatrix: TMatrix; // конверти�
 function MatrixToMarkPoints(const AMatrix: TMatrix;
   const AGeometry: TMarkGeometry): TArrOfTPoint;
 
+// Есть ли подложка: диаметр 0 - подложки нет, её не рисуют и не проверяют.
+function HasSubstrate(const AGeometry: TMarkGeometry): Boolean;
+
 // На сколько мм пятна точек (с учётом их радиуса) выходят за край
 // подложки. 0 или меньше - все точки помещаются.
 function SubstrateOverflow(const APoints: TArrOfTPoint;
@@ -136,7 +139,7 @@ begin
       Result.SpotSize := ADefaults.SpotSize;
     Result.SubstrateDiameter := ReadNumber('SubstrateDiameter',
       Result.SubstrateDiameter);
-    if Result.SubstrateDiameter <= 0 then
+    if Result.SubstrateDiameter < 0 then
       Result.SubstrateDiameter := ADefaults.SubstrateDiameter;
   finally
     Ini.Free;
@@ -260,6 +263,11 @@ begin
     AGeometry.GroupStep, Bias[0], Bias[1]);
 end;
 
+function HasSubstrate(const AGeometry: TMarkGeometry): Boolean;
+begin
+  Result := AGeometry.SubstrateDiameter > 0;
+end;
+
 function SubstrateOverflow(const APoints: TArrOfTPoint;
   const AGeometry: TMarkGeometry): Double;
 var
@@ -267,6 +275,8 @@ var
   Edge: Double;
 begin
   Result := -1e300;
+  if not HasSubstrate(AGeometry) then
+    Exit;
   for i := 0 to High(APoints) do
   begin
     // дальний край пятна от центра подложки минус её радиус
@@ -325,6 +335,8 @@ var
   Angle, Radius: Double;
 begin
   Result := nil;
+  if not HasSubstrate(AGeometry) then
+    Exit;
   SetLength(Result, ACount);
   Radius := AGeometry.SubstrateDiameter / 2;
   for i := 0 to ACount - 1 do

@@ -238,7 +238,6 @@ begin
   AssertTrue(S.Geometry.AutoCenter);
   AssertEquals(60.0, S.Geometry.SpotSize, 1e-9);
   AssertEquals(20.0, S.Geometry.SubstrateDiameter, 1e-9);
-  AssertFalse(S.ShowSubstrate);
   AssertEquals(30, S.MatrixRows);
   AssertEquals(30, S.MatrixCols);
 end;
@@ -253,7 +252,6 @@ begin
   S.Geometry.AutoCenter := False;
   S.Geometry.BiasX := -1.5;
   S.Geometry.SubstrateDiameter := 25;
-  S.ShowSubstrate := True;
   S.MatrixRows := 2;
   S.MatrixCols := 7;
   AssertTrue(ErrorText, SaveManualSettings(FilePath('manual.ini'), S, ErrorText));
@@ -262,7 +260,6 @@ begin
   AssertFalse(L.Geometry.AutoCenter);
   AssertEquals(-1.5, L.Geometry.BiasX, 1e-9);
   AssertEquals(25.0, L.Geometry.SubstrateDiameter, 1e-9);
-  AssertTrue(L.ShowSubstrate);
   AssertEquals(2, L.MatrixRows);
   AssertEquals(7, L.MatrixCols);
 end;

@@ -191,7 +191,7 @@ begin
   Constraints.MinWidth := RequiredFormWidth;
 end;
 procedure TMainForm.UpdateManualControlsWidth;
-// страницы - по размеру панели; ручная вкладка раскладывает себя сама
+// страницы - по размеру панели
 begin
   if not Assigned(Panel1) or not Assigned(PageControl1) then
     Exit;
@@ -199,8 +199,6 @@ begin
     Exit;
   PageControl1.SetBounds(1, 1, Panel1.ClientWidth - 2,
     Panel1.ClientHeight - 2);
-  if Assigned(FManualForm) then
-    FManualForm.UpdateLayout;
 end;
 
 procedure TMainForm.SequencesLog(const AMsg: string);
