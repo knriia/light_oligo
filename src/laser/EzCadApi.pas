@@ -189,46 +189,46 @@ type
 function  lmc1_Initial(strEzCadPath: WideString;   // рабочий каталог ezcad
     bTestMode: boolean;  // Это тестовый режим?
     hOwenWnd: THandle    // родительское окно
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 function  lmc1_Initial2(strEzCadPath: WideString;   // рабочий каталог ezcad
     bTestMode: boolean;  // Это тестовый режим?
     hOwenWnd: THandle    // родительское окно
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Закрываем карту управления lmc1
-function lmc1_Close: Integer; stdcall;
+function lmc1_Close: Integer; cdecl;
 
 
 // Загружаем файл ezd и очищаем все объекты в базе данных
 // Входные параметры: strFileName имя файла EzCad
-function lmc1_LoadEzdFile(strFileName: WideString): Integer; stdcall;
+function lmc1_LoadEzdFile(strFileName: WideString): Integer; cdecl;
 
 
 // Маркируем все данные в текущей базе данных
 // Входные параметры: bFlyMark = TRUE включает  маркировку на лету bFlyMark = FALSE выключает
-function lmc1_Mark(bFlyMark: boolean): Integer; stdcall;
+function lmc1_Mark(bFlyMark: boolean): Integer; cdecl;
 
 
 // Маркируем указанный объект в текущей базе данных
 // Входные параметры: strEntName Имя указанного объекта, который будет обработан
-function lmc1_MarkEntity(strEntName: WideString): Integer; stdcall;
+function lmc1_MarkEntity(strEntName: WideString): Integer; cdecl;
 
 
 // Маркируем указанный объект в текущей базе данных в режиме на лету
 // Входные параметры: strEntName Имя указанного объекта для маркировки на лету
-function lmc1_MarkEntityFly(strEntName: WideString): Integer; stdcall;
+function lmc1_MarkEntityFly(strEntName: WideString): Integer; cdecl;
 
 
 // Читаем входной порт lmc1
 // Входные параметры: чтение данных входного порта
-function lmc1_ReadPort (var data: WORD): Integer; stdcall;
+function lmc1_ReadPort (var data: WORD): Integer; cdecl;
 
 
 // Записываем выходной порт lmc1
 // Входные параметры: данные выходного порта для записи
-function lmc1_WritePort(data: WORD): Integer; stdcall;
+function lmc1_WritePort(data: WORD): Integer; cdecl;
 
 
 // Получаем изображения предварительного просмотра всех данных в текущей базе данных
@@ -241,7 +241,7 @@ function lmc1_WritePort(data: WORD): Integer; stdcall;
   function lmc1_GetPrevBitmap(THandle: THandle;
       nBMPWIDTH,
       nBMPHEIGHT: Integer
-      ): CBitmap; stdcall;
+      ): CBitmap; cdecl;
 
 
 // Получаем изображение предварительного просмотра данных указанного объекта в текущей базе данных
@@ -253,11 +253,11 @@ function  lmc1_GetPrevBitmapByName(strEntName: WideString;
     THandle: THandle;
     nBMPWIDTH,
     nBMPHEIGHT: Integer
-    ): CBitmap; stdcall;
+    ): CBitmap; cdecl;
 
 
 // Вызов диалогового окна настройки параметров устройства
-function lmc1_SetDevCfg: Integer; stdcall;
+function lmc1_SetDevCfg: Integer; cdecl;
 
 
 // Устанавливаем текущие параметры заполнения.
@@ -280,7 +280,7 @@ function lmc1_SetHatchParam(bEnableContour: boolean;        // включаем 
     dHatchStartOffset2: Double; // Начальное расстояние смещения линии заполнения
     dHatchEndOffset2: Double;   // Расстояние конечного смещения линии заполнения
     dHatchAngle2: Double        // Угол линии штриховки (значение в радианах)
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Установим текущие параметры шрифта.Этот параметр шрифта будет использоваться, если вы захотите добавить новый текстовый объект в базу данных.
@@ -291,7 +291,7 @@ function lmc1_SetFontParam(strFontName: WideString;   // имя шрифта
     dCharSpace: Double;       // Межсимвольный интервал
     dLineSpace: Double;       // межстрочный интервал
     bEqualCharWidth: boolean  // Режим одинаковой ширины символов
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 {// Получаем параметры обработки, соответствующие указанному номеру пера
@@ -315,7 +315,7 @@ function lmc1_GetPenParam(nPenNo: Integer;   // номер пера, котор�
     var bPulsePointMode: boolean; // Режим точки пульса
     var nPulseNum: Integer;       // Количество точек пульса
     var dFlySpeed: Double         // Скорость производственной линии
-    ): Integer; stdcall; }
+    ): Integer; cdecl; }
 
 // Получаем параметры обработки, соответствующие указанному номеру пера
 function lmc1_GetPenParam2(nPenNo: Integer;   // номер пера, который нужно установить (0-255)
@@ -337,7 +337,7 @@ function lmc1_GetPenParam2(nPenNo: Integer;   // номер пера, котор
     var bWobbleMode: boolean;     // Режим воблинга
     var dWobbleDiameter: Double;  // Диаметр воблинга
     var dWobbleDist: Double       // Дистанция воблинга
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 // Устанавливаем параметры обработки, соответствующие указанному номеру пера
 {function lmc1_SetPenParam(nPenNo: Integer;   // номер пера, который нужно установить (0-255)
@@ -360,7 +360,7 @@ function lmc1_GetPenParam2(nPenNo: Integer;   // номер пера, котор
     bPulsePointMode: boolean; // Режим точки пульса
     nPulseNum: Integer;       // Количество точек пульса
     dFlySpeed: Double         // Скорость производственной линии
-    ): Integer; stdcall;     }
+    ): Integer; cdecl;     }
 
 // Устанавливаем параметры обработки, соответствующие указанному номеру пера
 function lmc1_SetPenParam2(nPenNo: Integer;   // номер пера, который нужно установить (0-255)
@@ -382,10 +382,10 @@ function lmc1_SetPenParam2(nPenNo: Integer;   // номер пера, котор
     bWobbleMode: boolean;     // Режим воблинга                    //
     dWobbleDiameter: Double;  // Диаметр воблинга                    //
     dWobbleDist: Double       // Дистанция воблинга                    //
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 //Очистить все данные в библиотеке объектов
-function lmc1_ClearEntLib: Integer; stdcall;
+function lmc1_ClearEntLib: Integer; cdecl;
 
 
 // Значение цифр в выравнивании
@@ -406,7 +406,7 @@ function lmc1_AddTextToLib(pStr: WideString;   // строка, которую �
     dTextRotateAngle: Double;  // Значение угла поворота строки вокруг базовой точки (радикальное значение)
     nPenNo: Integer;           // Параметры обработки, используемые объектом
     bHatchText: boolean        // Заполнять ли текстовый объект
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Добавляем указанный файл в базу данных
@@ -420,7 +420,7 @@ function lmc1_AddFileToLib(pFileName: WideString;   // имя файла
     dRatio: Double;          // коэффициент масштабирования файла
     nPenNo: Integer;         // Параметры обработки, используемые объектом
     bHatchFile: boolean      // Заполнять ли файловый объект. Если это ezd-файл или растровый файл, этот параметр недействителен.
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Добавляем группу точек в базу данных
@@ -428,7 +428,7 @@ function lmc1_AddPointToLib(ptBuf: pT;   // указатель на линейн
     ptNum: integer;                      // число точек в массиве
     pEntName: WideString;                // название группы точек в базе
     nPenNo: Integer                      // номер пера
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Добавляем кривую в базу данных
@@ -438,7 +438,7 @@ function lmc1_AddCurveToLib(ptBuf: PDouble;   // массив вершин кр�
     pEntName: WideString; // имя объекта кривой
     nPenNo: Integer;      // Номер пера, используемый объектом кривой
     bHatch: Integer       // Заполнена ли кривая
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 
@@ -474,20 +474,20 @@ function lmc1_AddBarCodeTolib(pStr: WideString;   // String
     dTextSpace: Double;          // интервал между символами человеческого распознавания
     dDiameter: Double;
     pTextFontName: WideString    // имя текстового шрифта
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Изменяем текст указанного текстового объекта в текущей базе данных
 // Входные параметры:	strTextName  Имя текстового объекта, содержимое которого необходимо изменить
 //            strTextNew   новое текстовое содержимое
-function lmc1_ChangeTextByName(strTextName: WideString; strTextNew: WideString): Integer; stdcall;
+function lmc1_ChangeTextByName(strTextName: WideString; strTextNew: WideString): Integer; cdecl;
 
 
 // Устанавливаем параметры преобразования вращения
 // Входные параметры: координата x центра вращения dCenterX
 //           координата y центра вращения dCenterY
 //           угол поворота dRotateAng (значение в радианах)
-procedure lmc1_SetRotateParam(dCenterX, dCenterY, dRotateAng: Double); stdcall;
+procedure lmc1_SetRotateParam(dCenterX, dCenterY, dRotateAng: Double); cdecl;
 
 
 /////////////////////////////////////////////////////
@@ -497,64 +497,64 @@ procedure lmc1_SetRotateParam(dCenterX, dCenterY, dRotateAng: Double); stdcall;
 // Перемещаем расширенную ось в указанную координатную позицию
 // Входные параметры: axis расширенная ось 0 = ось 0 1 = ось 1
 //         GoalPos положение координаты
-function lmc1_AxisMoveTo(axis: Integer; GoalPos: Double): Integer; stdcall;
+function lmc1_AxisMoveTo(axis: Integer; GoalPos: Double): Integer; cdecl;
 
 
 // Расширенное начало координат оси
 // Входные параметры: расширенная ось 0 = ось 0 1 = ось 1
-function lmc1_AxisCorrectOrigin(axis: Integer): Integer; stdcall;
+function lmc1_AxisCorrectOrigin(axis: Integer): Integer; cdecl;
 
 
 // Получаем текущие координаты расширенной оси
 // Входные параметры: расширенная ось 0 = ось 0 1 = ось 1
-function lmc1_GetAxisCoor(axis: Integer): Double; stdcall;
+function lmc1_GetAxisCoor(axis: Integer): Double; cdecl;
 
 
 // Расширенная ось перемещается в указанную позицию координат импульса
 // Входные параметры: расширенная ось 0 = ось 0 1 = ось 1
 //           координата импульса nGoalPos
-function lmc1_AxisMoveToPulse(axis, nGoalPos: Integer): Integer; stdcall;
+function lmc1_AxisMoveToPulse(axis, nGoalPos: Integer): Integer; cdecl;
 
 
 // Получаем текущие координаты импульса расширенной оси
 // Входные параметры: расширенная ось 0 = ось 0 1 = ось 1
-function lmc1_GetAxisCoorPulse(axis: Integer): Integer; stdcall;
+function lmc1_GetAxisCoorPulse(axis: Integer): Integer; cdecl;
 
 
 // Сброс координат расширенной оси
 // Входные параметры: bEnAxis0 = Включить ось 0 bEnAxis1 = Включить ось 1
-function lmc1_Reset(bEnAxis0, bEnAxis1: boolean): Double; stdcall;
+function lmc1_Reset(bEnAxis0, bEnAxis1: boolean): Double; cdecl;
 
 
 // Получаем параметр шрифта, который поддерживается PC системой
 function lmc1_GetFontRecord(nFontIndex: integer; // серийный номер шрифта
     szFontName: WideString;                      // название шрифта
-    dwFontAttrib: Word): Integer; stdcall;       // атрибуты шрифта (Truetype, Dotmatrix и т.п.)
+    dwFontAttrib: Word): Integer; cdecl;       // атрибуты шрифта (Truetype, Dotmatrix и т.п.)
 
 
 // Получаем все параметры шрифта, поддерживаемые текущей системой
 // Входные параметры: указатель на массив типа lmc1_FontRecord
 // nFontNum количество шрифтов
 // Возвращаем параметры: массив записей шрифтов lmc1_FontRecord
-function lmc1_GetAllFontRecord(p: plmc1_FontRecord; var nFontNum: Integer): Integer; stdcall;
+function lmc1_GetAllFontRecord(p: plmc1_FontRecord; var nFontNum: Integer): Integer; cdecl;
 
 
 // Сохраняем все объекты текущей базы данных в указанный файл ezd
 // Входные параметры: strFileName имя файла ezd
-function lmc1_SaveEntLibToFile(strFileName: WideString): Integer; stdcall;
+function lmc1_SaveEntLibToFile(strFileName: WideString): Integer; cdecl;
 
 
 // Получаем максимальные и минимальные координаты указанного объекта.
 // Если pEntName = NIL, то это означает чтение максимальных и минимальных координат всех объектов в базе данных.
 function lmc1_GetEntSize(pEntName: WideString;   // имя строкового объекта
     var dMinx, dMiny, dMaxx, dMaxy, dZ: Double
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Перемещаем относительные координаты указанного объекта
 function lmc1_MoveEnt(pEntName: WideString;   // имя строкового объекта
     dMovex, dMovey: Double
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Масштабируем указанный объект, масштабируем координаты центра (dCenx, dCeny)
@@ -562,7 +562,7 @@ function lmc1_MoveEnt(pEntName: WideString;   // имя строкового о�
 //     dScaleY = коэффициент масштабирования в направлении Y
 function lmc1_ScaleEnt(pEntName: WideString;   // имя строкового объекта
     dCenx, dCeny, dScaleX, dScaleY: Double
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Отразить указанный объект, координаты центра зеркала (dCenx, dCeny)
@@ -571,37 +571,37 @@ function lmc1_ScaleEnt(pEntName: WideString;   // имя строкового о
 function lmc1_MirrorEnt(pEntName: WideString;  // имя строкового объекта
     dCenx, dCeny: Double;
     bMirrorX, bMirrorY: boolean
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
 // Поворот указанного объекта, координаты центра вращения (dCenx, dCeny)
 // dAngle = угол поворота (против часовой стрелки положителен, единица измерения – градус)
 function lmc1_RotateEnt(pEntName: WideString;  // имя строкового объекта
     dCenx, dCeny, dAngle: Double
-    ): Integer; stdcall;
+    ): Integer; cdecl;
 
 
-function lmc1_RedLightMark: Integer; stdcall;
+function lmc1_RedLightMark: Integer; cdecl;
 
 
 // Получаем общее количество объектов
 // Выходные параметры: общее количество объектов
-function lmc1_GetEntityCount: Integer; stdcall;
+function lmc1_GetEntityCount: Integer; cdecl;
 
 
 // Получаем имя объекта указанного серийного номера
 // Входные параметры: nEntityIndex указывает серийный номер объекта
 //               (диапазон: 0 - (lmc1_GetEntityCount()-1))
 // Выходной параметр: имя объекта szEntName
-function lmc1_GetEntityName(nEntityIndex: Integer; var szEntName: array of Char): Integer; stdcall;
+function lmc1_GetEntityName(nEntityIndex: Integer; var szEntName: array of Char): Integer; cdecl;
 
 
 // Получаем идентификационный номер клиента собаки
-function lmc1_GetClientId: Word; stdcall;
+function lmc1_GetClientId: Word; cdecl;
 
 
 // Получаем текст указанного объекта
-function lmc1_GetTextByName(strTextName: WideString; var strText: array of Char): Integer; stdcall;
+function lmc1_GetTextByName(strTextName: WideString; var strText: array of Char): Integer; cdecl;
 
 
 
@@ -637,22 +637,22 @@ implementation
 
 Function lmc1_Initial(strEzCadPath: WideString;
     bTestMode: boolean;
-    hOwenWnd: THandle): Integer; stdcall;                                       external 'MarkEzd.dll' name 'lmc1_Initial';
+    hOwenWnd: THandle): Integer; cdecl;                                       external 'MarkEzd.dll' name 'lmc1_Initial';
 Function lmc1_Initial2(strEzCadPath: WideString;
     bTestMode: boolean;
-    hOwenWnd: THandle): Integer; stdcall;                                       external 'MarkEzd.dll' name 'lmc1_Initial2';
-Function lmc1_Close: Integer; stdcall;                                          external 'MarkEzd.dll' name 'lmc1_Close';
-Function lmc1_LoadEzdFile(strFileName: WideString): Integer; stdcall;           external 'MarkEzd.dll' name 'lmc1_LoadEzdFile';
-Function lmc1_Mark(bFlyMark: boolean): Integer; stdcall;                        external 'MarkEzd.dll' name 'lmc1_Mark';
-Function lmc1_MarkEntity(strEntName: WideString): Integer; stdcall;             external 'MarkEzd.dll' name 'lmc1_MarkEntity';
-Function lmc1_MarkEntityFly(strEntName: WideString): Integer; stdcall;          external 'MarkEzd.dll' name 'lmc1_MarkEntityFly';
-Function lmc1_ReadPort(var data: WORD): Integer; stdcall;                       external 'MarkEzd.dll' name 'lmc1_ReadPort';
-Function lmc1_WritePort(data: WORD): Integer; stdcall;                          external 'MarkEzd.dll' name 'lmc1_WritePort';
+    hOwenWnd: THandle): Integer; cdecl;                                       external 'MarkEzd.dll' name 'lmc1_Initial2';
+Function lmc1_Close: Integer; cdecl;                                          external 'MarkEzd.dll' name 'lmc1_Close';
+Function lmc1_LoadEzdFile(strFileName: WideString): Integer; cdecl;           external 'MarkEzd.dll' name 'lmc1_LoadEzdFile';
+Function lmc1_Mark(bFlyMark: boolean): Integer; cdecl;                        external 'MarkEzd.dll' name 'lmc1_Mark';
+Function lmc1_MarkEntity(strEntName: WideString): Integer; cdecl;             external 'MarkEzd.dll' name 'lmc1_MarkEntity';
+Function lmc1_MarkEntityFly(strEntName: WideString): Integer; cdecl;          external 'MarkEzd.dll' name 'lmc1_MarkEntityFly';
+Function lmc1_ReadPort(var data: WORD): Integer; cdecl;                       external 'MarkEzd.dll' name 'lmc1_ReadPort';
+Function lmc1_WritePort(data: WORD): Integer; cdecl;                          external 'MarkEzd.dll' name 'lmc1_WritePort';
 Function lmc1_GetPrevBitmap(THandle: THandle;
-    nBMPWIDTH, nBMPHEIGHT: Integer): CBitmap; stdcall;                          external 'MarkEzd.dll' name 'lmc1_GetPrevBitmap';
+    nBMPWIDTH, nBMPHEIGHT: Integer): CBitmap; cdecl;                          external 'MarkEzd.dll' name 'lmc1_GetPrevBitmap';
 Function lmc1_GetPrevBitmapByName(strEntName: WideString;
-    THandle: THandle; nBMPWIDTH, nBMPHEIGHT: Integer): CBitmap; stdcall;        external 'MarkEzd.dll' name 'lmc1_GetPrevBitmapByName';
-Function lmc1_SetDevCfg: Integer; stdcall;                                      external 'MarkEzd.dll' name 'lmc1_SetDevCfg';
+    THandle: THandle; nBMPWIDTH, nBMPHEIGHT: Integer): CBitmap; cdecl;        external 'MarkEzd.dll' name 'lmc1_GetPrevBitmapByName';
+Function lmc1_SetDevCfg: Integer; cdecl;                                      external 'MarkEzd.dll' name 'lmc1_SetDevCfg';
 Function lmc1_SetHatchParam(bEnableContour: boolean;
     bEnableHatch1: Integer; nPenNo1: Integer; nHatchAttrib1: Integer;
     dHatchEdgeDist1: Double; dHatchLineDist1: Double;
@@ -660,10 +660,10 @@ Function lmc1_SetHatchParam(bEnableContour: boolean;
     bEnableHatch2: Integer; nPenNo2: Integer; nHatchAttrib2: Integer;
     dHatchEdgeDist2: Double; dHatchLineDist2: Double;
     dHatchStartOffset2: Double; dHatchEndOffset2: Double;
-    dHatchAngle2: Double): Integer; stdcall;                                    external 'MarkEzd.dll' name 'lmc1_SetHatchParam';
+    dHatchAngle2: Double): Integer; cdecl;                                    external 'MarkEzd.dll' name 'lmc1_SetHatchParam';
 Function lmc1_SetFontParam(strFontName: WideString; dCharHeight: Double;
     dCharWidth: Double; dCharAngle: Double; dCharSpace: Double;
-    dLineSpace: Double; bEqualCharWidth: boolean): Integer; stdcall;            external 'MarkEzd.dll' name 'lmc1_SetFontParam';
+    dLineSpace: Double; bEqualCharWidth: boolean): Integer; cdecl;            external 'MarkEzd.dll' name 'lmc1_SetFontParam';
 {Function lmc1_GetPenParam(nPenNo: Integer; var nMarkLoop: Integer;
     var dMarkSpeed: Double; var dPowerRatio: Double; var dCurrent: Double;
     var nFreq: Integer; var nQPulseWidth: Integer; var nStartTC: Integer;
@@ -671,21 +671,21 @@ Function lmc1_SetFontParam(strFontName: WideString; dCharHeight: Double;
     var dJumpSpeed: Double; var nJumpPosTC: Integer; var nJumpDistTC: Integer;
     var dEndComp: Double; var dAccDist: Double; var dPointTime: Double;
     var bPulsePointMode: boolean; var nPulseNum: Integer;
-    var dFlySpeed: Double): Integer; stdcall;                                   external 'MarkEzd.dll' name 'lmc1_GetPenParam';}
+    var dFlySpeed: Double): Integer; cdecl;                                   external 'MarkEzd.dll' name 'lmc1_GetPenParam';}
 Function lmc1_GetPenParam2(nPenNo: Integer; var nMarkLoop: Integer;
     var dMarkSpeed: Double; var dPowerRatio: Double; var dCurrent: Double;
     var nFreq: Integer; var dQPulseWidth: Double; var nStartTC: Integer;
     var nLaserOffTC: Integer; var nEndTC: Integer; var nPolyTC: Integer;
     var dJumpSpeed: Double; var nJumpPosTC: Integer; var nJumpDistTC: Integer;
     var dPointTime: Double; var nSpiWave: Integer; var bWobbleMode: boolean;
-    var dWobbleDiameter: Double; var dWobbleDist: Double ): Integer; stdcall;   external 'MarkEzd.dll' name 'lmc1_GetPenParam2';
+    var dWobbleDiameter: Double; var dWobbleDist: Double ): Integer; cdecl;   external 'MarkEzd.dll' name 'lmc1_GetPenParam2';
 {Function lmc1_SetPenParam(nPenNo: Integer; nMarkLoop: Integer;
     dMarkSpeed: Double; dPowerRatio: Double; dCurrent: Double; nFreq: Integer;
     nQPulseWidth: Integer; nStartTC: Integer; nLaserOffTC: Integer;
     nEndTC: Integer; nPolyTC: Integer; dJumpSpeed: Double;
     nJumpPosTC: Integer; nJumpDistTC: Integer; dEndComp: Double;
     dAccDist: Double; dPointTime: Double; bPulsePointMode: boolean;
-    nPulseNum: Integer; dFlySpeed: Double): Integer; stdcall;                   external 'MarkEzd.dll' name 'lmc1_SetPenParam';}
+    nPulseNum: Integer; dFlySpeed: Double): Integer; cdecl;                   external 'MarkEzd.dll' name 'lmc1_SetPenParam';}
 Function lmc1_SetPenParam2(nPenNo: Integer;
     nMarkLoop: Integer;
     dMarkSpeed: Double;
@@ -704,19 +704,19 @@ Function lmc1_SetPenParam2(nPenNo: Integer;
     nSpiWave: Integer;
     bWobbleMode: boolean;//
     dWobbleDiameter: Double;//
-    dWobbleDist: Double): Integer; stdcall;                                 external 'MarkEzd.dll' name 'lmc1_SetPenParam2';
-Function lmc1_ClearEntLib: Integer; stdcall;                                    external 'MarkEzd.dll' name 'lmc1_ClearEntLib';
+    dWobbleDist: Double): Integer; cdecl;                                 external 'MarkEzd.dll' name 'lmc1_SetPenParam2';
+Function lmc1_ClearEntLib: Integer; cdecl;                                    external 'MarkEzd.dll' name 'lmc1_ClearEntLib';
 Function lmc1_AddTextToLib(pStr: WideString; pEntName: WideString;
     dPosX: Double; dPosY: Double; dPosZ: Double; nAlign: Integer;
     dTextRotateAngle: Double; nPenNo: Integer; bHatchText: boolean
-    ): Integer; stdcall;                                                        external 'MarkEzd.dll' name 'lmc1_AddTextToLib';
+    ): Integer; cdecl;                                                        external 'MarkEzd.dll' name 'lmc1_AddTextToLib';
 Function lmc1_AddFileToLib(pFileName: WideString; pEntName: WideString;
     dPosX: Double; dPosY: Double; dPosZ: Double; nAlign: Integer;
-    dRatio: Double; nPenNo: Integer; bHatchFile: boolean): Integer; stdcall;    external 'MarkEzd.dll' name 'lmc1_AddFileToLib';
+    dRatio: Double; nPenNo: Integer; bHatchFile: boolean): Integer; cdecl;    external 'MarkEzd.dll' name 'lmc1_AddFileToLib';
 Function lmc1_AddPointToLib(ptBuf: pT; ptNum: integer;
-    pEntName: WideString; nPenNo: Integer): Integer; stdcall;                   external 'MarkEzd.dll';
+    pEntName: WideString; nPenNo: Integer): Integer; cdecl;                   external 'MarkEzd.dll';
 Function lmc1_AddCurveToLib(ptBuf: PDouble; ptNum: Integer; pEntName: WideString;
-    nPenNo: Integer; bHatch: Integer): Integer; stdcall;                        external 'MarkEzd.dll' name 'lmc1_AddCurveToLib';
+    nPenNo: Integer; bHatch: Integer): Integer; cdecl;                        external 'MarkEzd.dll' name 'lmc1_AddCurveToLib';
 Function lmc1_AddBarCodeTolib(pStr: WideString; pEntName: WideString;
     dPosX: Double; dPosY: Double; dPosZ: Double; nAlign: Integer;
     nPenNo: Integer; bHatchText: Integer; nBarcodeType: Integer;
@@ -728,38 +728,38 @@ Function lmc1_AddBarCodeTolib(pStr: WideString; pEntName: WideString;
     nRow: Integer; nCol: Integer; nCheckLevel: Integer;
     nSizeMode: Integer; dTextHeight: Double; dTextWidth: Double;
     dTextOffsetX: Double; dTextOffsetY: Double; dTextSpace: Double;
-    dDiameter: Double; pTextFontName: WideString): Integer; stdcall;            external 'MarkEzd.dll' name 'lmc1_AddBarCodeTolib';
+    dDiameter: Double; pTextFontName: WideString): Integer; cdecl;            external 'MarkEzd.dll' name 'lmc1_AddBarCodeTolib';
 Function lmc1_ChangeTextByName(strTextName: WideString;
-    strTextNew: WideString): Integer; stdcall;                                  external 'MarkEzd.dll' name 'lmc1_ChangeTextByName';
-Procedure lmc1_SetRotateParam(dCenterX, dCenterY, dRotateAng: Double); stdcall; external 'MarkEzd.dll' name 'lmc1_SetRotateParam';
-Function lmc1_AxisMoveTo(axis: Integer; GoalPos: Double): Integer; stdcall;     external 'MarkEzd.dll' name 'lmc1_AxisMoveTo';
-Function lmc1_AxisCorrectOrigin(axis: Integer): Integer; stdcall;               external 'MarkEzd.dll' name 'lmc1_AxisCorrectOrigin';
-Function lmc1_GetAxisCoor(axis: Integer): Double; stdcall;                      external 'MarkEzd.dll' name 'lmc1_GetAxisCoor';
-Function lmc1_AxisMoveToPulse(axis, nGoalPos: Integer): Integer; stdcall;       external 'MarkEzd.dll' name 'lmc1_AxisMoveToPulse';
-Function lmc1_GetAxisCoorPulse(axis: Integer): Integer; stdcall;                external 'MarkEzd.dll' name 'lmc1_GetAxisCoorPulse';
-Function lmc1_Reset(bEnAxis0, bEnAxis1: boolean): Double; stdcall;              external 'MarkEzd.dll' name 'lmc1_Reset';
+    strTextNew: WideString): Integer; cdecl;                                  external 'MarkEzd.dll' name 'lmc1_ChangeTextByName';
+Procedure lmc1_SetRotateParam(dCenterX, dCenterY, dRotateAng: Double); cdecl; external 'MarkEzd.dll' name 'lmc1_SetRotateParam';
+Function lmc1_AxisMoveTo(axis: Integer; GoalPos: Double): Integer; cdecl;     external 'MarkEzd.dll' name 'lmc1_AxisMoveTo';
+Function lmc1_AxisCorrectOrigin(axis: Integer): Integer; cdecl;               external 'MarkEzd.dll' name 'lmc1_AxisCorrectOrigin';
+Function lmc1_GetAxisCoor(axis: Integer): Double; cdecl;                      external 'MarkEzd.dll' name 'lmc1_GetAxisCoor';
+Function lmc1_AxisMoveToPulse(axis, nGoalPos: Integer): Integer; cdecl;       external 'MarkEzd.dll' name 'lmc1_AxisMoveToPulse';
+Function lmc1_GetAxisCoorPulse(axis: Integer): Integer; cdecl;                external 'MarkEzd.dll' name 'lmc1_GetAxisCoorPulse';
+Function lmc1_Reset(bEnAxis0, bEnAxis1: boolean): Double; cdecl;              external 'MarkEzd.dll' name 'lmc1_Reset';
 Function lmc1_GetFontRecord(nFontIndex: integer; szFontName: WideString;
-    dwFontAttrib: Word): Integer; stdcall;                                      external 'MarkEzd.dll' name 'lmc1_GetFontRecord';
+    dwFontAttrib: Word): Integer; cdecl;                                      external 'MarkEzd.dll' name 'lmc1_GetFontRecord';
 Function lmc1_GetAllFontRecord(p: plmc1_FontRecord;
-    var nFontNum: Integer): Integer; stdcall;                                   external 'MarkEzd.dll' name 'lmc1_GetAllFontRecord';
-Function lmc1_SaveEntLibToFile(strFileName: WideString): Integer; stdcall;      external 'MarkEzd.dll' name 'lmc1_SaveEntLibToFile';
+    var nFontNum: Integer): Integer; cdecl;                                   external 'MarkEzd.dll' name 'lmc1_GetAllFontRecord';
+Function lmc1_SaveEntLibToFile(strFileName: WideString): Integer; cdecl;      external 'MarkEzd.dll' name 'lmc1_SaveEntLibToFile';
 Function lmc1_GetEntSize(pEntName: WideString; var dMinx, dMiny,
-    dMaxx, dMaxy, dZ: Double): Integer; stdcall;                                external 'MarkEzd.dll' name 'lmc1_GetEntSize';
+    dMaxx, dMaxy, dZ: Double): Integer; cdecl;                                external 'MarkEzd.dll' name 'lmc1_GetEntSize';
 Function lmc1_MoveEnt(pEntName: WideString;
-    dMovex, dMovey: Double): Integer; stdcall;                                  external 'MarkEzd.dll' name 'lmc1_MoveEnt';
+    dMovex, dMovey: Double): Integer; cdecl;                                  external 'MarkEzd.dll' name 'lmc1_MoveEnt';
 Function lmc1_ScaleEnt(pEntName: WideString;
-    dCenx, dCeny, dScaleX, dScaleY: Double): Integer; stdcall;                  external 'MarkEzd.dll' name 'lmc1_ScaleEnt';
+    dCenx, dCeny, dScaleX, dScaleY: Double): Integer; cdecl;                  external 'MarkEzd.dll' name 'lmc1_ScaleEnt';
 Function lmc1_MirrorEnt(pEntName: WideString; dCenx, dCeny: Double;
-    bMirrorX, bMirrorY: boolean): Integer; stdcall;                             external 'MarkEzd.dll' name 'lmc1_MirrorEnt';
+    bMirrorX, bMirrorY: boolean): Integer; cdecl;                             external 'MarkEzd.dll' name 'lmc1_MirrorEnt';
 Function lmc1_RotateEnt(pEntName: WideString;
-    dCenx, dCeny, dAngle: Double): Integer; stdcall;                            external 'MarkEzd.dll' name 'lmc1_RotateEnt';
-Function lmc1_RedLightMark: Integer; stdcall;                                   external 'MarkEzd.dll' name 'lmc1_RedLightMark';
-Function lmc1_GetEntityCount: Integer; stdcall;                                 external 'MarkEzd.dll' name 'lmc1_GetEntityCount';
+    dCenx, dCeny, dAngle: Double): Integer; cdecl;                            external 'MarkEzd.dll' name 'lmc1_RotateEnt';
+Function lmc1_RedLightMark: Integer; cdecl;                                   external 'MarkEzd.dll' name 'lmc1_RedLightMark';
+Function lmc1_GetEntityCount: Integer; cdecl;                                 external 'MarkEzd.dll' name 'lmc1_GetEntityCount';
 Function lmc1_GetEntityName(nEntityIndex: Integer;
-    var szEntName: array of Char): Integer; stdcall;                            external 'MarkEzd.dll' name 'lmc1_GetEntityName';
-Function lmc1_GetClientId: Word; stdcall;                                       external 'MarkEzd.dll' name 'lmc1_GetClientId';
+    var szEntName: array of Char): Integer; cdecl;                            external 'MarkEzd.dll' name 'lmc1_GetEntityName';
+Function lmc1_GetClientId: Word; cdecl;                                       external 'MarkEzd.dll' name 'lmc1_GetClientId';
 Function lmc1_GetTextByName(strTextName: WideString;
-    var strText: array of Char):Integer; stdcall;                               external 'MarkEzd.dll' name 'lmc1_GetTextByName';
+    var strText: array of Char):Integer; cdecl;                               external 'MarkEzd.dll' name 'lmc1_GetTextByName';
 
 //добавляем в конец массива точку
 function AddPointToLinearArray(const aPoint: TPoint;

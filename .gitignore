@@ -8,6 +8,7 @@ lib/
 *.dbg
 *.res
 /bin/LightOligo.exe
+/bin/markezd_tests.exe
 /src/syringe_station/tests/*.exe
 
 # Lazarus per-user session files and automatic backups
