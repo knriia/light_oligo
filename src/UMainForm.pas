@@ -112,7 +112,6 @@ type
     FSequencesForm: TSequencesForm;
     procedure SequencesLog(const AMsg: string);
     function GetMarkGeometry: TMarkGeometry;
-    procedure BeforeDllInit(Sender: TObject);
     procedure UpdateManualControlsWidth;
     procedure UpdateManualArrayControlsLayout;
     procedure UpdateManualLaserControlsLayout;
@@ -230,7 +229,6 @@ begin
   FSequencesForm.OnLog := @SequencesLog;
   FSequencesForm.OnGetMarkGeometry := @GetMarkGeometry;
   FSequencesForm.OnShowLaserSettings := @B_SetLasPenClick;
-  FSequencesForm.OnBeforeDllInit := @BeforeDllInit;
   FSequencesForm.Show;
   Randomize();
   UpdateMinimumWindowWidth();
@@ -578,13 +576,6 @@ begin
   Result.AutoCenter:=CB_AutoCenter.Checked;
   Result.BiasX:=FSE_XBias.Value;
   Result.BiasY:=FSE_YBias.Value;
-end;
-
-procedure TMainForm.BeforeDllInit(Sender: TObject);
-// закрыть сообщение MarkEzd.dll с заголовком - путём к программе
-begin
-  TmrCloserStr:=ExtractFilePath(ParamStr(0))+ExtractFileName(ParamStr(0));
-  Tmr_Closer.Enabled:=true;
 end;
 
 procedure TMainForm.Tmr_EzCADerTimer(Sender: TObject);

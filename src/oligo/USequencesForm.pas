@@ -60,7 +60,6 @@ type
     FOnLog: TSequencesLogEvent;
     FOnGetMarkGeometry: TGetMarkGeometryEvent;
     FOnShowLaserSettings: TNotifyEvent;
-    FOnBeforeDllInit: TNotifyEvent;
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
     procedure ApplyWidthMode;
@@ -87,9 +86,6 @@ type
       read FOnGetMarkGeometry write FOnGetMarkGeometry;
     property OnShowLaserSettings: TNotifyEvent
       read FOnShowLaserSettings write FOnShowLaserSettings;
-    // Перед подключением к MarkEzd.dll: главное окно закрывает её сообщение.
-    property OnBeforeDllInit: TNotifyEvent
-      read FOnBeforeDllInit write FOnBeforeDllInit;
   end;
 
 implementation
@@ -500,8 +496,8 @@ begin
        'EZD-файлы слоёв', @ListLayerEzdFiles, @DeleteLayerEzdFiles, Path) then
     Exit;
 
-  if Assigned(FOnBeforeDllInit) then
-    FOnBeforeDllInit(Self);
+  // Сообщение MarkEzd.dll при подключении (например, что плата маркера
+  // не найдена) не закрываем: пользователь должен его увидеть.
   Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
   try
     Done:=CreateSliceEzdFiles(Writer, FDocument.SliceTable, Path,
