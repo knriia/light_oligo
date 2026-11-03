@@ -9,7 +9,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ExtCtrls, Spin,
-  Windows, IniFiles, MarkGeometry, MatrixDocument;
+  Windows, IniFiles, MarkGeometry, MatrixDocument, EzCadApp;
 
 type
   TManualLogEvent = procedure(const AMsg: string) of object;
@@ -66,6 +66,7 @@ type
     FOnLog: TManualLogEvent;
     FMatrix: TMatrixDocument; // матрица точек (окно матрицы её показывает и меняет)
     FLoading: Boolean; // поля заполняются из настроек - не сохранять
+    FEzCadWatcher: TEzCadDialogWatcher;
     function EnteredGeometry: TMarkGeometry;
     procedure SaveSettings;
     procedure SettingsChanged(Sender: TObject);
@@ -90,7 +91,7 @@ type
 implementation
 
 uses
-  AppState, AppPaths, WinProcessUtils, ManualControlsLayout,
+  AppState, AppPaths, ManualControlsLayout,
   UMatrixForm, UPreviewForm, ULaserPenForm, LaserPen, MarkEzdWriter,
   MatrixTypes, ManualSettings,
   Lmc1Results;
@@ -103,6 +104,7 @@ constructor TManualForm.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   FMatrix:=TMatrixDocument.Create(20, 20);
+  FEzCadWatcher:=TEzCadDialogWatcher.Create;
   FSE_Step.OnChange:=@SettingsChanged;
   SE_Group.OnChange:=@SettingsChanged;
   FSE_GroupStep.OnChange:=@SettingsChanged;
@@ -119,6 +121,7 @@ end;
 
 destructor TManualForm.Destroy;
 begin
+  FEzCadWatcher.Free;
   FMatrix.Free;
   inherited Destroy;
 end;
@@ -223,31 +226,9 @@ begin
 end;
 
 procedure TManualForm.Tmr_EzCADerTimer(Sender: TObject);
-var
-   S: string;
-   h: HWND;
 begin
-  h:=0;
-  S:='License';
-  h:=FindWindow(nil,pchar(S));
-  if h<>0 then
-   begin
-    postMessage(h,WM_KEYDOWN,VK_RETURN,0);
-    h:=0;
-   end;
-
-  S:='EzCad';
-  h:=FindWindow(nil,pchar(S));
-  if h<>0 then
-   begin
-    postMessage(h,WM_CLOSE,0,0);
-    h:=0;
-   end;
-  inc(GlobalI);
-  if GlobalI>=100 then // через 100 циклов останавливаем таймер
-   begin
-    Tmr_EzCADer.Enabled:=false;
-   end;
+  if not FEzCadWatcher.Tick then
+    Tmr_EzCADer.Enabled:=False;
 end;
 
 procedure TManualForm.UpdateLayout;
@@ -622,29 +603,26 @@ begin
 end;
 
 procedure TManualForm.B_OpenEZCADClick(Sender: TObject);
-// Выбираем файл ezd и открываем его в EzCAD,
-// по таймеру закрываем предупреждения об ошибках
+// Выбираем файл ezd и открываем его в EzCAD; окна лицензии и предупреждений
+// EzCAD после запуска закрывает наблюдатель
 begin
- if GetProcessHandle('EzCad2.exe')<>0 then
- begin
-   ShowMessage('Приложение EzCAD2.exe уже запущено!');
-   Exit;
- end;
+  if EzCadRunning then
+  begin
+    ShowMessage('Приложение EzCAD2.exe уже запущено!');
+    Exit;
+  end;
 
- OD_File.Filter:='EzCAD|*.ezd';
- OD_File.InitialDir:=EzdDir;
- OD_File.FilterIndex:=1;
- OD_File.FileName:='';
- if not OD_File.Execute then
-   Exit;
+  OD_File.Filter:='EzCAD|*.ezd';
+  OD_File.InitialDir:=EzdDir;
+  OD_File.FilterIndex:=1;
+  OD_File.FileName:='';
+  if not OD_File.Execute then
+    Exit;
 
- GlobalI:=0; // обнуляем глобальный счетчик
- Tmr_EzCADer.Enabled:=true;
- // W-версия и кавычки: путь может содержать кириллицу и пробелы
- ShellExecuteW(0, 'open',
-               PWideChar(UnicodeString(ExtractFilePath(ParamStr(0))+'EzCAD2.exe')),
-               PWideChar(UnicodeString('"'+OD_File.FileName+'"')),
-               nil, SW_SHOWMINIMIZED);
+  FEzCadWatcher.Start;
+  Tmr_EzCADer.Enabled:=True;
+  if not LaunchEzCad(AppDir, OD_File.FileName) then
+    ShowMessage('Не удалось запустить EzCAD2.exe из папки программы.');
 end;
 
 procedure TManualForm.B_PreviewClick(Sender: TObject);
@@ -681,15 +659,12 @@ begin
 end;
 
 procedure TManualForm.B_SendF2Click(Sender: TObject);
-// Послать команду маркировки F2
+// команда маркировки F2 в EzCAD
 begin
- if GetProcessHandle('EzCad2.exe')<>0 then
-    begin
-      SendMsgToProc('EzCAD2.exe',VK_F2);
-      ShowRez('F2 отправлено', -1);
-    end
- else
-   ShowMessage('Приложение EzCAD2.exe не запущено!');
+  if SendEzCadMark then
+    Log('F2 отправлено')
+  else
+    ShowMessage('Приложение EzCAD2.exe не запущено!');
 end;
 
 procedure TManualForm.B_SetLasPenClick(Sender: TObject);
@@ -713,18 +688,9 @@ begin
 end;
 
 procedure TManualForm.B_CloseEzCADClick(Sender: TObject);
-// Закрываем приложение
-var
-  ProcH: THandle;
 begin
-  ProcH:=GetProcessHandle('EzCad2.exe');
-  if ProcH<>0 then
-    begin
-      SendMsgToProcWithMod('EzCAD2.exe',VK_F4, VK_MENU); // Alt+F4
-      PostMessage(ProcH, WM_CLOSE, 0, 0);
-    end
-  else
-   ShowMessage('Приложение EzCAD2.exe не запущено!');
+  if not CloseEzCad then
+    ShowMessage('Приложение EzCAD2.exe не запущено!');
 end;
 
 procedure TManualForm.ShowRez(aFunName: String; aRez: integer);

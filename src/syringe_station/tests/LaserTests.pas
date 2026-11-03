@@ -7,7 +7,8 @@ unit LaserTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, Lmc1Results, LaserPen;
+  Windows, Classes, SysUtils, fpcunit, testregistry, Lmc1Results, LaserPen,
+  EzCadApp;
 
 type
   TLmc1ResultsTests = class(TTestCase)
@@ -15,6 +16,16 @@ type
     procedure TextStartsWithFunctionAndCode;
     procedure KnownAndUnknownCodesDiffer;
     procedure EveryDocumentedCodeHasOwnText;
+  end;
+
+  TEzCadDialogWatcherTests = class(TTestCase)
+  protected
+    procedure SetUp; override;
+  published
+    procedure ConfirmsLicenseAndClosesWarning;
+    procedure DoesNothingWithoutWindows;
+    procedure StopsAfterGivenTicks;
+    procedure StartRestartsWatching;
   end;
 
   TLaserPenTests = class(TTestCase)
@@ -68,6 +79,108 @@ begin
     end;
   finally
     Texts.Free;
+  end;
+end;
+
+{ TEzCadDialogWatcherTests }
+
+var
+  OpenWindows: string; // заголовки открытых окон через '|'
+  Posted: string;      // что отправлено: '<окно>:<сообщение>:<параметр>;'
+
+function FakeFindWindow(const ATitle: string): HWND;
+// окно 1 - лицензия, окно 2 - предупреждение
+begin
+  Result := 0;
+  if Pos('|' + ATitle + '|', '|' + OpenWindows + '|') = 0 then
+    Exit;
+  if ATitle = EZCAD_LICENSE_TITLE then
+    Result := 1
+  else if ATitle = EZCAD_WARNING_TITLE then
+    Result := 2;
+end;
+
+function FakePostMessage(AWnd: HWND; AMsg: UINT; AWParam: WPARAM): Boolean;
+begin
+  Posted := Posted + IntToStr(AWnd) + ':' + IntToStr(AMsg) + ':' +
+    IntToStr(AWParam) + ';';
+  Result := True;
+end;
+
+procedure TEzCadDialogWatcherTests.SetUp;
+begin
+  inherited SetUp;
+  OpenWindows := '';
+  Posted := '';
+end;
+
+procedure TEzCadDialogWatcherTests.ConfirmsLicenseAndClosesWarning;
+var
+  W: TEzCadDialogWatcher;
+begin
+  W := TEzCadDialogWatcher.Create(@FakeFindWindow, @FakePostMessage);
+  try
+    OpenWindows := EZCAD_LICENSE_TITLE + '|' + EZCAD_WARNING_TITLE;
+    W.Start;
+    AssertTrue(W.Tick);
+    AssertEquals('1:' + IntToStr(WM_KEYDOWN) + ':' + IntToStr(VK_RETURN) + ';' +
+      '2:' + IntToStr(WM_CLOSE) + ':0;', Posted);
+  finally
+    W.Free;
+  end;
+end;
+
+procedure TEzCadDialogWatcherTests.DoesNothingWithoutWindows;
+var
+  W: TEzCadDialogWatcher;
+begin
+  W := TEzCadDialogWatcher.Create(@FakeFindWindow, @FakePostMessage);
+  try
+    W.Start;
+    AssertTrue(W.Tick);
+    AssertEquals('', Posted);
+  finally
+    W.Free;
+  end;
+end;
+
+procedure TEzCadDialogWatcherTests.StopsAfterGivenTicks;
+var
+  W: TEzCadDialogWatcher;
+  I: Integer;
+begin
+  W := TEzCadDialogWatcher.Create(@FakeFindWindow, @FakePostMessage);
+  try
+    AssertFalse('до Start не следит', W.Tick);
+    W.Start;
+    for I := 1 to EZCAD_WATCH_TICKS - 1 do
+      AssertTrue(W.Tick);
+    AssertFalse('последний тик', W.Tick);
+    AssertFalse(W.Active);
+    OpenWindows := EZCAD_WARNING_TITLE;
+    AssertFalse(W.Tick);
+    AssertEquals('после окончания окна не трогает', '', Posted);
+  finally
+    W.Free;
+  end;
+end;
+
+procedure TEzCadDialogWatcherTests.StartRestartsWatching;
+var
+  W: TEzCadDialogWatcher;
+  I: Integer;
+begin
+  W := TEzCadDialogWatcher.Create(@FakeFindWindow, @FakePostMessage);
+  try
+    W.Start;
+    for I := 1 to 10 do
+      W.Tick;
+    W.Start;
+    for I := 1 to EZCAD_WATCH_TICKS - 1 do
+      AssertTrue(W.Tick);
+    AssertFalse(W.Tick);
+  finally
+    W.Free;
   end;
 end;
 
@@ -231,6 +344,7 @@ begin
 end;
 
 initialization
+  RegisterTest(TEzCadDialogWatcherTests);
   RegisterTest(TLaserPenTests);
   RegisterTest(TLmc1ResultsTests);
 
