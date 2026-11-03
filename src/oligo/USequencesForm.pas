@@ -56,7 +56,6 @@ type
     FDocument: TOligoArrayDocument;
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
-    FOnShowLaserSettings: TNotifyEvent;
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
     procedure ApplyWidthMode;
@@ -78,8 +77,6 @@ type
     // False - пользователь отменил закрытие.
     function CanCloseFromHost: Boolean;
     property OnLog: TSequencesLogEvent read FOnLog write FOnLog;
-    property OnShowLaserSettings: TNotifyEvent
-      read FOnShowLaserSettings write FOnShowLaserSettings;
   end;
 
 implementation
@@ -87,7 +84,7 @@ implementation
 uses
   LCLType, Clipbrd, AppState, AppPaths, CommonUtils, OligoArray, OligoSlicing,
   LayerEzd, MarkEzdWriter, OligoPaste, UOligoArrayForm, UArraySaveForm,
-  UFolderForm, ULayerChartForm, UMarkGeometryForm;
+  UFolderForm, ULayerChartForm, UMarkGeometryForm, LaserPen, ULaserPenForm;
 
 {$R *.lfm}
 
@@ -453,10 +450,23 @@ begin
 end;
 
 procedure TSequencesForm.B_LaserParamsClick(Sender: TObject);
-// настройки лазерного маркера - то же окно, что на вкладке ручного управления
+// перо лазера, с которым создаются EZD слоёв; хранится в configs\sequences.ini
+var
+  Pen: TLaserPen;
+  Reader: TMarkEzdWriter;
+  ErrorText: String;
 begin
-  if Assigned(FOnShowLaserSettings) then
-    FOnShowLaserSettings(Self);
+  Pen:=LoadLaserPen(SequencesConfigPath);
+  Reader:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
+  try
+    if not TLaserPenForm.Execute('Параметры лазера (последовательности)', Pen,
+         @Reader.ReadDefaultPen) then
+      Exit;
+  finally
+    Reader.Free;
+  end;
+  if not SaveLaserPen(SequencesConfigPath, Pen, ErrorText) then
+    ShowMessage(ErrorText);
 end;
 
 procedure TSequencesForm.B_GeometryParamsClick(Sender: TObject);
@@ -506,7 +516,8 @@ begin
   Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
   try
     Done:=CreateSliceEzdFiles(Writer, FDocument.SliceTable, Path,
-      FDocument.SliceDir, Geometry, Table, ErrorText);
+      FDocument.SliceDir, Geometry, LoadLaserPen(SequencesConfigPath), Table,
+      ErrorText);
   finally
     Writer.Free;
   end;

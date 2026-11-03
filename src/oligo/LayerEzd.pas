@@ -8,15 +8,17 @@ unit LayerEzd;
 interface
 
 uses
-  Classes, SysUtils, MatrixTypes, MarkGeometry, OligoSlices;
+  Classes, SysUtils, MatrixTypes, MarkGeometry, OligoSlices, LaserPen;
 
 type
   // Запись EZD-файлов. Open - один раз перед записью, Close - после.
+  // Параметры пера записываются в каждый файл: с ними пойдёт маркировка.
   TEzdWriter = class
   public
     function Open(out AErrorText: string): Boolean; virtual; abstract;
     function SavePoints(const AEzdFile, AEntityName: string;
-      const APoints: TArrOfTPoint; out AErrorText: string): Boolean; virtual; abstract;
+      const APoints: TArrOfTPoint; const APen: TLaserPen;
+      out AErrorText: string): Boolean; virtual; abstract;
     procedure Close; virtual; abstract;
   end;
 
@@ -29,15 +31,16 @@ function LayerEzdFileName(const ALayer: TSliceLayer): string;
 // True - записаны все слои. Иначе в AErrorText список слоёв с причинами:
 // неполный набор слоёв для синтеза использовать нельзя.
 function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
-  const AEzdDir: string; const AGeometry: TMarkGeometry;
+  const AEzdDir: string; const AGeometry: TMarkGeometry; const APen: TLaserPen;
   out AResult: TSliceLayers; out AErrorText: string): Boolean;
 
-// EZD целиком: EZD-файлы всех слоёв в AEzdDir, таблица Slices.lays и
-// геометрия, с которой они созданы (geometry.ini), в ASliceDir (пути к EZD
-// в Slices.lays - относительно ASliceDir). Slices.lays и geometry.ini
-// пишутся, только если созданы EZD всех слоёв.
+// EZD целиком: EZD-файлы всех слоёв в AEzdDir, а в ASliceDir - таблица
+// Slices.lays и параметры, с которыми созданы EZD: геометрия (geometry.ini)
+// и перо лазера (laser.ini). Пути к EZD в Slices.lays - относительно
+// ASliceDir. Всё это пишется, только если созданы EZD всех слоёв.
 function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
+  const APen: TLaserPen;
   out AResult: TSliceLayers; out AErrorText: string): Boolean;
 
 implementation
@@ -51,7 +54,7 @@ begin
 end;
 
 function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
-  const AEzdDir: string; const AGeometry: TMarkGeometry;
+  const AEzdDir: string; const AGeometry: TMarkGeometry; const APen: TLaserPen;
   out AResult: TSliceLayers; out AErrorText: string): Boolean;
 var
   i: Integer;
@@ -116,7 +119,7 @@ begin
         EzdFile := IncludeTrailingPathDelimiter(AEzdDir) +
           LayerEzdFileName(AResult[i]);
         if AWriter.SavePoints(EzdFile,
-          'Layer' + IntToStr(AResult[i].LayerNumber), Points[i], Reason) then
+          'Layer' + IntToStr(AResult[i].LayerNumber), Points[i], APen, Reason) then
         begin
           AResult[i].EZDFile := EzdFile;
           Continue;
@@ -138,10 +141,11 @@ end;
 
 function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
+  const APen: TLaserPen;
   out AResult: TSliceLayers; out AErrorText: string): Boolean;
 begin
-  Result := CreateLayerEzdFiles(AWriter, ATable, AEzdDir, AGeometry, AResult,
-    AErrorText);
+  Result := CreateLayerEzdFiles(AWriter, ATable, AEzdDir, AGeometry, APen,
+    AResult, AErrorText);
   if not Result then
   begin
     AErrorText := AErrorText + LineEnding + LineEnding +
@@ -150,7 +154,9 @@ begin
   end;
   Result := SaveSliceStatistics(ASliceDir, AResult, SLICES_EZD_FILE,
     AErrorText) and SaveMarkGeometry(IncludeTrailingPathDelimiter(ASliceDir) +
-    GEOMETRY_FILE, AGeometry, AErrorText);
+    GEOMETRY_FILE, AGeometry, AErrorText) and
+    SaveLaserPen(IncludeTrailingPathDelimiter(ASliceDir) + LASER_PEN_FILE,
+    APen, AErrorText);
 end;
 
 end.

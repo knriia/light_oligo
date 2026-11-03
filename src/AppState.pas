@@ -20,7 +20,6 @@ var
   MyMatrix: TMatrix;                 // матрица точек
   ArrOfSpots: TArrOfTPoint;          // линейный массив маркируемых точек
   SliceTable: TSliceLayers;        // массив записей о слайсах
-  MyLasPen: TLasPen2;                // Запись с параметрами маркера
 
   MyOper: TOperRec;
   MyBlockName: String;

@@ -6,7 +6,7 @@ unit MarkEzdWriter;
 interface
 
 uses
-  Classes, SysUtils, MatrixTypes, LayerEzd;
+  Classes, SysUtils, MatrixTypes, LaserPen, LayerEzd;
 
 type
   TEzdLogEvent = procedure(const AMsg: string) of object;
@@ -24,8 +24,13 @@ type
       AOnLog: TEzdLogEvent);
     function Open(out AErrorText: string): Boolean; override;
     function SavePoints(const AEzdFile, AEntityName: string;
-      const APoints: TArrOfTPoint; out AErrorText: string): Boolean; override;
+      const APoints: TArrOfTPoint; const APen: TLaserPen;
+      out AErrorText: string): Boolean; override;
     procedure Close; override;
+    // Перо APenNo, каким его отдаёт DLL сразу после подключения (значения
+    // EzCAD по умолчанию). Подключается и отключается сама.
+    function ReadDefaultPen(APenNo: Integer; out APen: TLaserPen;
+      out AErrorText: string): Boolean;
   end;
 
 implementation
@@ -82,14 +87,16 @@ begin
 end;
 
 function TMarkEzdWriter.SavePoints(const AEzdFile, AEntityName: string;
-  const APoints: TArrOfTPoint; out AErrorText: string): Boolean;
+  const APoints: TArrOfTPoint; const APen: TLaserPen;
+  out AErrorText: string): Boolean;
 var
   Points: TArrOfTPoint;
 begin
   Points := APoints; // DLL берёт указатель на массив
   Result := Call('lmc1_ClearEntLib', lmc1_ClearEntLib(), AErrorText) and
+    Call('lmc1_SetPenParam2', SetLaserPen(APen), AErrorText) and
     Call('lmc1_AddPointToLib', lmc1_AddPointToLib(@Points[0], Length(Points),
-      WideString(AEntityName), 1), AErrorText) and
+      WideString(AEntityName), APen.nPenNo), AErrorText) and
     Call('lmc1_SaveEntLibToFile', lmc1_SaveEntLibToFile(WideString(AEzdFile)),
       AErrorText);
 end;
@@ -99,6 +106,20 @@ var
   ErrorText: string;
 begin
   Call('lmc1_Close', lmc1_Close, ErrorText);
+end;
+
+function TMarkEzdWriter.ReadDefaultPen(APenNo: Integer; out APen: TLaserPen;
+  out AErrorText: string): Boolean;
+begin
+  APen := Default(TLaserPen);
+  Result := Open(AErrorText);
+  if not Result then
+    Exit;
+  try
+    Result := Call('lmc1_GetPenParam2', GetLaserPen(APenNo, APen), AErrorText);
+  finally
+    Close;
+  end;
 end;
 
 end.

@@ -9,8 +9,8 @@ interface
 
 uses
   Windows, Classes, SysUtils, fpcunit, testregistry, MatrixTypes,
-  MarkGeometry, OligoSlices, OligoMatrix, LayerEzd, MarkEzdWriter,
-  EzCadApiTests;
+  MarkGeometry, OligoSlices, OligoMatrix, LaserPen, LayerEzd, MarkEzdWriter,
+  EzCadApi, EzCadApiTests;
 
 type
   TMarkEzdWriterTests = class(TTestCase)
@@ -29,6 +29,8 @@ type
     procedure SavePointsWritesEzdFile;
     procedure SaveIntoMissingFolderFails;
     procedure CreatesLayerEzdFiles;
+    procedure PenIsStoredInEzdFile;
+    procedure ReadsDefaultPenFromDll;
   end;
 
 implementation
@@ -133,7 +135,7 @@ begin
   OpenWriter;
   try
     AssertTrue(ErrorText, FWriter.SavePoints(FilePath('Layer1_A3.ezd'),
-      'Layer1', Points(3), ErrorText));
+      'Layer1', Points(3), DefaultLaserPen, ErrorText));
   finally
     FWriter.Close;
   end;
@@ -149,7 +151,7 @@ begin
   OpenWriter;
   try
     Saved := FWriter.SavePoints(FilePath('missing' + PathDelim + 'Layer1.ezd'),
-      'Layer1', Points(3), ErrorText);
+      'Layer1', Points(3), DefaultLaserPen, ErrorText);
   finally
     FWriter.Close;
   end;
@@ -183,12 +185,56 @@ begin
   Geometry.AutoCenter := False;
 
   AssertTrue(ErrorText, CreateLayerEzdFiles(FWriter, Table, FDirectory,
-    Geometry, Done, ErrorText));
+    Geometry, DefaultLaserPen, Done, ErrorText));
   for I := 0 to 1 do
   begin
     AssertEquals(FilePath('Layer' + IntToStr(I + 1) + '_A2.ezd'), Done[I].EZDFile);
     AssertTrue(FileExists(Done[I].EZDFile));
   end;
+end;
+
+procedure TMarkEzdWriterTests.PenIsStoredInEzdFile;
+// перо записывается в EZD: после загрузки файла DLL отдаёт его параметры
+var
+  Pen, Read: TLaserPen;
+  ErrorText: string;
+begin
+  Pen := DefaultLaserPen;
+  Pen.nPenNo := 2;
+  Pen.dMarkSpeed := 777;
+  Pen.dPowerRatio := 33;
+  Pen.dPointTime := 0.25;
+  OpenWriter;
+  try
+    AssertTrue(ErrorText, FWriter.SavePoints(FilePath('pen.ezd'), 'Layer1',
+      Points(2), Pen, ErrorText));
+  finally
+    FWriter.Close;
+  end;
+
+  OpenWriter;
+  try
+    AssertEquals(0, lmc1_LoadEzdFile(WideString(FilePath('pen.ezd'))));
+    AssertEquals(0, GetLaserPen(2, Read));
+  finally
+    FWriter.Close;
+  end;
+  AssertEquals(777.0, Read.dMarkSpeed, 1e-6);
+  AssertEquals(33.0, Read.dPowerRatio, 1e-6);
+  AssertEquals(0.25, Read.dPointTime, 1e-6);
+end;
+
+procedure TMarkEzdWriterTests.ReadsDefaultPenFromDll;
+var
+  Pen: TLaserPen;
+  ErrorText: string;
+begin
+  AssertTrue(ErrorText, FWriter.ReadDefaultPen(1, Pen, ErrorText));
+  AssertEquals(1, Pen.nPenNo);
+  AssertTrue('скорость из DLL', Pen.dMarkSpeed > 0);
+  // после чтения DLL отключена: можно подключиться снова
+  OpenWriter;
+  FWriter.Close;
 end;
 
 initialization

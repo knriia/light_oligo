@@ -70,13 +70,7 @@ function SubstrateOutline(const AGeometry: TMarkGeometry;
 implementation
 
 uses
-  IniFiles, OligoMatrix;
-
-function PointFormat: TFormatSettings;
-begin
-  Result := DefaultFormatSettings;
-  Result.DecimalSeparator := '.';
-end;
+  IniFiles, IniNumbers, OligoMatrix;
 
 function DefaultMarkGeometry: TMarkGeometry;
 begin
@@ -94,13 +88,8 @@ var
   Ini: TMemIniFile;
 
   function ReadNumber(const AKey: string; ADefault: Double): Double;
-  var
-    Text: string;
   begin
-    Text := StringReplace(Trim(Ini.ReadString(GEOMETRY_SECTION, AKey, '')),
-      ',', '.', []);
-    if not TryStrToFloat(Text, Result, PointFormat) then
-      Result := ADefault;
+    Result := ReadIniFloat(Ini, GEOMETRY_SECTION, AKey, ADefault);
   end;
 
 begin
@@ -148,20 +137,20 @@ begin
   try
     Ini := TMemIniFile.Create(AFileName);
     try
-      Ini.WriteString(GEOMETRY_SECTION, 'Step',
-        FloatToStr(AGeometry.Step, PointFormat));
+      WriteIniFloat(Ini, GEOMETRY_SECTION, 'Step',
+        AGeometry.Step);
       Ini.WriteInteger(GEOMETRY_SECTION, 'Group', AGeometry.Group);
-      Ini.WriteString(GEOMETRY_SECTION, 'GroupStep',
-        FloatToStr(AGeometry.GroupStep, PointFormat));
+      WriteIniFloat(Ini, GEOMETRY_SECTION, 'GroupStep',
+        AGeometry.GroupStep);
       Ini.WriteBool(GEOMETRY_SECTION, 'AutoCenter', AGeometry.AutoCenter);
-      Ini.WriteString(GEOMETRY_SECTION, 'BiasX',
-        FloatToStr(AGeometry.BiasX, PointFormat));
-      Ini.WriteString(GEOMETRY_SECTION, 'BiasY',
-        FloatToStr(AGeometry.BiasY, PointFormat));
-      Ini.WriteString(GEOMETRY_SECTION, 'SpotSize',
-        FloatToStr(AGeometry.SpotSize, PointFormat));
-      Ini.WriteString(GEOMETRY_SECTION, 'SubstrateDiameter',
-        FloatToStr(AGeometry.SubstrateDiameter, PointFormat));
+      WriteIniFloat(Ini, GEOMETRY_SECTION, 'BiasX',
+        AGeometry.BiasX);
+      WriteIniFloat(Ini, GEOMETRY_SECTION, 'BiasY',
+        AGeometry.BiasY);
+      WriteIniFloat(Ini, GEOMETRY_SECTION, 'SpotSize',
+        AGeometry.SpotSize);
+      WriteIniFloat(Ini, GEOMETRY_SECTION, 'SubstrateDiameter',
+        AGeometry.SubstrateDiameter);
       Ini.UpdateFile;
       Result := True;
     finally
