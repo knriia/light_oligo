@@ -31,6 +31,7 @@ type
     procedure SG_MatrixKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
   private
+    FResizing: Boolean; // размер меняется из кода - поля размера не трогают матрицу
     Procedure DisplayMatrixInGrid(aMatrix: TMatrix);
     Procedure NColsRowsChage(aNewNCol, aNewNRow: Integer);
   public
@@ -82,29 +83,38 @@ begin
 end;
 
 procedure TMatrixForm.B_LoadFileClick(Sender: TObject);
-// копирование элементов из матрицы донора в матрицу акцептор
+// матрица из файла заменяет текущую; если файл не читается - текущая остаётся
 var
-  TmpPath: String;
-  TmpMatrix: TMatrix;
+  FileName, ErrorText: String;
+  FileMatrix: TMatrix;
 begin
   MainForm.OD_File.Filter:='Текстовый файл матрицы|*.txt';
   MainForm.OD_File.FilterIndex:=1;
   MainForm.OD_File.InitialDir:=MatricesDir;
   MainForm.OD_File.FileName:='';
-  if MainForm.OD_File.Execute then
+  if not MainForm.OD_File.Execute then
+    Exit;
+  FileName:=MainForm.OD_File.FileName;
+  FileMatrix:=nil;
+  if not LoadMatrixFile(FileName, FileMatrix, ErrorText) then
   begin
+    ShowMessage('Не удалось прочитать файл матрицы:'+LineEnding+FileName+
+                LineEnding+ErrorText);
+    Exit;
+  end;
+
+  MyMatrix:=FileMatrix;
+  // поля размера: строки - число строк матрицы, столбцы - длина строки
+  FResizing:=True;
   try
-    TmpPath:=MainForm.OD_File.FileName;
-    ReadMatrixFromFile(TmpPath, TmpMatrix);
-    SE_NCols.Value:=Length(TmpMatrix);
-    SE_NRows.Value:=Length(TmpMatrix[0]);
-    NColsRowsChage(SE_NCols.Value, Length(TmpMatrix[0]));
-    CopyMatrix(TmpMatrix, MyMatrix);
-    DisplayMatrixInGrid(MyMatrix);
-    MainForm.B_PreviewClick(Self);
-  except
+    SE_NRows.Value:=Length(MyMatrix);
+    SE_NCols.Value:=Length(MyMatrix[0]);
+  finally
+    FResizing:=False;
   end;
-  end;
+  DisplayMatrixInGrid(MyMatrix);
+  NumerateGrid(SG_Matrix);
+  MainForm.B_PreviewClick(Self);
 end;
 
 procedure TMatrixForm.B_RNDClick(Sender: TObject);
@@ -126,12 +136,14 @@ end;
 
 procedure TMatrixForm.SE_NColsChange(Sender: TObject);
 begin
-  NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
+  if not FResizing then
+    NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
 end;
 
 procedure TMatrixForm.SE_NRowsChange(Sender: TObject);
 begin
-  NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
+  if not FResizing then
+    NColsRowsChage(SE_NCols.Value, SE_NRows.Value);
 end;
 
 procedure TMatrixForm.SG_MatrixKeyDown(Sender: TObject; var Key: Word;
@@ -205,14 +217,8 @@ end;
 
 procedure TMatrixForm.NColsRowsChage(aNewNCol, aNewNRow: Integer);
 // изменение числа колонок или строк в матрице
-var
-  i: integer;
 begin
-    SetLength(MyMatrix,aNewNRow);
-  for i:=0 to Length(MyMatrix)-1 do
-  begin
-    SetLength(MyMatrix[i],aNewNCol);
-  end;
+  ResizeMatrix(MyMatrix, aNewNRow, aNewNCol);
   DisplayMatrixInGrid(MyMatrix);
   NumerateGrid(SG_Matrix);
 end;
