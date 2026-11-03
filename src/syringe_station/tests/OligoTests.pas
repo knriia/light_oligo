@@ -22,6 +22,7 @@ type
     procedure LayerTakesMostFrequentLastLetter;
     procedure LayerTieGoesToFirstSymbol;
     procedure LayerIgnoresEmptyOligs;
+    procedure OccupiedCellsMarkNonEmptyOligs;
   end;
 
   TOligoSlicingTests = class(TTestCase)
@@ -119,6 +120,7 @@ type
     procedure MarkPointsUseStepGroupsAndBias;
     procedure MarkPointsOfEmptyMatrixAreEmpty;
     procedure SubstrateOverflowCountsSpotRadius;
+    procedure SubstrateOutlineIsCircleOfDiameter;
   end;
 
   TOligoPasteTests = class(TTestCase)
@@ -302,6 +304,12 @@ begin
   Count := -1;
   CreateMatrixLayerFromOligoArr(A, Symbols, Layer, Letter, Count);
   AssertEquals(0, Count);
+end;
+
+procedure TOligoArrayTests.OccupiedCellsMarkNonEmptyOligs;
+begin
+  AssertEquals('10|01', MatrixToText(OccupiedCellsMatrix(Arr(['AT;', ';G']))));
+  AssertEquals(0, Length(OccupiedCellsMatrix(nil)));
 end;
 
 { TOligoSlicingTests }
@@ -1434,6 +1442,22 @@ begin
   P[1][0] := 0.6;
   P[1][1] := 0.8;            // до центра 1 мм, край пятна - 1.1 мм
   AssertEquals('выходит', 0.1, SubstrateOverflow(P, G), 1e-9);
+end;
+
+procedure TMarkGeometryTests.SubstrateOutlineIsCircleOfDiameter;
+var
+  G: TMarkGeometry;
+  P: TArrOfTPoint;
+  I: Integer;
+begin
+  G := DefaultMarkGeometry;
+  G.SubstrateDiameter := 10;
+  P := SubstrateOutline(G, 8);
+  AssertEquals(8, Length(P));
+  AssertEquals(5.0, P[0][0], 1e-9);
+  AssertEquals(0.0, P[0][1], 1e-9);
+  for I := 0 to High(P) do
+    AssertEquals(5.0, Sqrt(Sqr(P[I][0]) + Sqr(P[I][1])), 1e-9);
 end;
 
 { TOligoPasteTests }

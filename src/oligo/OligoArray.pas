@@ -24,6 +24,9 @@ Function StringToOlig(aStr: String): TOlig;
 function CreateOligoArray(aRows, aCols: Integer; aFill: TOligoFill;
   aRandomLength: Integer; const aConstSeq: String): TOligoArr;
 function CopyOligoArray(const aArr: TOligoArr): TOligoArr;
+// Матрица занятых ячеек: 1 - в ячейке есть олиг, 0 - пустая.
+// Это все позиции, которые будут маркироваться хотя бы в одном слое.
+function OccupiedCellsMatrix(const aArr: TOligoArr): TMatrix;
 
 Procedure FindUniqueSymbols(anOlig: TOlig;
                             var aSymbolSet: TSymbolSet);
@@ -115,6 +118,23 @@ begin
       SetLength(aSymbolSet, Length(aSymbolSet) + 1);
       aSymbolSet[High(aSymbolSet)] := anOlig[i];
     end;
+  end;
+end;
+
+function OccupiedCellsMatrix(const aArr: TOligoArr): TMatrix;
+var
+  i, j: Integer;
+begin
+  Result:=nil;
+  SetLength(Result, Length(aArr));
+  for i:=0 to High(aArr) do
+  begin
+    SetLength(Result[i], Length(aArr[i]));
+    for j:=0 to High(aArr[i]) do
+      if aArr[i,j]<>'' then
+        Result[i,j]:=1
+      else
+        Result[i,j]:=0;
   end;
 end;
 
