@@ -76,6 +76,9 @@ type
     destructor Destroy; override;
     // Надписи кнопок из файла интерфейса (раздел [Oligo]).
     procedure ApplyCaptions(AIni: TCustomIniFile);
+    // Перед закрытием программы: несохранённый массив предлагаем сохранить.
+    // False - пользователь отменил закрытие.
+    function CanCloseFromHost: Boolean;
     property OnLog: TSequencesLogEvent read FOnLog write FOnLog;
     // Шаг, группы и смещение берутся с вкладки ручного управления.
     property OnGetMarkGeometry: TGetMarkGeometryEvent
@@ -271,6 +274,8 @@ procedure TSequencesForm.B_LoadOligsClick(Sender: TObject);
 var
   ErrorText: String;
 begin
+  if not ConfirmSaveIfModified then // загруженный массив заменит текущий
+    Exit;
   OD_File.Filter:='CSV Files|*.csv';
   OD_File.InitialDir:=ArraysDir;
   OD_File.FilterIndex:=1;
@@ -351,6 +356,11 @@ begin
   end;
 end;
 
+function TSequencesForm.CanCloseFromHost: Boolean;
+begin
+  Result:=ConfirmSaveIfModified;
+end;
+
 procedure TSequencesForm.B_ClearOligoArrClick(Sender: TObject);
 // стираем содержимое ячеек, размер массива остаётся
 begin
@@ -382,6 +392,8 @@ var
   Fill: TOligoFill;
   ConstSeq: String;
 begin
+  if not ConfirmSaveIfModified then // новый массив заменит текущий
+    Exit;
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
   SetLength(SliceTable,0); // слайс-таблица старого массива больше не нужна
@@ -404,11 +416,16 @@ begin
     ShowMessage('пустой массив!');
     Exit;
   end;
+  // слои пишутся рядом с файлом массива и должны совпадать с ним,
+  // поэтому без сохранения нарезать нельзя: только "Сохранить" или "Отмена"
   if not FDocument.HasFile or FDocument.Modified then
   begin
-    ShowMessage('Массив не сохранён. Сначала сохраните его:'+LineEnding+
-                'слои записываются рядом с файлом массива.');
-    Exit;
+    if MessageDlg('Массив не сохранён. Сохранить его?'+LineEnding+
+                  'Слои записываются рядом с файлом массива.',
+                  mtConfirmation, [mbYes, mbCancel], 0)<>mrYes then
+      Exit;
+    if not SaveArray then
+      Exit;
   end;
 
   // папка слоёв; если в ней уже есть слои - только с согласия их удалить
