@@ -19,6 +19,8 @@ type
   { TSequencesForm }
 
   TSequencesForm = class(TForm)
+    B_ClearOligoArr: TButton;
+    B_CloseOligoArr: TButton;
     B_CreateArrEzd: TButton;
     B_CreateOligoArr: TButton;
     B_LoadOligs: TButton;
@@ -31,6 +33,8 @@ type
     Panel4: TPanel;
     SD_File: TSaveDialog;
     SG_OligoArr: TStringGrid;
+    procedure B_ClearOligoArrClick(Sender: TObject);
+    procedure B_CloseOligoArrClick(Sender: TObject);
     procedure B_CreateArrEzdClick(Sender: TObject);
     procedure B_CreateOligoArrClick(Sender: TObject);
     procedure B_LoadOligsClick(Sender: TObject);
@@ -62,6 +66,11 @@ type
     procedure DisplayOligoArray;
     procedure ForgetSlicing;
     procedure StoreCell(ACol, ARow: Integer);
+    procedure LayoutButtons;
+    function SaveArray: Boolean;
+    function ConfirmSaveIfModified: Boolean;
+  protected
+    procedure DoShow; override;
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -104,13 +113,59 @@ end;
 procedure TSequencesForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
   GB_OligControl.Caption:=AIni.ReadString('Oligo','GB_OligControl','Oligonucleotides');
-  B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','OligoArray');
+  B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','Create OligoArray');
+  B_ClearOligoArr.Caption:=AIni.ReadString('Oligo','B_ClearOligoArr','Clear OligoArray');
+  B_CloseOligoArr.Caption:=AIni.ReadString('Oligo','B_CloseOligoArr','Remove OligoArray');
   B_LoadOligs.Caption:=AIni.ReadString('Oligo','B_LoadOligs','Load Oligs');
   B_SaveOligs.Caption:=AIni.ReadString('Oligo','B_SaveOligs','Save Oligs');
   B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slice');
   B_SetLasPen2.Caption:=AIni.ReadString('Oligo','B_SetLasPen2','SetLasPen');
   B_SetGeomParam.Caption:=AIni.ReadString('Oligo','B_SetGeomParam','SetGeomParam');
   B_CreateArrEzd.Caption:=AIni.ReadString('Oligo','B_CreateArrEzd','EZD Files');
+  LayoutButtons;
+end;
+
+procedure TSequencesForm.DoShow;
+begin
+  inherited DoShow;
+  LayoutButtons; // окна кнопок уже созданы - ширина текста известна точно
+end;
+
+procedure TSequencesForm.LayoutButtons;
+// Кнопки стоят в один ряд слева направо, ширина каждой - по её надписи.
+const
+  GAP = 8;
+  ROW_TOP = 4;
+  ROW_BOTTOM = 6;
+var
+  X, i: Integer;
+  Buttons: array of TButton;
+
+  function TextWidth(AButton: TButton): Integer;
+  var
+    W, H: Integer;
+  begin
+    W:=0;
+    H:=0;
+    AButton.GetPreferredSize(W, H);
+    if W<=0 then // окно кнопки ещё не создано
+      W:=AButton.Width;
+    Result:=W;
+  end;
+
+begin
+  Buttons:=[B_CreateOligoArr, B_LoadOligs, B_SaveOligs, B_ClearOligoArr,
+            B_CloseOligoArr, B_SliceOligoArr, B_SetLasPen2, B_SetGeomParam,
+            B_CreateArrEzd];
+  X:=8;
+  for i:=0 to High(Buttons) do
+  begin
+    Buttons[i].SetBounds(X, ROW_TOP, TextWidth(Buttons[i]), Buttons[i].Height);
+    Buttons[i].TabOrder:=i; // Tab ходит по кнопкам в том же порядке
+    Inc(X, Buttons[i].Width+GAP);
+  end;
+  // группа по высоте ровно под один ряд кнопок, остальное место - таблице
+  GB_OligControl.ClientHeight:=ROW_TOP+B_CreateOligoArr.Height+ROW_BOTTOM;
 end;
 
 procedure TSequencesForm.Log(const AMsg: string);
@@ -138,7 +193,9 @@ var
 begin
   SG_OligoArr.Clear;
   SG_OligoArr.RowCount:=Length(FDocument.Arr)+1;
-  if not FDocument.IsEmpty then
+  if FDocument.IsEmpty then
+    SG_OligoArr.ColCount:=1
+  else
     SG_OligoArr.ColCount:=Length(FDocument.Arr[0])+1;
   for i:=0 to High(FDocument.Arr) do
     for j:=0 to High(FDocument.Arr[i]) do
@@ -230,11 +287,17 @@ begin
 end;
 
 procedure TSequencesForm.B_SaveOligsClick(Sender: TObject);
+begin
+  SaveArray;
+end;
+
+function TSequencesForm.SaveArray: Boolean;
 {Сохранение массива: по умолчанию в новую папку data\arrays\<дата>,
  но можно выбрать любую папку}
 var
   Folder, FileName, FilePath, ErrorText: String;
 begin
+  Result:=False;
   // открытый из файла массив предлагаем сохранить туда же,
   // новый - в папку и файл с датой и временем
   if FDocument.HasFile then
@@ -265,9 +328,51 @@ begin
     Exit;
   end;
 
-  if not FDocument.SaveToFile(FilePath, ErrorText) then
+  Result:=FDocument.SaveToFile(FilePath, ErrorText);
+  if not Result then
     ShowMessage('Не удалось сохранить массив:'+LineEnding+FilePath+LineEnding+
                 ErrorText);
+end;
+
+function TSequencesForm.ConfirmSaveIfModified: Boolean;
+// Перед действием, после которого несохранённые данные пропадут.
+// True - можно продолжать (сохранили или отказались сохранять),
+// False - отмена или сохранение не удалось.
+begin
+  Result:=True;
+  if FDocument.IsEmpty or not FDocument.Modified then
+    Exit;
+  case MessageDlg('Массив не сохранён. Сохранить его?', mtConfirmation,
+         [mbYes, mbNo, mbCancel], 0) of
+    mrYes: Result:=SaveArray;
+    mrNo: Result:=True;
+  else
+    Result:=False;
+  end;
+end;
+
+procedure TSequencesForm.B_ClearOligoArrClick(Sender: TObject);
+// стираем содержимое ячеек, размер массива остаётся
+begin
+  if FDocument.IsEmpty then
+    Exit;
+  if not ConfirmSaveIfModified then
+    Exit;
+  FDocument.ClearCells;
+  ForgetSlicing;
+  DisplayOligoArray;
+end;
+
+procedure TSequencesForm.B_CloseOligoArrClick(Sender: TObject);
+// убираем массив из окна; файлы на диске не трогаем
+begin
+  if FDocument.IsEmpty and not FDocument.HasFile then
+    Exit;
+  if not ConfirmSaveIfModified then
+    Exit;
+  FDocument.Close;
+  ForgetSlicing;
+  DisplayOligoArray;
 end;
 
 procedure TSequencesForm.B_CreateOligoArrClick(Sender: TObject);

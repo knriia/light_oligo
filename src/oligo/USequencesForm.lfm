@@ -9,12 +9,12 @@ object SequencesForm: TSequencesForm
   LCLVersion = '4.4.0.0'
   object GB_OligControl: TGroupBox
     Left = 0
-    Height = 69
-    Top = 424
+    Height = 55
+    Top = 438
     Width = 840
     Align = alBottom
     Caption = 'GB_OligControl'
-    ClientHeight = 49
+    ClientHeight = 35
     ClientWidth = 836
     TabOrder = 0
     object B_CreateOligoArr: TButton
@@ -25,6 +25,24 @@ object SequencesForm: TSequencesForm
       Caption = 'B_CreateOligoArr'
       TabOrder = 0
       OnClick = B_CreateOligoArrClick
+    end
+    object B_ClearOligoArr: TButton
+      Left = 8
+      Height = 25
+      Top = 24
+      Width = 90
+      Caption = 'B_ClearOligoArr'
+      TabOrder = 7
+      OnClick = B_ClearOligoArrClick
+    end
+    object B_CloseOligoArr: TButton
+      Left = 8
+      Height = 25
+      Top = 12
+      Width = 90
+      Caption = 'B_CloseOligoArr'
+      TabOrder = 8
+      OnClick = B_CloseOligoArrClick
     end
     object B_SliceOligoArr: TButton
       Left = 232
@@ -83,11 +101,11 @@ object SequencesForm: TSequencesForm
   end
   object Panel4: TPanel
     Left = 0
-    Height = 424
+    Height = 438
     Top = 0
     Width = 840
     Align = alClient
-    ClientHeight = 424
+    ClientHeight = 438
     ClientWidth = 840
     TabOrder = 1
     object SG_OligoArr: TStringGrid

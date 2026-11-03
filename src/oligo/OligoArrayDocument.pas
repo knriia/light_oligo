@@ -26,6 +26,11 @@ type
     // значение действительно поменялось.
     function SetCell(ARow, ACol: Integer; const AValue: string): Boolean;
     function Cell(ARow, ACol: Integer): TOlig;
+    // Стирает содержимое всех ячеек, размер массива сохраняется.
+    // Изменённым массив становится, только если что-то было непустым.
+    procedure ClearCells;
+    // Убирает массив: ни массива, ни файла, изменений нет. Файл на диске не трогается.
+    procedure Close;
     function IsEmpty: Boolean;
     function HasFile: Boolean;
     // Папка файла массива; пусто, если массив ещё не сохранялся.
@@ -93,6 +98,26 @@ begin
   if (ARow>=0) and (ARow<=High(FArr)) and
      (ACol>=0) and (ACol<=High(FArr[ARow])) then
     Result:=FArr[ARow,ACol];
+end;
+
+procedure TOligoArrayDocument.ClearCells;
+var
+  i, j: Integer;
+begin
+  for i:=0 to High(FArr) do
+    for j:=0 to High(FArr[i]) do
+      if FArr[i,j]<>'' then
+      begin
+        FArr[i,j]:='';
+        FModified:=True;
+      end;
+end;
+
+procedure TOligoArrayDocument.Close;
+begin
+  FArr:=nil;
+  FFileName:='';
+  FModified:=False;
 end;
 
 function TOligoArrayDocument.IsEmpty: Boolean;

@@ -64,6 +64,9 @@ type
     procedure SetCellMarksModifiedOnlyOnChange;
     procedure SetCellOutsideArrayIsRejected;
     procedure SaveRemembersFileAndClearsModified;
+    procedure ClearCellsKeepsSizeAndFile;
+    procedure ClearCellsOfEmptyCellsIsNotAChange;
+    procedure CloseForgetsArrayAndFile;
     procedure ListLayerFilesFindsOnlyLayers;
     procedure ListLayerFilesOfMissingFolderIsEmpty;
     procedure DeleteLayerFilesKeepsOtherFiles;
@@ -673,6 +676,64 @@ begin
     AssertEquals(FilePath('b.csv'), Doc.FileName);
     AssertTrue(ErrorText, LoadOligoArrayFile(FilePath('b.csv'), Loaded, ErrorText));
     AssertEquals('AT;G', ArrToText(Loaded));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.ClearCellsKeepsSizeAndFile;
+var
+  Doc: TOligoArrayDocument;
+  Loaded: TOligoArr;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['AT;G', 'C;']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
+    Doc.ClearCells;
+    AssertEquals(';|;', ArrToText(Doc.Arr));
+    AssertTrue(Doc.Modified);
+    AssertEquals(FilePath('a.csv'), Doc.FileName);
+    // файл на диске не изменился
+    AssertTrue(ErrorText, LoadOligoArrayFile(FilePath('a.csv'), Loaded, ErrorText));
+    AssertEquals('AT;G|C;', ArrToText(Loaded));
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.ClearCellsOfEmptyCellsIsNotAChange;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('e.csv'), Arr([';']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('e.csv'), ErrorText));
+    Doc.ClearCells;
+    AssertFalse(Doc.Modified);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.CloseForgetsArrayAndFile;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['AT;G']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
+    AssertTrue(Doc.SetCell(0, 0, 'C'));
+    Doc.Close;
+    AssertTrue(Doc.IsEmpty);
+    AssertFalse(Doc.HasFile);
+    AssertFalse(Doc.Modified);
+    AssertTrue(FileExists(FilePath('a.csv')));
   finally
     Doc.Free;
   end;
