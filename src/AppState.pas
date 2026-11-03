@@ -12,7 +12,6 @@ uses
 Function AlphabetNum(anLetter: String): Integer;
 
 var
-  GlobalI: Integer=0;              // глобальный итератор, сколько раз будет таймер EzCADer пытаться убить предупреждения, прежде чем остановиться
   SliceTable: TSliceLayers;        // массив записей о слайсах
 
   MyOper: TOperRec;

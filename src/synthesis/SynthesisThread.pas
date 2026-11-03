@@ -47,7 +47,7 @@ end;
 
 procedure TSynthesisThread.TrigTimer;
 begin
-  MainForm.Tmr_EzCADer.Enabled:=true;
+  MainForm.StartEzCadWatcher;
 end;
 
 procedure TSynthesisThread.StartSyringeStep;
@@ -156,7 +156,6 @@ begin
                    // открываем EzCAD
                    if GetProcessHandle('EzCad2.exe')=0 then
                    begin
-                     GlobalI:=0; // обнуляем глобальный счетчик
                      Synchronize(@TrigTimer);
                      OutS:='EzCAD opening';
                      Synchronize(@OutLog);

@@ -6,11 +6,11 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
-  Windows, Graphics, Buttons,
+  Graphics, Buttons,
   UProtocolOperationForm, UDispenserStationHost, DispenserLayout,
   AppState, CommonUtils, OligoSlices, SynthesisProtocol, ProtocolFormat,
   AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread,
-  USequencesForm, UManualForm;
+  USequencesForm, UManualForm, EzCadApp;
 
 
 type
@@ -68,6 +68,7 @@ type
     FDispenserStation: TDispenserStationForm;
     FSequencesForm: TSequencesForm;
     FManualForm: TManualForm;
+    FEzCadWatcher: TEzCadDialogWatcher;
     procedure SequencesLog(const AMsg: string);
     procedure UpdateManualControlsWidth;
     procedure UpdateMinimumWindowWidth;
@@ -75,6 +76,8 @@ type
     procedure LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
   public
     property DispenserStation: TDispenserStationForm read FDispenserStation;
+    // Синтез запустил EzCAD: закрывать его окна лицензии и предупреждений.
+    procedure StartEzCadWatcher;
   end;
 
 var
@@ -130,6 +133,7 @@ begin
   MyIni:=TIniFile.Create(ConfigFilePath(PROG_CONFIG_FILE));
 
   //для экранов с включенным масштабированием
+  FEzCadWatcher := TEzCadDialogWatcher.Create;
   FManualForm := TManualForm.Create(Self);
   FManualForm.BorderStyle := bsNone;
   FManualForm.Parent := TS_Manual;
@@ -205,31 +209,15 @@ begin
 end;
 
 procedure TMainForm.Tmr_EzCADerTimer(Sender: TObject);
-var
-   S: string;
-   h: HWND;
 begin
-  h:=0;
-  S:='License';
-  h:=FindWindow(nil,pchar(S));
-  if h<>0 then
-   begin
-    postMessage(h,WM_KEYDOWN,VK_RETURN,0);
-    h:=0;
-   end;
+  if not FEzCadWatcher.Tick then
+    Tmr_EzCADer.Enabled:=False;
+end;
 
-  S:='EzCad';
-  h:=FindWindow(nil,pchar(S));
-  if h<>0 then
-   begin
-    postMessage(h,WM_CLOSE,0,0);
-    h:=0;
-   end;
-  inc(GlobalI);
-  if GlobalI>=100 then // через 100 циклов останавливаем таймер
-   begin
-    Tmr_EzCADer.Enabled:=false;
-   end;
+procedure TMainForm.StartEzCadWatcher;
+begin
+  FEzCadWatcher.Start;
+  Tmr_EzCADer.Enabled:=True;
 end;
 
 procedure TMainForm.LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
@@ -286,6 +274,7 @@ begin
 
   MyInterface.Free;
   MyIni.Free;
+  FreeAndNil(FEzCadWatcher);
 end;
 
 procedure TMainForm.DispenserStationLogMessage(Sender: TObject;
