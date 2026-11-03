@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\common;src\laser;src\oligo;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\common;src\laser;src\oligo;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -423,6 +423,13 @@
         <Filename Value="src\laser\LaserPen.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\manual\UManualForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ManualForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -433,7 +440,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\common;src\laser;src\oligo;src\synthesis;src\syringe_station"/>
+      <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\synthesis;src\syringe_station"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

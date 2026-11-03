@@ -31,10 +31,14 @@ type
     procedure SG_MatrixKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
   private
+    FOnMatrixChanged: TNotifyEvent;
     FResizing: Boolean; // размер меняется из кода - поля размера не трогают матрицу
     Procedure DisplayMatrixInGrid(aMatrix: TMatrix);
     Procedure NColsRowsChage(aNewNCol, aNewNRow: Integer);
   public
+    // Матрица изменилась (загрузка из файла, случайное заполнение).
+    property OnMatrixChanged: TNotifyEvent read FOnMatrixChanged
+      write FOnMatrixChanged;
   end;
 
 var
@@ -87,14 +91,19 @@ procedure TMatrixForm.B_LoadFileClick(Sender: TObject);
 var
   FileName, ErrorText: String;
   FileMatrix: TMatrix;
+  Dialog: TOpenDialog;
 begin
-  MainForm.OD_File.Filter:='Текстовый файл матрицы|*.txt';
-  MainForm.OD_File.FilterIndex:=1;
-  MainForm.OD_File.InitialDir:=MatricesDir;
-  MainForm.OD_File.FileName:='';
-  if not MainForm.OD_File.Execute then
-    Exit;
-  FileName:=MainForm.OD_File.FileName;
+  Dialog:=TOpenDialog.Create(nil);
+  try
+    Dialog.Filter:='Текстовый файл матрицы|*.txt';
+    Dialog.FilterIndex:=1;
+    Dialog.InitialDir:=MatricesDir;
+    if not Dialog.Execute then
+      Exit;
+    FileName:=Dialog.FileName;
+  finally
+    Dialog.Free;
+  end;
   FileMatrix:=nil;
   if not LoadMatrixFile(FileName, FileMatrix, ErrorText) then
   begin
@@ -114,7 +123,8 @@ begin
   end;
   DisplayMatrixInGrid(MyMatrix);
   NumerateGrid(SG_Matrix);
-  MainForm.B_PreviewClick(Self);
+  if Assigned(FOnMatrixChanged) then
+    FOnMatrixChanged(Self);
 end;
 
 procedure TMatrixForm.B_RNDClick(Sender: TObject);
@@ -131,7 +141,8 @@ begin
     end;
   end;
   DisplayMatrixInGrid(MyMatrix);
-  MainForm.B_PreviewClick(Self);
+  if Assigned(FOnMatrixChanged) then
+    FOnMatrixChanged(Self);
 end;
 
 procedure TMatrixForm.SE_NColsChange(Sender: TObject);
