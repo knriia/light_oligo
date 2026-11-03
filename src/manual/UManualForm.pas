@@ -17,47 +17,47 @@ type
   { TManualForm }
 
   TManualForm = class(TForm)
-    B_CloseEzCAD: TButton;
-    B_CreateEZD: TButton;
+    B_CloseEzCad: TButton;
+    B_CreateEzd: TButton;
     B_Matrix: TButton;
-    B_OpenEZCAD: TButton;
+    B_OpenEzCad: TButton;
     B_Preview: TButton;
-    B_SendF2: TButton;
-    B_SetLasPen: TButton;
+    B_MarkEzCad: TButton;
+    B_LaserParams: TButton;
     CB_AutoCenter: TCheckBox;
     CB_ShowSubstrate: TCheckBox;
     FSE_GroupStep: TFloatSpinEdit;
     FSE_Step: TFloatSpinEdit;
-    FSE_XBias: TFloatSpinEdit;
-    FSE_YBias: TFloatSpinEdit;
+    FSE_BiasX: TFloatSpinEdit;
+    FSE_BiasY: TFloatSpinEdit;
     GB_Array: TGroupBox;
     GB_EzCAD: TGroupBox;
     GB_Laser: TGroupBox;
-    GB_MarkEZDDLL: TGroupBox;
+    GB_Dll: TGroupBox;
     GB_PumpStation: TGroupBox;
     L_AutoCenter: TLabel;
     L_BiasX: TLabel;
     L_BiasY: TLabel;
-    L_GStep: TLabel;
+    L_GroupStep: TLabel;
     L_Group: TLabel;
     L_ShowSubstrate: TLabel;
     L_SpotSize: TLabel;
     L_Step: TLabel;
-    L_SubstrD: TLabel;
-    Panel3: TPanel;
+    L_SubstrateDiameter: TLabel;
+    P_Manual: TPanel;
     SE_Group: TSpinEdit;
     SE_SpotSize: TSpinEdit;
     SE_SubstrateDiameter: TSpinEdit;
     SD_File: TSaveDialog;
     OD_File: TOpenDialog;
     Tmr_EzCADer: TTimer;
-    procedure B_CloseEzCADClick(Sender: TObject);
-    procedure B_CreateEZDClick(Sender: TObject);
+    procedure B_CloseEzCadClick(Sender: TObject);
+    procedure B_CreateEzdClick(Sender: TObject);
     procedure B_MatrixClick(Sender: TObject);
-    procedure B_OpenEZCADClick(Sender: TObject);
+    procedure B_OpenEzCadClick(Sender: TObject);
     procedure B_PreviewClick(Sender: TObject);
-    procedure B_SendF2Click(Sender: TObject);
-    procedure B_SetLasPenClick(Sender: TObject);
+    procedure B_MarkEzCadClick(Sender: TObject);
+    procedure B_LaserParamsClick(Sender: TObject);
     procedure CollapseExpand(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FormResize(Sender: TObject);
@@ -109,8 +109,8 @@ begin
   SE_Group.OnChange:=@SettingsChanged;
   FSE_GroupStep.OnChange:=@SettingsChanged;
   SE_SpotSize.OnChange:=@SettingsChanged;
-  FSE_XBias.OnChange:=@SettingsChanged;
-  FSE_YBias.OnChange:=@SettingsChanged;
+  FSE_BiasX.OnChange:=@SettingsChanged;
+  FSE_BiasY.OnChange:=@SettingsChanged;
   SE_SubstrateDiameter.OnChange:=@SettingsChanged;
   CB_AutoCenter.OnChange:=@SettingsChanged;
   CB_ShowSubstrate.OnChange:=@SettingsChanged;
@@ -132,7 +132,7 @@ begin
   B_Matrix.Caption:=AIni.ReadString('Manual','B_Matrix','Matrix');
   L_Step.Caption:=AIni.ReadString('Manual','L_Step','Step, mm');
   L_Group.Caption:=AIni.ReadString('Manual','L_Group','Group');
-  L_GStep.Caption:=AIni.ReadString('Manual','L_GStep','GroupStep, mm');
+  L_GroupStep.Caption:=AIni.ReadString('Manual','L_GroupStep','GroupStep, mm');
   L_SpotSize.Caption:=AIni.ReadString('Manual','L_SpotSize','SpotSize, um');
   B_Preview.Caption:=AIni.ReadString('Manual','B_Preview','Preview');
   L_AutoCenter.Caption:=AIni.ReadString('Manual','CB_AutoCenter','AutoCenter');
@@ -145,15 +145,15 @@ begin
   CB_ShowSubstrate.Caption:='';
   L_ShowSubstrate.FocusControl:=CB_ShowSubstrate;
   L_ShowSubstrate.OnClick:=@ToggleManualOptionLabel;
-  L_SubstrD.Caption:=AIni.ReadString('Manual','L_SubstrD','SubstrDiam, mm');
+  L_SubstrateDiameter.Caption:=AIni.ReadString('Manual','L_SubstrateDiameter','SubstrDiam, mm');
   GB_Laser.Caption:=AIni.ReadString('Manual','GB_Laser','Laser');
-  GB_MarkEZDDLL.Caption:=AIni.ReadString('Manual','GB_MarkEZDDLL','DLL');
-  B_SetLasPen.Caption:=AIni.ReadString('Manual','B_SetLasPen','SetLasPen');
-  B_CreateEZD.Caption:=AIni.ReadString('Manual','B_CreateEZD','CreateEZD');
+  GB_Dll.Caption:=AIni.ReadString('Manual','GB_Dll','DLL');
+  B_LaserParams.Caption:=AIni.ReadString('Manual','B_LaserParams','SetLasPen');
+  B_CreateEzd.Caption:=AIni.ReadString('Manual','B_CreateEzd','CreateEZD');
   GB_EzCAD.Caption:=AIni.ReadString('Manual','GB_EzCAD','EzCAD');
-  B_OpenEZCAD.Caption:=AIni.ReadString('Manual','B_OpenEZCAD','OpenEZCAD');
-  B_CloseEZCAD.Caption:=AIni.ReadString('Manual','B_CloseEZCAD','CloseEZCAD');
-  B_SendF2.Caption:=AIni.ReadString('Manual','B_SendF2','Mark');
+  B_OpenEzCad.Caption:=AIni.ReadString('Manual','B_OpenEzCad','OpenEZCAD');
+  B_CloseEzCad.Caption:=AIni.ReadString('Manual','B_CloseEzCad','CloseEZCAD');
+  B_MarkEzCad.Caption:=AIni.ReadString('Manual','B_MarkEzCad','Mark');
   GB_PumpStation.Caption:=AIni.ReadString('Manual','GB_PumpStation','PumpStation');
 end;
 
@@ -169,8 +169,8 @@ begin
     SE_Group.Value:=Settings.Geometry.Group;
     FSE_GroupStep.Value:=Settings.Geometry.GroupStep;
     SE_SpotSize.Value:=Round(Settings.Geometry.SpotSize);
-    FSE_XBias.Value:=Settings.Geometry.BiasX;
-    FSE_YBias.Value:=Settings.Geometry.BiasY;
+    FSE_BiasX.Value:=Settings.Geometry.BiasX;
+    FSE_BiasY.Value:=Settings.Geometry.BiasY;
     SE_SubstrateDiameter.Value:=Round(Settings.Geometry.SubstrateDiameter);
     CB_AutoCenter.Checked:=Settings.Geometry.AutoCenter;
     CB_ShowSubstrate.Checked:=Settings.ShowSubstrate;
@@ -187,8 +187,8 @@ begin
   Result.Group:=SE_Group.Value;
   Result.GroupStep:=FSE_GroupStep.Value;
   Result.AutoCenter:=CB_AutoCenter.Checked;
-  Result.BiasX:=FSE_XBias.Value;
-  Result.BiasY:=FSE_YBias.Value;
+  Result.BiasX:=FSE_BiasX.Value;
+  Result.BiasY:=FSE_BiasY.Value;
   Result.SpotSize:=SE_SpotSize.Value;
   Result.SubstrateDiameter:=SE_SubstrateDiameter.Value;
 end;
@@ -236,7 +236,7 @@ var
   ManualWidth, ManualHeight: Integer;
   ManualLayout: TManualControlsLayout;
 begin
-  if not Assigned(Panel3) or
+  if not Assigned(P_Manual) or
      not Assigned(GB_Array) or not Assigned(GB_Laser) or
      not Assigned(GB_PumpStation) then
     Exit;
@@ -246,8 +246,8 @@ begin
   if (ManualWidth <= 0) or (ManualHeight <= 0) then
     Exit;
 
-  Panel3.SetBounds(0, 0, ManualWidth, ManualHeight);
-  ManualLayout := BuildManualControlsLayout(Panel3.ClientWidth, ManualHeight,
+  P_Manual.SetBounds(0, 0, ManualWidth, ManualHeight);
+  ManualLayout := BuildManualControlsLayout(P_Manual.ClientWidth, ManualHeight,
     GB_Array.Height, GB_Laser.Height);
   GB_Array.SetBounds(ManualLayout.ArrayBounds.Left,
     ManualLayout.ArrayBounds.Top,
@@ -264,10 +264,10 @@ begin
     ManualLayout.PumpStationBounds.Bottom -
       ManualLayout.PumpStationBounds.Top);
 
-  if Assigned(GB_MarkEZDDLL) and Assigned(GB_EzCAD) then
+  if Assigned(GB_Dll) and Assigned(GB_EzCAD) then
   begin
-    GB_MarkEZDDLL.Width := GB_Laser.ClientWidth div 2;
-    GB_EzCAD.Left := GB_MarkEZDDLL.Width;
+    GB_Dll.Width := GB_Laser.ClientWidth div 2;
+    GB_EzCAD.Left := GB_Dll.Width;
     GB_EzCAD.Width := GB_Laser.ClientWidth - GB_EzCAD.Left;
   end;
 
@@ -302,13 +302,13 @@ begin
   if not Assigned(GB_Array) or not Assigned(B_Matrix) or
      not Assigned(B_Preview) or not Assigned(L_Step) or
      not Assigned(FSE_Step) or not Assigned(L_Group) or
-     not Assigned(SE_Group) or not Assigned(L_GStep) or
+     not Assigned(SE_Group) or not Assigned(L_GroupStep) or
      not Assigned(FSE_GroupStep) or not Assigned(L_SpotSize) or
      not Assigned(SE_SpotSize) or not Assigned(L_BiasX) or
-     not Assigned(FSE_XBias) or not Assigned(L_BiasY) or
-     not Assigned(FSE_YBias) or not Assigned(CB_AutoCenter) or
+     not Assigned(FSE_BiasX) or not Assigned(L_BiasY) or
+     not Assigned(FSE_BiasY) or not Assigned(CB_AutoCenter) or
      not Assigned(L_AutoCenter) or not Assigned(CB_ShowSubstrate) or
-     not Assigned(L_ShowSubstrate) or not Assigned(L_SubstrD) or
+     not Assigned(L_ShowSubstrate) or not Assigned(L_SubstrateDiameter) or
      not Assigned(SE_SubstrateDiameter) then
     Exit;
 
@@ -323,7 +323,7 @@ begin
   if LeftColumnLeft < 0 then
     LeftColumnLeft := 0;
   RightInputLeftOffset := RIGHT_COLUMN_WIDTH -
-    RIGHT_INPUT_RIGHT_MARGIN - FSE_XBias.Width;
+    RIGHT_INPUT_RIGHT_MARGIN - FSE_BiasX.Width;
   RightLabelWidth := RightInputLeftOffset - RIGHT_LABEL_TO_INPUT_GAP;
   RightColumnOffset := (ArrayRightWidth - RIGHT_COLUMN_WIDTH) div 2;
   if RightColumnOffset < 0 then
@@ -357,9 +357,9 @@ begin
   SE_Group.SetBounds(LeftColumnLeft + LeftInputOffset,
     ArrayVerticalLayout.GroupFieldTop,
     SE_Group.Width, SE_Group.Height);
-  L_GStep.Anchors := [akTop, akLeft];
-  L_GStep.SetBounds(LeftColumnLeft, ArrayVerticalLayout.GroupStepLabelTop,
-    LEFT_LABEL_WIDTH, L_GStep.Height);
+  L_GroupStep.Anchors := [akTop, akLeft];
+  L_GroupStep.SetBounds(LeftColumnLeft, ArrayVerticalLayout.GroupStepLabelTop,
+    LEFT_LABEL_WIDTH, L_GroupStep.Height);
   FSE_GroupStep.Anchors := [akTop, akLeft];
   FSE_GroupStep.SetBounds(LeftColumnLeft + LeftInputOffset,
     ArrayVerticalLayout.GroupStepFieldTop,
@@ -387,18 +387,18 @@ begin
   L_BiasX.SetBounds(RightColumnLeft,
     ArrayVerticalLayout.BiasXLabelTop, RightLabelWidth,
     L_BiasX.Height);
-  FSE_XBias.Anchors := [akTop, akLeft];
-  FSE_XBias.SetBounds(RightColumnLeft + RightInputLeftOffset,
+  FSE_BiasX.Anchors := [akTop, akLeft];
+  FSE_BiasX.SetBounds(RightColumnLeft + RightInputLeftOffset,
     ArrayVerticalLayout.BiasXFieldTop,
-    FSE_XBias.Width, FSE_XBias.Height);
+    FSE_BiasX.Width, FSE_BiasX.Height);
   L_BiasY.Anchors := [akTop, akLeft];
   L_BiasY.SetBounds(RightColumnLeft,
     ArrayVerticalLayout.BiasYLabelTop, RightLabelWidth,
     L_BiasY.Height);
-  FSE_YBias.Anchors := [akTop, akLeft];
-  FSE_YBias.SetBounds(RightColumnLeft + RightInputLeftOffset,
+  FSE_BiasY.Anchors := [akTop, akLeft];
+  FSE_BiasY.SetBounds(RightColumnLeft + RightInputLeftOffset,
     ArrayVerticalLayout.BiasYFieldTop,
-    FSE_YBias.Width, FSE_YBias.Height);
+    FSE_BiasY.Width, FSE_BiasY.Height);
   L_ShowSubstrate.Anchors := [akTop, akLeft];
   L_ShowSubstrate.SetBounds(RightColumnLeft,
     ArrayVerticalLayout.ShowSubstrateLabelTop, L_ShowSubstrate.Width,
@@ -409,10 +409,10 @@ begin
     ArrayVerticalLayout.ShowSubstrateTop,
     CHECKBOX_INDICATOR_WIDTH,
     CB_ShowSubstrate.Height);
-  L_SubstrD.Anchors := [akTop, akLeft];
-  L_SubstrD.SetBounds(RightColumnLeft,
+  L_SubstrateDiameter.Anchors := [akTop, akLeft];
+  L_SubstrateDiameter.SetBounds(RightColumnLeft,
     ArrayVerticalLayout.SubstrateDiameterLabelTop, RightLabelWidth,
-    L_SubstrD.Height);
+    L_SubstrateDiameter.Height);
   SE_SubstrateDiameter.Anchors := [akTop, akLeft];
   SE_SubstrateDiameter.SetBounds(RightColumnLeft + RightInputLeftOffset,
     ArrayVerticalLayout.SubstrateDiameterFieldTop,
@@ -462,57 +462,57 @@ var
   end;
 
 begin
-  if not Assigned(GB_MarkEZDDLL) or not Assigned(GB_EzCAD) or
-     not Assigned(B_SetLasPen) or not Assigned(B_CreateEZD) or
-     not Assigned(B_OpenEZCAD) or not Assigned(B_CloseEzCAD) or
-     not Assigned(B_SendF2) then
+  if not Assigned(GB_Dll) or not Assigned(GB_EzCAD) or
+     not Assigned(B_LaserParams) or not Assigned(B_CreateEzd) or
+     not Assigned(B_OpenEzCad) or not Assigned(B_CloseEzCad) or
+     not Assigned(B_MarkEzCad) then
     Exit;
 
-  MarkButtonWidth := GroupButtonWidth([B_SetLasPen, B_CreateEZD],
-    GB_MarkEZDDLL.ClientWidth);
-  B_SetLasPen.Width := MarkButtonWidth;
-  B_CreateEZD.Width := MarkButtonWidth;
-  EzCadButtonWidth := GroupButtonWidth([B_OpenEZCAD, B_CloseEzCAD, B_SendF2],
+  MarkButtonWidth := GroupButtonWidth([B_LaserParams, B_CreateEzd],
+    GB_Dll.ClientWidth);
+  B_LaserParams.Width := MarkButtonWidth;
+  B_CreateEzd.Width := MarkButtonWidth;
+  EzCadButtonWidth := GroupButtonWidth([B_OpenEzCad, B_CloseEzCad, B_MarkEzCad],
     GB_EzCAD.ClientWidth);
-  B_OpenEZCAD.Width := EzCadButtonWidth;
-  B_CloseEzCAD.Width := EzCadButtonWidth;
-  B_SendF2.Width := EzCadButtonWidth;
+  B_OpenEzCad.Width := EzCadButtonWidth;
+  B_CloseEzCad.Width := EzCadButtonWidth;
+  B_MarkEzCad.Width := EzCadButtonWidth;
 
-  MarkButtonsHeight := B_SetLasPen.Height + BUTTON_GAP +
-    B_CreateEZD.Height;
-  MarkButtonLeft := (GB_MarkEZDDLL.ClientWidth - B_SetLasPen.Width) div 2;
+  MarkButtonsHeight := B_LaserParams.Height + BUTTON_GAP +
+    B_CreateEzd.Height;
+  MarkButtonLeft := (GB_Dll.ClientWidth - B_LaserParams.Width) div 2;
   if MarkButtonLeft < 0 then
     MarkButtonLeft := 0;
-  MarkButtonTop := (GB_MarkEZDDLL.ClientHeight - MarkButtonsHeight) div 2;
+  MarkButtonTop := (GB_Dll.ClientHeight - MarkButtonsHeight) div 2;
   if MarkButtonTop < 0 then
     MarkButtonTop := 0;
 
-  B_SetLasPen.Anchors := [akTop, akLeft];
-  B_SetLasPen.SetBounds(MarkButtonLeft, MarkButtonTop, B_SetLasPen.Width,
-    B_SetLasPen.Height);
-  B_CreateEZD.Anchors := [akTop, akLeft];
-  B_CreateEZD.SetBounds(MarkButtonLeft,
-    MarkButtonTop + B_SetLasPen.Height + BUTTON_GAP,
-    B_CreateEZD.Width, B_CreateEZD.Height);
+  B_LaserParams.Anchors := [akTop, akLeft];
+  B_LaserParams.SetBounds(MarkButtonLeft, MarkButtonTop, B_LaserParams.Width,
+    B_LaserParams.Height);
+  B_CreateEzd.Anchors := [akTop, akLeft];
+  B_CreateEzd.SetBounds(MarkButtonLeft,
+    MarkButtonTop + B_LaserParams.Height + BUTTON_GAP,
+    B_CreateEzd.Width, B_CreateEzd.Height);
 
-  EzCadButtonsHeight := B_OpenEZCAD.Height + BUTTON_GAP +
-    B_CloseEZCAD.Height + BUTTON_GAP + B_SendF2.Height;
+  EzCadButtonsHeight := B_OpenEzCad.Height + BUTTON_GAP +
+    B_CloseEzCad.Height + BUTTON_GAP + B_MarkEzCad.Height;
   EzCadButtonTop := (GB_EzCAD.ClientHeight - EzCadButtonsHeight) div 2;
   if EzCadButtonTop < 0 then
     EzCadButtonTop := 0;
 
-  B_OpenEZCAD.Anchors := [akTop, akLeft];
-  B_OpenEZCAD.SetBounds((GB_EzCAD.ClientWidth - B_OpenEZCAD.Width) div 2,
-    EzCadButtonTop, B_OpenEZCAD.Width, B_OpenEZCAD.Height);
-  B_CloseEzCAD.Anchors := [akTop, akLeft];
-  B_CloseEzCAD.SetBounds((GB_EzCAD.ClientWidth - B_CloseEzCAD.Width) div 2,
-    EzCadButtonTop + B_OpenEZCAD.Height + BUTTON_GAP,
-    B_CloseEzCAD.Width, B_CloseEzCAD.Height);
-  B_SendF2.Anchors := [akTop, akLeft];
-  B_SendF2.SetBounds((GB_EzCAD.ClientWidth - B_SendF2.Width) div 2,
-    EzCadButtonTop + B_OpenEZCAD.Height + BUTTON_GAP +
-      B_CloseEzCAD.Height + BUTTON_GAP,
-    B_SendF2.Width, B_SendF2.Height);
+  B_OpenEzCad.Anchors := [akTop, akLeft];
+  B_OpenEzCad.SetBounds((GB_EzCAD.ClientWidth - B_OpenEzCad.Width) div 2,
+    EzCadButtonTop, B_OpenEzCad.Width, B_OpenEzCad.Height);
+  B_CloseEzCad.Anchors := [akTop, akLeft];
+  B_CloseEzCad.SetBounds((GB_EzCAD.ClientWidth - B_CloseEzCad.Width) div 2,
+    EzCadButtonTop + B_OpenEzCad.Height + BUTTON_GAP,
+    B_CloseEzCad.Width, B_CloseEzCad.Height);
+  B_MarkEzCad.Anchors := [akTop, akLeft];
+  B_MarkEzCad.SetBounds((GB_EzCAD.ClientWidth - B_MarkEzCad.Width) div 2,
+    EzCadButtonTop + B_OpenEzCad.Height + BUTTON_GAP +
+      B_CloseEzCad.Height + BUTTON_GAP,
+    B_MarkEzCad.Width, B_MarkEzCad.Height);
 
 end;
 
@@ -532,7 +532,7 @@ begin
     UpdateLayout();
 end;
 
-procedure TManualForm.B_CreateEZDClick(Sender: TObject);
+procedure TManualForm.B_CreateEzdClick(Sender: TObject);
 // EZD-файл из матрицы с геометрией и пером лазера ручной вкладки
 var
   Geometry: TMarkGeometry;
@@ -602,7 +602,7 @@ begin
   MatrixForm.Show;
 end;
 
-procedure TManualForm.B_OpenEZCADClick(Sender: TObject);
+procedure TManualForm.B_OpenEzCadClick(Sender: TObject);
 // Выбираем файл ezd и открываем его в EzCAD; окна лицензии и предупреждений
 // EzCAD после запуска закрывает наблюдатель
 begin
@@ -658,7 +658,7 @@ begin
   PreviewForm.ShowPreview;
 end;
 
-procedure TManualForm.B_SendF2Click(Sender: TObject);
+procedure TManualForm.B_MarkEzCadClick(Sender: TObject);
 // команда маркировки F2 в EzCAD
 begin
   if SendEzCadMark then
@@ -667,7 +667,7 @@ begin
     ShowMessage('Приложение EzCAD2.exe не запущено!');
 end;
 
-procedure TManualForm.B_SetLasPenClick(Sender: TObject);
+procedure TManualForm.B_LaserParamsClick(Sender: TObject);
 // перо лазера ручной вкладки; хранится в configs\manual.ini
 var
   Pen: TLaserPen;
@@ -687,7 +687,7 @@ begin
     ShowMessage(ErrorText);
 end;
 
-procedure TManualForm.B_CloseEzCADClick(Sender: TObject);
+procedure TManualForm.B_CloseEzCadClick(Sender: TObject);
 begin
   if not CloseEzCad then
     ShowMessage('Приложение EzCAD2.exe не запущено!');
