@@ -31,9 +31,10 @@ function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir: string; const AGeometry: TMarkGeometry;
   out AResult: TSliceLayers; out AErrorText: string): Boolean;
 
-// EZD целиком: EZD-файлы всех слоёв в AEzdDir и таблица Slices.lays в
-// ASliceDir (пути к EZD в ней - относительно ASliceDir). Slices.lays
-// пишется, только если созданы EZD всех слоёв.
+// EZD целиком: EZD-файлы всех слоёв в AEzdDir, таблица Slices.lays и
+// геометрия, с которой они созданы (geometry.ini), в ASliceDir (пути к EZD
+// в Slices.lays - относительно ASliceDir). Slices.lays и geometry.ini
+// пишутся, только если созданы EZD всех слоёв.
 function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
   out AResult: TSliceLayers; out AErrorText: string): Boolean;
@@ -114,7 +115,9 @@ begin
       'Таблица слоёв для синтеза (Slices.lays) не записана.';
     Exit;
   end;
-  Result := SaveSliceStatistics(ASliceDir, AResult, SLICES_EZD_FILE, AErrorText);
+  Result := SaveSliceStatistics(ASliceDir, AResult, SLICES_EZD_FILE,
+    AErrorText) and SaveMarkGeometry(IncludeTrailingPathDelimiter(ASliceDir) +
+    GEOMETRY_FILE, AGeometry, AErrorText);
 end;
 
 end.

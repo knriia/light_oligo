@@ -1,8 +1,8 @@
 unit USequencesForm;
 // Вкладка «Последовательности»: массив олигов, слайсинг, EZD-файлы слоёв.
-// Форма встраивается во вкладку главного окна. Всё, что ей нужно от
-// главного окна (журнал, геометрия маркировки, настройки лазера), она
-// получает через события.
+// Форма встраивается во вкладку главного окна. Журнал и окно настроек
+// лазера она получает от главного окна через события. Геометрия маркировки
+// у вкладки своя - в configs\sequences.ini.
 
 {$mode ObjFPC}{$H+}
 
@@ -14,7 +14,6 @@ uses
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
-  TGetMarkGeometryEvent = function: TMarkGeometry of object;
   TListLayerFilesFunc = function(const aDir: String): TStringArray;
   TDeleteLayerFilesFunc = function(const aDir: String;
     out aErrorText: String): Boolean;
@@ -57,7 +56,6 @@ type
     FDocument: TOligoArrayDocument;
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
-    FOnGetMarkGeometry: TGetMarkGeometryEvent;
     FOnShowLaserSettings: TNotifyEvent;
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
@@ -80,9 +78,6 @@ type
     // False - пользователь отменил закрытие.
     function CanCloseFromHost: Boolean;
     property OnLog: TSequencesLogEvent read FOnLog write FOnLog;
-    // Шаг, группы и смещение берутся с вкладки ручного управления.
-    property OnGetMarkGeometry: TGetMarkGeometryEvent
-      read FOnGetMarkGeometry write FOnGetMarkGeometry;
     property OnShowLaserSettings: TNotifyEvent
       read FOnShowLaserSettings write FOnShowLaserSettings;
   end;
@@ -91,7 +86,8 @@ implementation
 
 uses
   LCLType, Clipbrd, AppState, AppPaths, CommonUtils, OligoArray, OligoSlicing,
-  LayerEzd, MarkEzdWriter, OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
+  LayerEzd, MarkEzdWriter, OligoPaste, UOligoArrayForm, UArraySaveForm,
+  UFolderForm, ULayerChartForm, UMarkGeometryForm;
 
 {$R *.lfm}
 
@@ -464,10 +460,21 @@ begin
 end;
 
 procedure TSequencesForm.B_SetGeomParamClick(Sender: TObject);
+// геометрия, с которой создаются EZD слоёв; хранится в configs\sequences.ini
+var
+  Geometry: TMarkGeometry;
+  ErrorText: String;
 begin
-  {TODO: Переделать на вкладке Manual окно задания массива и вызывать его отсюда}
-  ShowMessage('Перейдите на вкладку Ручного управления'+LineEnding+
-              'и задайте геометрические параметры массива');
+  Geometry:=LoadMarkGeometry(SequencesConfigPath);
+  if not TMarkGeometryForm.Execute('Параметры геометрии', Geometry) then
+    Exit;
+  if not ForceDirectories(ConfigsDir) then
+  begin
+    ShowMessage('Не удалось создать папку:'+LineEnding+ConfigsDir);
+    Exit;
+  end;
+  if not SaveMarkGeometry(SequencesConfigPath, Geometry, ErrorText) then
+    ShowMessage(ErrorText);
 end;
 
 procedure TSequencesForm.B_CreateArrEzdClick(Sender: TObject);
@@ -485,10 +492,8 @@ begin
     ShowMessage('Сначала выполните слайсинг массива.');
     Exit;
   end;
-  if not Assigned(FOnGetMarkGeometry) then
-    Exit;
-  // шаг, группы и смещение пока берутся с вкладки ручного управления
-  Geometry:=FOnGetMarkGeometry();
+  // геометрия вкладки (кнопка «Параметры геометрии»)
+  Geometry:=LoadMarkGeometry(SequencesConfigPath);
 
   Path:=IncludeTrailingPathDelimiter(FDocument.SliceDir)+EZD_FOLDER;
   if not ChooseLayerFolder('EZD-файлы слоёв', 'Папка для EZD-файлов слоёв:',

@@ -275,6 +275,9 @@ begin
   AssertEquals(0, LoadSliceFile(Loaded, FilePath('Slices.lays')));
   AssertEquals(1, Length(Loaded));
   AssertEquals(Done[0].EZDFile, Loaded[0].EZDFile);
+  // рядом - геометрия, с которой созданы EZD
+  AssertEquals(Geometry.Step, LoadMarkGeometry(FilePath(GEOMETRY_FILE)).Step, 1e-9);
+  AssertFalse(LoadMarkGeometry(FilePath(GEOMETRY_FILE)).AutoCenter);
 end;
 
 procedure TLayerEzdTests.SliceEzdFailureDoesNotWriteLays;
@@ -288,6 +291,7 @@ begin
     Geometry, Done, ErrorText));
   AssertTrue(Pos('Slices.lays', ErrorText) > 0);
   AssertFalse(FileExists(FilePath('Slices.lays')));
+  AssertFalse(FileExists(FilePath(GEOMETRY_FILE)));
 end;
 
 initialization

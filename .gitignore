@@ -35,6 +35,8 @@ Desktop.ini
 /bin/Arr.ezd
 # All user data: arrays, matrices, slices, protocols, scenarios, settings
 /bin/data/
+# Tab settings (sequences geometry and others)
+/bin/configs/
 # Old location of station scenarios (moved to bin/data/automation on start)
 /bin/protocols/
 
