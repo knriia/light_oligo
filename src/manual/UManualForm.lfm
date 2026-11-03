@@ -8,7 +8,7 @@ object ManualForm: TManualForm
   ClientWidth = 840
   OnResize = FormResize
   LCLVersion = '4.4.0.0'
-  object Panel3: TPanel
+  object P_Manual: TPanel
     Left = 0
     Height = 493
     Top = 0
@@ -28,33 +28,33 @@ object ManualForm: TManualForm
       ClientWidth = 167
       TabOrder = 0
       OnMouseDown = CollapseExpand
-      object GB_MarkEZDDLL: TGroupBox
+      object GB_Dll: TGroupBox
         Left = 0
         Height = 75
         Top = 0
         Width = 104
         Align = alLeft
-        Caption = 'GB_MarkEZDDLL'
+        Caption = 'GB_Dll'
         ClientHeight = 55
         ClientWidth = 100
         TabOrder = 0
-        object B_SetLasPen: TButton
+        object B_LaserParams: TButton
           Left = 9
           Height = 25
           Top = 0
           Width = 85
-          Caption = 'B_SetLasPen'
+          Caption = 'B_LaserParams'
           TabOrder = 0
-          OnClick = B_SetLasPenClick
+          OnClick = B_LaserParamsClick
         end
-        object B_CreateEZD: TButton
+        object B_CreateEzd: TButton
           Left = 9
           Height = 25
           Top = 26
           Width = 85
-          Caption = 'B_CreateEZD'
+          Caption = 'B_CreateEzd'
           TabOrder = 1
-          OnClick = B_CreateEZDClick
+          OnClick = B_CreateEzdClick
         end
       end
       object GB_EzCAD: TGroupBox
@@ -67,33 +67,33 @@ object ManualForm: TManualForm
         ClientHeight = 55
         ClientWidth = 230
         TabOrder = 1
-        object B_OpenEZCAD: TButton
+        object B_OpenEzCad: TButton
           Left = 16
           Height = 25
           Top = 0
           Width = 85
-          Caption = 'B_OpenEZCAD'
+          Caption = 'B_OpenEzCad'
           TabOrder = 0
-          OnClick = B_OpenEZCADClick
+          OnClick = B_OpenEzCadClick
         end
-        object B_CloseEzCAD: TButton
+        object B_CloseEzCad: TButton
           Left = 16
           Height = 25
           Top = 26
           Width = 85
-          Caption = 'B_CloseEzCAD'
+          Caption = 'B_CloseEzCad'
           TabOrder = 1
-          OnClick = B_CloseEzCADClick
+          OnClick = B_CloseEzCadClick
         end
-        object B_SendF2: TButton
+        object B_MarkEzCad: TButton
           Left = 141
           Height = 25
           Top = 0
           Width = 85
           Anchors = [akTop, akRight]
-          Caption = 'B_SendF2'
+          Caption = 'B_MarkEzCad'
           TabOrder = 2
-          OnClick = B_SendF2Click
+          OnClick = B_MarkEzCadClick
         end
       end
     end
@@ -174,15 +174,15 @@ object ManualForm: TManualForm
         TabOrder = 4
         Value = 0.1
       end
-      object L_GStep: TLabel
+      object L_GroupStep: TLabel
         Left = 44
         Height = 15
         Top = 52
         Width = 42
         Anchors = [akTop, akLeft]
-        Caption = 'L_GStep'
+        Caption = 'L_GroupStep'
       end
-      object FSE_XBias: TFloatSpinEdit
+      object FSE_BiasX: TFloatSpinEdit
         Left = 256
         Height = 23
         Top = 26
@@ -209,7 +209,7 @@ object ManualForm: TManualForm
         Anchors = [akTop]
         Caption = 'L_BiasY'
       end
-      object FSE_YBias: TFloatSpinEdit
+      object FSE_BiasY: TFloatSpinEdit
         Left = 256
         Height = 23
         Top = 50
@@ -290,13 +290,13 @@ object ManualForm: TManualForm
         TabOrder = 10
         Value = 20
       end
-      object L_SubstrD: TLabel
+      object L_SubstrateDiameter: TLabel
         Left = 199
         Height = 15
         Top = 98
         Width = 52
         Anchors = [akTop, akRight]
-        Caption = 'L_SubstrD'
+        Caption = 'L_SubstrateDiameter'
       end
     end
     object GB_PumpStation: TGroupBox
