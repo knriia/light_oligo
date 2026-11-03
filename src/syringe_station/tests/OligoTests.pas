@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils, fpcunit, testregistry, MatrixTypes, OligoArray,
   OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, OligoArrayDocument,
-  OligoSlices, AppPaths;
+  OligoSlices, AppPaths, GridWidthMode;
 
 type
   TOligoArrayTests = class(TTestCase)
@@ -81,6 +81,19 @@ type
     procedure SliceFileSkipsEmptyLines;
     procedure WriteLayerFilesBuildsTableAndFiles;
     procedure WriteLayerFilesFailureGivesEmptyTable;
+    procedure SliceArrayIntoFolderWritesLayersAndStatistics;
+    procedure SliceArrayIntoFolderFailureGivesEmptyTable;
+    procedure DocumentSlicingIsKeptAsCopy;
+    procedure DocumentSlicingSurvivesSave;
+    procedure DocumentForgetsSlicingWhenArrayIsReplaced;
+    procedure DocumentForgetsSlicingOnClearAndClose;
+    procedure NewArrayIsSuggestedIntoDatedFolder;
+    procedure OpenedArrayIsSuggestedIntoItsFile;
+  end;
+
+  TGridWidthModeTests = class(TTestCase)
+  published
+    procedure ModesGoInCircle;
   end;
 
   TOligoMatrixTests = class(TTestCase)
@@ -965,6 +978,181 @@ begin
   AssertTrue(ErrorText <> '');
 end;
 
+procedure TOligoFileTests.SliceArrayIntoFolderWritesLayersAndStatistics;
+var
+  Layers: TOligoLayers;
+  Table: TArrSliceStruc;
+  Lines: TStringList;
+  ErrorText: string;
+begin
+  AssertTrue(ForceDirectories(FilePath('layers')));
+  AssertTrue(ErrorText, SliceArrayIntoFolder(Arr(['AT;GT']), FilePath('layers'),
+    FDirectory, Layers, Table, ErrorText));
+  AssertEquals(Length(Layers), Length(Table));
+  AssertTrue(FileExists(Table[0].MatrixFile));
+  Lines := TStringList.Create;
+  try
+    Lines.LoadFromFile(FilePath('Slices.txt'));
+    AssertEquals(Length(Table) + 1, Lines.Count);
+    AssertTrue(Pos('layers' + PathDelim + 'Layer1_', Lines[1]) > 0);
+  finally
+    Lines.Free;
+  end;
+end;
+
+procedure TOligoFileTests.SliceArrayIntoFolderFailureGivesEmptyTable;
+var
+  Layers: TOligoLayers;
+  Table: TArrSliceStruc;
+  ErrorText: string;
+begin
+  // папки для слоёв нет - матрицы не записать
+  AssertFalse(SliceArrayIntoFolder(Arr(['AT;GT']), FilePath('missing'),
+    FDirectory, Layers, Table, ErrorText));
+  AssertEquals(0, Length(Table));
+  AssertTrue(ErrorText <> '');
+  AssertFalse(FileExists(FilePath('Slices.txt')));
+end;
+
+function SliceTableOf(ACount: Integer): TArrSliceStruc;
+var
+  I: Integer;
+begin
+  Result := nil;
+  SetLength(Result, ACount);
+  for I := 0 to ACount - 1 do
+  begin
+    Result[I] := Default(TSliceStruc);
+    Result[I].LayerCount := I + 1;
+    Result[I].Letter := 'A';
+  end;
+end;
+
+procedure TOligoFileTests.DocumentSlicingIsKeptAsCopy;
+var
+  Doc: TOligoArrayDocument;
+  Table: TArrSliceStruc;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertFalse(Doc.HasSlicing);
+    Table := SliceTableOf(2);
+    Doc.SetSlicing(Table, 'D:\arr');
+    Table[0].Letter := 'T';
+    AssertTrue(Doc.HasSlicing);
+    AssertEquals(2, Length(Doc.SliceTable));
+    AssertEquals('A', Doc.SliceTable[0].Letter);
+    AssertEquals('D:\arr', Doc.SliceDir);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentSlicingSurvivesSave;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT']));
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('a.csv'), ErrorText));
+    AssertTrue(Doc.HasSlicing);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentForgetsSlicingWhenArrayIsReplaced;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['AT']), ErrorText));
+    Doc.NewArray(Arr(['G']));
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    Doc.NewArray(Arr(['C']));
+    AssertFalse('новый массив', Doc.HasSlicing);
+    AssertEquals('', Doc.SliceDir);
+
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
+    AssertFalse('загрузка', Doc.HasSlicing);
+
+    // неудачная загрузка документ не меняет - слои остаются
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    AssertFalse(Doc.LoadFromFile(FilePath('missing.csv'), ErrorText));
+    AssertTrue('неудачная загрузка', Doc.HasSlicing);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentForgetsSlicingOnClearAndClose;
+var
+  Doc: TOligoArrayDocument;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT']));
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    Doc.ClearCells;
+    AssertFalse('очистка', Doc.HasSlicing);
+
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    Doc.Close;
+    AssertFalse('удаление из окна', Doc.HasSlicing);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.NewArrayIsSuggestedIntoDatedFolder;
+var
+  Doc: TOligoArrayDocument;
+  Folder, FileName: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT']));
+    Doc.SuggestSaveLocation('D:\data\arrays', EncodeDate(2026, 11, 3) +
+      EncodeTime(14, 5, 0, 0), Folder, FileName);
+    AssertEquals('array_2026-11-03_1405', FileName);
+    AssertEquals('D:\data\arrays\array_2026-11-03_1405', Folder);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.OpenedArrayIsSuggestedIntoItsFile;
+var
+  Doc: TOligoArrayDocument;
+  Folder, FileName, ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('my.csv'), Arr(['AT']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('my.csv'), ErrorText));
+    Doc.SuggestSaveLocation('D:\data\arrays', Now, Folder, FileName);
+    AssertEquals('my', FileName);
+    AssertEquals(ExcludeTrailingPathDelimiter(ExpandFileName(FDirectory)), Folder);
+  finally
+    Doc.Free;
+  end;
+end;
+
+{ TGridWidthModeTests }
+
+procedure TGridWidthModeTests.ModesGoInCircle;
+begin
+  AssertTrue(NextGridWidthMode(gwmDefault) = gwmLongest);
+  AssertTrue(NextGridWidthMode(gwmLongest) = gwmSquare);
+  AssertTrue(NextGridWidthMode(gwmSquare) = gwmDefault);
+end;
+
 { TOligoMatrixTests }
 
 procedure TOligoMatrixTests.AutoCenterOfEmptyMatrixIsZero;
@@ -1219,5 +1407,6 @@ initialization
   RegisterTest(TMarkGeometryTests);
   RegisterTest(TOligoPasteTests);
   RegisterTest(TFileNameCheckTests);
+  RegisterTest(TGridWidthModeTests);
 
 end.

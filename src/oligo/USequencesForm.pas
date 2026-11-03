@@ -10,11 +10,14 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  Grids, IniFiles, MarkGeometry, OligoArrayDocument, OligoSlices;
+  Grids, IniFiles, MarkGeometry, OligoArrayDocument, OligoSlices, GridWidthMode;
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
   TGetMarkGeometryEvent = function: TMarkGeometry of object;
+  TListLayerFilesFunc = function(const aDir: String): TStringArray;
+  TDeleteLayerFilesFunc = function(const aDir: String;
+    out aErrorText: String): Boolean;
 
   { TSequencesForm }
 
@@ -53,21 +56,21 @@ type
     FEditedCol: Integer;
     FEditedRow: Integer;
     FDocument: TOligoArrayDocument;
-    // результат последнего слайсинга этого массива и папка массива, рядом с
-    // которой лежат Slices.txt и Slices.lays
-    FSliceTable: TArrSliceStruc;
-    FSliceDir: string;
+    FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
     FOnGetMarkGeometry: TGetMarkGeometryEvent;
     FOnShowLaserSettings: TNotifyEvent;
     FOnBeforeDllInit: TNotifyEvent;
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
-    procedure ForgetSlicing;
+    procedure ApplyWidthMode;
     procedure StoreCell(ACol, ARow: Integer);
     procedure LayoutButtons;
     function SaveArray: Boolean;
     function ConfirmSaveIfModified: Boolean;
+    function ChooseLayerFolder(const ACaption, APrompt, AFilesName: string;
+      AListFiles: TListLayerFilesFunc; ADeleteFiles: TDeleteLayerFilesFunc;
+      var APath: string): Boolean;
   protected
     procedure DoShow; override;
   public
@@ -92,8 +95,8 @@ type
 implementation
 
 uses
-  LCLType, Clipbrd, AppState, AppPaths, CommonUtils, OligoArray, OligoSlicing, LayerEzd, MarkEzdWriter,
-  OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
+  LCLType, Clipbrd, AppState, AppPaths, CommonUtils, OligoArray, OligoSlicing,
+  LayerEzd, MarkEzdWriter, OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
 
 {$R *.lfm}
 
@@ -175,13 +178,6 @@ begin
     FOnLog(AMsg);
 end;
 
-procedure TSequencesForm.ForgetSlicing;
-// слои относились к прежнему массиву
-begin
-  FSliceTable:=nil;
-  FSliceDir:='';
-end;
-
 procedure TSequencesForm.DisplayOligoArray;
 // массив олигов в таблицу: строка 0 и столбец 0 - заголовки
 var
@@ -197,6 +193,20 @@ begin
     for j:=0 to High(FDocument.Arr[i]) do
       SG_OligoArr.Cells[j+1, i+1]:=FDocument.Arr[i][j];
   NumerateGrid(SG_OligoArr);
+  FWidthMode:=gwmDefault;
+  ApplyWidthMode;
+end;
+
+procedure TSequencesForm.ApplyWidthMode;
+var
+  i: integer;
+begin
+  for i:=1 to SG_OligoArr.ColCount-1 do
+    case FWidthMode of
+      gwmDefault: SG_OligoArr.ColWidths[i]:=SG_OligoArr.DefaultColWidth;
+      gwmLongest: AutoSizeGridColumn(SG_OligoArr, i);
+      gwmSquare: SG_OligoArr.ColWidths[i]:=SG_OligoArr.DefaultRowHeight;
+    end;
 end;
 
 procedure TSequencesForm.StoreCell(ACol, ARow: Integer);
@@ -208,27 +218,12 @@ end;
 
 procedure TSequencesForm.SG_OligoArrHeaderClick(Sender: TObject;
   IsColumn: Boolean; Index: Integer);
-// Клик по углу таблицы переключает ширину ячеек:
-// по умолчанию -> по самому длинному олигу -> квадратные -> по умолчанию
-var
-  i: integer;
+// клик по углу таблицы переключает ширину ячеек (см. GridWidthMode)
 begin
   if not IsColumn or (Index<>0) then
     Exit;
-  SG_OligoArr.Cells[0,0]:=SG_OligoArr.Cells[0,0]+' ';
-  case Length(SG_OligoArr.Cells[0,0]) of
-    1: for i:=1 to SG_OligoArr.ColCount-1 do
-         SG_OligoArr.ColWidths[i]:=SG_OligoArr.DefaultColWidth;
-    2: for i:=1 to SG_OligoArr.ColCount-1 do
-         AutoSizeGridColumn(SG_OligoArr, i);
-    3: begin
-         for i:=1 to SG_OligoArr.ColCount-1 do
-           SG_OligoArr.ColWidths[i]:=SG_OligoArr.DefaultRowHeight;
-         SG_OligoArr.Cells[0,0]:='';
-       end;
-  else
-    SG_OligoArr.Cells[0,0]:='';
-  end;
+  FWidthMode:=NextGridWidthMode(FWidthMode);
+  ApplyWidthMode;
 end;
 
 procedure TSequencesForm.SG_OligoArrKeyUp(Sender: TObject; var Key: Word;
@@ -280,7 +275,6 @@ begin
                 OD_File.FileName+LineEnding+ErrorText);
     Exit;
   end;
-  ForgetSlicing;
   DisplayOligoArray;
 end;
 
@@ -290,24 +284,13 @@ begin
 end;
 
 function TSequencesForm.SaveArray: Boolean;
-{Сохранение массива: по умолчанию в новую папку data\arrays\<дата>,
- но можно выбрать любую папку}
+// Сохранение массива: место по умолчанию предлагает документ,
+// но можно выбрать любую папку.
 var
   Folder, FileName, FilePath, ErrorText: String;
 begin
   Result:=False;
-  // открытый из файла массив предлагаем сохранить туда же,
-  // новый - в папку и файл с датой и временем
-  if FDocument.HasFile then
-  begin
-    Folder:=FDocument.ArrayDir;
-    FileName:=ChangeFileExt(ExtractFileName(FDocument.FileName), '');
-  end
-  else
-  begin
-    FileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', Now);
-    Folder:=IncludeTrailingPathDelimiter(ArraysDir)+FileName;
-  end;
+  FDocument.SuggestSaveLocation(ArraysDir, Now, Folder, FileName);
 
   // спрашиваем, пока не получим согласие на перезапись существующего файла
   repeat
@@ -354,6 +337,40 @@ begin
   Result:=ConfirmSaveIfModified;
 end;
 
+function TSequencesForm.ChooseLayerFolder(const ACaption, APrompt,
+  AFilesName: string; AListFiles: TListLayerFilesFunc;
+  ADeleteFiles: TDeleteLayerFilesFunc; var APath: string): Boolean;
+// Папка для файлов слоёв. Если в ней уже есть такие файлы - только с
+// согласия их удалить, иначе снова спрашиваем папку. Папка создаётся.
+var
+  Existing: TStringArray;
+  ErrorText: String;
+begin
+  Result:=False;
+  repeat
+    if not TFolderForm.Execute(ACaption, APrompt, APath) then
+      Exit;
+    Existing:=AListFiles(APath);
+    if Length(Existing)>0 then
+    begin
+      if MessageDlg('В папке уже есть '+AFilesName+' ('+
+           IntToStr(Length(Existing))+'):'+LineEnding+APath+LineEnding+
+           'Удалить их и записать новые?', mtConfirmation,
+           [mbYes, mbNo], 0)<>mrYes then
+        Continue;
+      if not ADeleteFiles(APath, ErrorText) then
+      begin
+        ShowMessage(ErrorText);
+        Exit;
+      end;
+    end;
+    Break;
+  until false;
+  Result:=ForceDirectories(APath);
+  if not Result then
+    ShowMessage('Не удалось создать папку:'+LineEnding+APath);
+end;
+
 procedure TSequencesForm.B_ClearOligoArrClick(Sender: TObject);
 // стираем содержимое ячеек, размер массива остаётся
 begin
@@ -362,7 +379,6 @@ begin
   if not ConfirmSaveIfModified then
     Exit;
   FDocument.ClearCells;
-  ForgetSlicing;
   DisplayOligoArray;
 end;
 
@@ -374,7 +390,6 @@ begin
   if not ConfirmSaveIfModified then
     Exit;
   FDocument.Close;
-  ForgetSlicing;
   DisplayOligoArray;
 end;
 
@@ -390,7 +405,6 @@ begin
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
   SetLength(SliceTable,0); // слайс-таблица старого массива больше не нужна
-  ForgetSlicing;
   FDocument.NewArray(CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq));
   DisplayOligoArray;
 end;
@@ -401,7 +415,6 @@ procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);
 var
   Layers: TOligoLayers;
   Table: TArrSliceStruc;
-  Existing: TStringArray;
   i: integer;
   Path, ErrorText: String;
 begin
@@ -422,54 +435,24 @@ begin
       Exit;
   end;
 
-  // папка слоёв; если в ней уже есть слои - только с согласия их удалить
   Path:=IncludeTrailingPathDelimiter(FDocument.ArrayDir)+LAYERS_FOLDER;
-  repeat
-    if not TFolderForm.Execute('Слайсинг', 'Папка для файлов слоёв:', Path) then
-      Exit;
-    Existing:=ListLayerFiles(Path);
-    if Length(Existing)>0 then
-    begin
-      if MessageDlg('В папке уже есть файлы слоёв ('+IntToStr(Length(Existing))+
-           '):'+LineEnding+Path+LineEnding+
-           'Удалить их и записать новые слои?', mtConfirmation,
-           [mbYes, mbNo], 0)<>mrYes then
-        Continue;
-      if not DeleteLayerFiles(Path, ErrorText) then
-      begin
-        ShowMessage(ErrorText);
-        Exit;
-      end;
-    end;
-    Break;
-  until false;
-  if not ForceDirectories(Path) then
-  begin
-    ShowMessage('Не удалось создать папку:'+LineEnding+Path);
+  if not ChooseLayerFolder('Слайсинг', 'Папка для файлов слоёв:',
+       'файлы слоёв', @ListLayerFiles, @DeleteLayerFiles, Path) then
     Exit;
-  end;
 
   // показываем уникальные символы
   ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
 
   // прежние слои этого массива больше не действительны
-  ForgetSlicing;
-  Layers:=SliceOligoArray(FDocument.Arr);
-  if not WriteLayerFiles(Layers, Path, Table, ErrorText) then
+  FDocument.ForgetSlicing;
+  if not SliceArrayIntoFolder(FDocument.Arr, Path, FDocument.ArrayDir, Layers,
+       Table, ErrorText) then
   begin
     ShowMessage(ErrorText);
     Exit;
   end;
-  // пути к слоям в статистике - относительно папки массива
-  if not SaveSliceStatistics(FDocument.ArrayDir, Table, SLICES_STAT_FILE,
-       ErrorText) then
-  begin
-    ShowMessage(ErrorText);
-    Exit;
-  end;
-  FSliceTable:=Table;
-  FSliceDir:=FDocument.ArrayDir;
-  SliceTable:=Copy(FSliceTable); // общая таблица слоёв (её использует синтез)
+  FDocument.SetSlicing(Table, FDocument.ArrayDir);
+  SliceTable:=Copy(Table); // общая таблица слоёв (её использует синтез)
 
   LayerChartForm.LS_CharsInLayers.Clear;
   for i:=0 to High(Layers) do
@@ -495,16 +478,14 @@ end;
 procedure TSequencesForm.B_CreateArrEzdClick(Sender: TObject);
 // EZD-файл для каждого слоя (по умолчанию в папке ezd рядом с массивом, имя
 // как у файла матрицы слоя) и таблица Slices.lays для синтеза рядом с массивом.
-// Slices.lays пишется, только если созданы EZD всех слоёв.
 var
   Path, ErrorText: String;
-  Existing: TStringArray;
   Geometry: TMarkGeometry;
   Writer: TMarkEzdWriter;
   Table: TArrSliceStruc;
   Done: Boolean;
 begin
-  if Length(FSliceTable)=0 then
+  if not FDocument.HasSlicing then
   begin
     ShowMessage('Сначала выполните слайсинг массива.');
     Exit;
@@ -514,58 +495,28 @@ begin
   // шаг, группы и смещение пока берутся с вкладки ручного управления
   Geometry:=FOnGetMarkGeometry();
 
-  // папка EZD; если в ней уже есть EZD слоёв - только с согласия их удалить
-  Path:=IncludeTrailingPathDelimiter(FSliceDir)+EZD_FOLDER;
-  repeat
-    if not TFolderForm.Execute('EZD-файлы слоёв', 'Папка для EZD-файлов слоёв:',
-         Path) then
-      Exit;
-    Existing:=ListLayerEzdFiles(Path);
-    if Length(Existing)>0 then
-    begin
-      if MessageDlg('В папке уже есть EZD-файлы слоёв ('+IntToStr(Length(Existing))+
-           '):'+LineEnding+Path+LineEnding+
-           'Удалить их и создать новые?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes then
-        Continue;
-      if not DeleteLayerEzdFiles(Path, ErrorText) then
-      begin
-        ShowMessage(ErrorText);
-        Exit;
-      end;
-    end;
-    Break;
-  until false;
-  if not ForceDirectories(Path) then
-  begin
-    ShowMessage('Не удалось создать папку:'+LineEnding+Path);
+  Path:=IncludeTrailingPathDelimiter(FDocument.SliceDir)+EZD_FOLDER;
+  if not ChooseLayerFolder('EZD-файлы слоёв', 'Папка для EZD-файлов слоёв:',
+       'EZD-файлы слоёв', @ListLayerEzdFiles, @DeleteLayerEzdFiles, Path) then
     Exit;
-  end;
 
   if Assigned(FOnBeforeDllInit) then
     FOnBeforeDllInit(Self);
   Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
   try
-    Done:=CreateLayerEzdFiles(Writer, FSliceTable, Path, Geometry, Table,
-      ErrorText);
+    Done:=CreateSliceEzdFiles(Writer, FDocument.SliceTable, Path,
+      FDocument.SliceDir, Geometry, Table, ErrorText);
   finally
     Writer.Free;
   end;
   if not Done then
   begin
     Log(ErrorText);
-    ShowMessage(ErrorText+LineEnding+LineEnding+
-      'Таблица слоёв для синтеза (Slices.lays) не записана.');
-    Exit;
-  end;
-
-  // пути к EZD в Slices.lays - относительно папки массива
-  if not SaveSliceStatistics(FSliceDir, Table, SLICES_EZD_FILE, ErrorText) then
-  begin
     ShowMessage(ErrorText);
     Exit;
   end;
-  FSliceTable:=Table;
-  SliceTable:=Copy(FSliceTable); // синтез можно запускать сразу
+  FDocument.SetSlicing(Table, FDocument.SliceDir);
+  SliceTable:=Copy(Table); // синтез можно запускать сразу
 end;
 
 end.

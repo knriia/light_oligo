@@ -1,13 +1,14 @@
 unit OligoArrayDocument;
 // Открытый массив олигов: сам массив, файл, из которого он открыт или в
-// который сохранён, и признак изменений после последнего сохранения.
+// который сохранён, признак изменений после последнего сохранения и
+// результат последнего слайсинга этого массива.
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, OligoArray;
+  Classes, SysUtils, OligoArray, OligoSlices;
 
 type
   TOligoArrayDocument = class
@@ -15,6 +16,8 @@ type
     FArr: TOligoArr;
     FFileName: string;
     FModified: Boolean;
+    FSliceTable: TArrSliceStruc;
+    FSliceDir: string;
   public
     // Новый массив: файла ещё нет, массив считается несохранённым.
     procedure NewArray(const AArr: TOligoArr);
@@ -35,6 +38,19 @@ type
     function HasFile: Boolean;
     // Папка файла массива; пусто, если массив ещё не сохранялся.
     function ArrayDir: string;
+    // Куда предлагать сохранить массив: открытый из файла - туда же,
+    // новый - в папку array_<дата_время> внутри AArraysDir.
+    procedure SuggestSaveLocation(const AArraysDir: string; ANow: TDateTime;
+      out AFolder, AFileName: string);
+
+    // Результат слайсинга: таблица слоёв и папка, рядом с которой лежат
+    // Slices.txt и Slices.lays. Забывается, когда массив заменяется,
+    // очищается или убирается.
+    procedure SetSlicing(const ATable: TArrSliceStruc; const ASliceDir: string);
+    procedure ForgetSlicing;
+    function HasSlicing: Boolean;
+    property SliceTable: TArrSliceStruc read FSliceTable;
+    property SliceDir: string read FSliceDir;
     // Массив только для чтения: менять его нужно через методы документа.
     property Arr: TOligoArr read FArr;
     property FileName: string read FFileName;
@@ -51,6 +67,7 @@ begin
   FArr:=CopyOligoArray(AArr);
   FFileName:='';
   FModified:=True;
+  ForgetSlicing;
 end;
 
 function TOligoArrayDocument.LoadFromFile(const AFileName: string;
@@ -64,6 +81,7 @@ begin
   FArr:=Loaded;
   FFileName:=ExpandFileName(AFileName);
   FModified:=False;
+  ForgetSlicing;
 end;
 
 function TOligoArrayDocument.SaveToFile(const AFileName: string;
@@ -104,6 +122,7 @@ procedure TOligoArrayDocument.ClearCells;
 var
   i, j: Integer;
 begin
+  ForgetSlicing;
   for i:=0 to High(FArr) do
     for j:=0 to High(FArr[i]) do
       if FArr[i,j]<>'' then
@@ -118,6 +137,7 @@ begin
   FArr:=nil;
   FFileName:='';
   FModified:=False;
+  ForgetSlicing;
 end;
 
 function TOligoArrayDocument.IsEmpty: Boolean;
@@ -135,6 +155,39 @@ begin
   Result:='';
   if HasFile then
     Result:=ExtractFileDir(FFileName);
+end;
+
+procedure TOligoArrayDocument.SuggestSaveLocation(const AArraysDir: string;
+  ANow: TDateTime; out AFolder, AFileName: string);
+begin
+  if HasFile then
+  begin
+    AFolder:=ArrayDir;
+    AFileName:=ChangeFileExt(ExtractFileName(FFileName), '');
+  end
+  else
+  begin
+    AFileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', ANow);
+    AFolder:=IncludeTrailingPathDelimiter(AArraysDir)+AFileName;
+  end;
+end;
+
+procedure TOligoArrayDocument.SetSlicing(const ATable: TArrSliceStruc;
+  const ASliceDir: string);
+begin
+  FSliceTable:=Copy(ATable);
+  FSliceDir:=ASliceDir;
+end;
+
+procedure TOligoArrayDocument.ForgetSlicing;
+begin
+  FSliceTable:=nil;
+  FSliceDir:='';
+end;
+
+function TOligoArrayDocument.HasSlicing: Boolean;
+begin
+  Result:=Length(FSliceTable)>0;
 end;
 
 end.
