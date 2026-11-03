@@ -1,0 +1,134 @@
+object MarkGeometryForm: TMarkGeometryForm
+  Left = 400
+  Height = 236
+  Top = 250
+  Width = 330
+  BorderStyle = bsDialog
+  Caption = 'MarkGeometryForm'
+  ClientHeight = 236
+  ClientWidth = 330
+  Position = poMainFormCenter
+  object L_Step: TLabel
+    Left = 12
+    Height = 15
+    Top = 16
+    Width = 200
+    Caption = 'L_Step'
+    FocusControl = FSE_Step
+  end
+  object FSE_Step: TFloatSpinEdit
+    Left = 226
+    Height = 23
+    Top = 12
+    Width = 90
+    DecimalPlaces = 3
+    Increment = 0.01
+    MaxValue = 10
+    MinValue = 0.001
+    TabOrder = 0
+    Value = 0.1
+  end
+  object L_Group: TLabel
+    Left = 12
+    Height = 15
+    Top = 46
+    Width = 200
+    Caption = 'L_Group'
+    FocusControl = SE_Group
+  end
+  object SE_Group: TSpinEdit
+    Left = 226
+    Height = 23
+    Top = 42
+    Width = 90
+    MaxValue = 1000
+    TabOrder = 1
+    Value = 10
+  end
+  object L_GroupStep: TLabel
+    Left = 12
+    Height = 15
+    Top = 76
+    Width = 200
+    Caption = 'L_GroupStep'
+    FocusControl = FSE_GroupStep
+  end
+  object FSE_GroupStep: TFloatSpinEdit
+    Left = 226
+    Height = 23
+    Top = 72
+    Width = 90
+    DecimalPlaces = 3
+    Increment = 0.01
+    MaxValue = 10
+    TabOrder = 2
+    Value = 0.1
+  end
+  object CB_AutoCenter: TCheckBox
+    Left = 12
+    Height = 19
+    Top = 104
+    Width = 300
+    Caption = 'CB_AutoCenter'
+    OnChange = CB_AutoCenterChange
+    TabOrder = 3
+  end
+  object L_BiasX: TLabel
+    Left = 12
+    Height = 15
+    Top = 136
+    Width = 200
+    Caption = 'L_BiasX'
+    FocusControl = FSE_BiasX
+  end
+  object FSE_BiasX: TFloatSpinEdit
+    Left = 226
+    Height = 23
+    Top = 132
+    Width = 90
+    DecimalPlaces = 3
+    Increment = 0.01
+    MaxValue = 100
+    MinValue = -100
+    TabOrder = 4
+  end
+  object L_BiasY: TLabel
+    Left = 12
+    Height = 15
+    Top = 166
+    Width = 200
+    Caption = 'L_BiasY'
+    FocusControl = FSE_BiasY
+  end
+  object FSE_BiasY: TFloatSpinEdit
+    Left = 226
+    Height = 23
+    Top = 162
+    Width = 90
+    DecimalPlaces = 3
+    Increment = 0.01
+    MaxValue = 100
+    MinValue = -100
+    TabOrder = 5
+  end
+  object B_OK: TButton
+    Left = 146
+    Height = 25
+    Top = 200
+    Width = 80
+    Caption = 'B_OK'
+    Default = True
+    ModalResult = 1
+    TabOrder = 6
+  end
+  object B_Cancel: TButton
+    Left = 236
+    Height = 25
+    Top = 200
+    Width = 80
+    Cancel = True
+    Caption = 'B_Cancel'
+    ModalResult = 2
+    TabOrder = 7
+  end
+end

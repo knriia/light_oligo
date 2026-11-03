@@ -88,6 +88,12 @@ type
     procedure DocumentForgetsSlicingWhenArrayIsReplaced;
     procedure DocumentForgetsSlicingOnClearAndClose;
     procedure DocumentForgetsSlicingWhenCellChanges;
+    procedure GeometryFileMissingGivesDefaults;
+    procedure GeometryFileRoundTrip;
+    procedure GeometryFileUsesDecimalPoint;
+    procedure GeometryFileReadsCommaAndSkipsBadValues;
+    procedure GeometrySaveKeepsOtherSections;
+    procedure GeometrySaveReportsUnwritableFolder;
     procedure NewArrayIsSuggestedIntoDatedFolder;
     procedure OpenedArrayIsSuggestedIntoItsFile;
   end;
@@ -1130,6 +1136,114 @@ begin
   finally
     Doc.Free;
   end;
+end;
+
+procedure TOligoFileTests.GeometryFileMissingGivesDefaults;
+var
+  G: TMarkGeometry;
+begin
+  G := LoadMarkGeometry(FilePath('missing.ini'));
+  AssertEquals(0.1, G.Step, 1e-9);
+  AssertEquals(10, G.Group);
+  AssertEquals(0.1, G.GroupStep, 1e-9);
+  AssertTrue(G.AutoCenter);
+  AssertEquals(0.0, G.BiasX, 1e-9);
+  AssertEquals(0.0, G.BiasY, 1e-9);
+end;
+
+procedure TOligoFileTests.GeometryFileRoundTrip;
+var
+  G, Loaded: TMarkGeometry;
+  ErrorText: string;
+begin
+  G := Default(TMarkGeometry);
+  G.Step := 0.125;
+  G.Group := 4;
+  G.GroupStep := 0.05;
+  G.AutoCenter := False;
+  G.BiasX := -1.5;
+  G.BiasY := 2.25;
+  AssertTrue(ErrorText, SaveMarkGeometry(FilePath('g.ini'), G, ErrorText));
+  Loaded := LoadMarkGeometry(FilePath('g.ini'));
+  AssertEquals(0.125, Loaded.Step, 1e-9);
+  AssertEquals(4, Loaded.Group);
+  AssertEquals(0.05, Loaded.GroupStep, 1e-9);
+  AssertFalse(Loaded.AutoCenter);
+  AssertEquals(-1.5, Loaded.BiasX, 1e-9);
+  AssertEquals(2.25, Loaded.BiasY, 1e-9);
+end;
+
+procedure TOligoFileTests.GeometryFileUsesDecimalPoint;
+var
+  Lines: TStringList;
+  ErrorText: string;
+begin
+  // файл не зависит от региональных настроек Windows
+  AssertTrue(ErrorText, SaveMarkGeometry(FilePath('g.ini'), DefaultMarkGeometry,
+    ErrorText));
+  Lines := TStringList.Create;
+  try
+    Lines.LoadFromFile(FilePath('g.ini'));
+    AssertEquals('0.1', Lines.Values['Step']);
+  finally
+    Lines.Free;
+  end;
+end;
+
+procedure TOligoFileTests.GeometryFileReadsCommaAndSkipsBadValues;
+var
+  Lines: TStringList;
+  G: TMarkGeometry;
+begin
+  Lines := TStringList.Create;
+  try
+    Lines.Add('[Geometry]');
+    Lines.Add('Step=0,2');
+    Lines.Add('Group=-3');
+    Lines.Add('GroupStep=abc');
+    Lines.Add('BiasX=1.5');
+    Lines.SaveToFile(FilePath('g.ini'));
+  finally
+    Lines.Free;
+  end;
+  G := LoadMarkGeometry(FilePath('g.ini'));
+  AssertEquals('запятая', 0.2, G.Step, 1e-9);
+  AssertEquals('отрицательное - по умолчанию', 10, G.Group);
+  AssertEquals('не число - по умолчанию', 0.1, G.GroupStep, 1e-9);
+  AssertEquals(1.5, G.BiasX, 1e-9);
+  AssertTrue('нет ключа - по умолчанию', G.AutoCenter);
+end;
+
+procedure TOligoFileTests.GeometrySaveKeepsOtherSections;
+var
+  Lines: TStringList;
+  ErrorText: string;
+begin
+  Lines := TStringList.Create;
+  try
+    Lines.Add('[Other]');
+    Lines.Add('Key=Value');
+    Lines.SaveToFile(FilePath('sequences.ini'));
+    AssertTrue(ErrorText, SaveMarkGeometry(FilePath('sequences.ini'),
+      DefaultMarkGeometry, ErrorText));
+    Lines.LoadFromFile(FilePath('sequences.ini'));
+    AssertTrue(Lines.IndexOf('[Other]') >= 0);
+    AssertTrue(Lines.IndexOf('Key=Value') >= 0);
+    AssertTrue(Lines.IndexOf('[Geometry]') >= 0);
+  finally
+    Lines.Free;
+  end;
+end;
+
+procedure TOligoFileTests.GeometrySaveReportsUnwritableFolder;
+var
+  ErrorText: string;
+begin
+  // на месте папки - файл, создать папку нельзя
+  AssertTrue(SaveMatrixAsFile(Matrix(['1']), FilePath('blocker')));
+  AssertFalse(SaveMarkGeometry(FilePath('blocker' + PathDelim + 'g.ini'),
+    DefaultMarkGeometry, ErrorText));
+  AssertTrue(ErrorText <> '');
 end;
 
 procedure TOligoFileTests.NewArrayIsSuggestedIntoDatedFolder;

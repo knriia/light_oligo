@@ -111,7 +111,6 @@ type
     FDispenserStation: TDispenserStationForm;
     FSequencesForm: TSequencesForm;
     procedure SequencesLog(const AMsg: string);
-    function GetMarkGeometry: TMarkGeometry;
     procedure UpdateManualControlsWidth;
     procedure UpdateManualArrayControlsLayout;
     procedure UpdateManualLaserControlsLayout;
@@ -227,7 +226,6 @@ begin
   FSequencesForm.Align := alClient;
   FSequencesForm.ApplyCaptions(MyInterface);
   FSequencesForm.OnLog := @SequencesLog;
-  FSequencesForm.OnGetMarkGeometry := @GetMarkGeometry;
   FSequencesForm.OnShowLaserSettings := @B_SetLasPenClick;
   FSequencesForm.Show;
   Randomize();
@@ -565,17 +563,6 @@ end;
 procedure TMainForm.SequencesLog(const AMsg: string);
 begin
   Memo1.Lines.Add(AMsg);
-end;
-
-function TMainForm.GetMarkGeometry: TMarkGeometry;
-// геометрия маркировки с вкладки ручного управления
-begin
-  Result.Step:=FSE_Step.Value;
-  Result.GroupStep:=FSE_GroupStep.Value;
-  Result.Group:=SE_Group.Value;
-  Result.AutoCenter:=CB_AutoCenter.Checked;
-  Result.BiasX:=FSE_XBias.Value;
-  Result.BiasY:=FSE_YBias.Value;
 end;
 
 procedure TMainForm.Tmr_EzCADerTimer(Sender: TObject);

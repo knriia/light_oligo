@@ -20,6 +20,8 @@ const
   EZD_FOLDER = 'ezd';                // файлы EzCAD, созданные вручную
   SETTINGS_FILE = 'syringe_pump.ini';
   LAYERS_FOLDER = 'layers';          // файлы слоёв рядом с файлом массива
+  CONFIGS_FOLDER = 'configs';        // настройки вкладок рядом с exe
+  SEQUENCES_CONFIG_FILE = 'sequences.ini'; // настройки вкладки последовательностей
 
 // Папка с exe. Пустой AExecutableFileName означает текущую программу.
 function AppDir(const AExecutableFileName: string = ''): string;
@@ -35,6 +37,10 @@ function AutomationDir(const AExecutableFileName: string = ''): string;
 function SettingsDir: string;
 function EzdDir: string;
 function SettingsFilePath: string;
+// Папка настроек вкладок (configs рядом с exe) и файл настроек
+// вкладки последовательностей в ней.
+function ConfigsDir: string;
+function SequencesConfigPath: string;
 
 // Создаёт папку data со всеми подпапками.
 procedure EnsureDataDirs;
@@ -117,6 +123,16 @@ end;
 function SettingsDir: string;
 begin
   Result := DataSubDir(SETTINGS_FOLDER);
+end;
+
+function ConfigsDir: string;
+begin
+  Result := AppDir + CONFIGS_FOLDER;
+end;
+
+function SequencesConfigPath: string;
+begin
+  Result := IncludeTrailingPathDelimiter(ConfigsDir) + SEQUENCES_CONFIG_FILE;
 end;
 
 function EzdDir: string;
