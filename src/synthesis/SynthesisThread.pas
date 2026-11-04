@@ -1,7 +1,9 @@
 unit SynthesisThread;
 // Поток синтеза: исполняет ход синтеза (SynthesisRunner) на настоящем
 // оборудовании. Здесь только действия: шаг станции, пауза, вакуум, маркировка
-// через EzCAD и журнал в окно и в файл. Остановка - Terminate потока.
+// через EzCAD и журнал в окно и в файл. Синтез идёт по копиям слоёв из папки
+// запуска (SynthesisFolder), туда же пишутся журнал и итог. Остановка -
+// Terminate потока.
 // С окнами поток связан через TSynthesisHost, а не через главное окно.
 
 {$mode ObjFPC}{$H+}
@@ -10,7 +12,7 @@ interface
 
 uses
   Classes, SysUtils, Windows, WinProcessUtils, ProtocolFormat, OligoSlices,
-  SynthesisSession, SynthesisRunner, UDispenserStationHost;
+  SynthesisSession, SynthesisRunner, SynthesisFolder, UDispenserStationHost;
 
 type
   // Что поток берёт у окон. Все вызовы идут в главном потоке (Synchronize),
@@ -50,7 +52,9 @@ type
   private
     FSession: TSynthesisSession;
     FHost: TSynthesisHost;
-    FLayers: TSliceLayers;       // слои на момент запуска
+    FSnapshot: TSynthesisSnapshot; // папка запуска и слои - копии в ней
+    FLayers: TSliceLayers;
+    FLogOpen: Boolean;           // журнал в файл ведётся
     FActions: TSynthesisThreadActions;
     FLogText: String;            // строка для OutLog
     FLogFile: TextFile;
@@ -67,7 +71,8 @@ type
     procedure Execute; override;
   public
     // Поток освобождается сам; пока он работает, сессию менять нельзя.
-    constructor Create(ASession: TSynthesisSession; AHost: TSynthesisHost);
+    constructor Create(ASession: TSynthesisSession; AHost: TSynthesisHost;
+      const ASnapshot: TSynthesisSnapshot);
     destructor Destroy; override;
   end;
 
@@ -164,13 +169,14 @@ end;
 { TSynthesisThread }
 
 constructor TSynthesisThread.Create(ASession: TSynthesisSession;
-  AHost: TSynthesisHost);
+  AHost: TSynthesisHost; const ASnapshot: TSynthesisSnapshot);
 begin
   inherited Create(True);
   FreeOnTerminate:=True;
   FSession:=ASession;
   FHost:=AHost;
-  FLayers:=Copy(ASession.Layers);
+  FSnapshot:=ASnapshot;
+  FLayers:=ASnapshot.Layers;
   FActions:=TSynthesisThreadActions.Create(Self);
 end;
 
@@ -184,7 +190,8 @@ procedure TSynthesisThread.OutLog;
 begin
   FLogText:=TimeToStr(Time())+': '+FLogText;
   FHost.WriteLog(FLogText);
-  WriteLN(FLogFile, FLogText);
+  if FLogOpen then
+    WriteLN(FLogFile, FLogText);
 end;
 
 procedure TSynthesisThread.TrigTimer;
@@ -219,20 +226,37 @@ end;
 procedure TSynthesisThread.Execute;
 var
   Runner: TSynthesisRunner;
+  Status: TSynthesisResult;
+  ErrorText: String;
 begin
   if Length(FLayers)=0 then
     Exit;
-  AssignFile(FLogFile, ExtractFilePath(FLayers[0].EZDFile)+'\log.txt');
+  AssignFile(FLogFile, FSnapshot.LogFile);
   {$I-}
   Rewrite(FLogFile);
   {$I+}
+  FLogOpen:=IOResult=0;
+  if not FLogOpen then
+    FActions.Log('WARNING: журнал в файл не ведётся, не удалось открыть '+
+                 FSnapshot.LogFile);
   Runner:=TSynthesisRunner.Create(FLayers, @FSession.ProtocolOf, FActions);
   try
-    Runner.Run;
+    if Runner.Run then
+      Status:=srCompleted
+    else if Runner.Failed then
+      Status:=srFailed
+    else
+      Status:=srStopped;
   finally
     Runner.Free;
   end;
-  CloseFile(FLogFile);
+  if not SaveSynthesisResult(FSnapshot.Folder, Status, Now, ErrorText) then
+    FActions.Log('WARNING: '+ErrorText);
+  if FLogOpen then
+  begin
+    FLogOpen:=False;
+    CloseFile(FLogFile);
+  end;
 end;
 
 end.

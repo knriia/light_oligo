@@ -10,7 +10,8 @@ uses
   ScenarioRunTests, ProtocolModelTests,
   ProtocolEditingTests,
   SynthesisSessionTests,
-  SynthesisRunnerTests;
+  SynthesisRunnerTests,
+  SynthesisFolderTests;
 
 var
   Application: TTestRunner;

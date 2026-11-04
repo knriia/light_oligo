@@ -12,7 +12,8 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, IniFiles,
-  OligoSlices, SynthesisSession, SynthesisThread, UDispenserStationHost;
+  OligoSlices, SynthesisSession, SynthesisThread, SynthesisFolder,
+  UDispenserStationHost;
 
 type
   TSynthesisLogEvent = procedure(const AMsg: string) of object;
@@ -271,6 +272,7 @@ procedure TSynthesisForm.B_StartClick(Sender: TObject);
 var
   I: Integer;
   ErrorText: string;
+  Snapshot: TSynthesisSnapshot;
 begin
   if Running then
   begin
@@ -296,7 +298,16 @@ begin
     IntToStr(FSession.Layers[FSession.LayerCount - 1].LayerNumber) + ' ' +
     FSession.Layers[FSession.LayerCount - 1].EZDFile);
 
-  FThread := TSynthesisThread.Create(FSession, FHost);
+  // папка запуска: копии слоёв и протоколов, synthesis.ini, журнал
+  if not CreateSynthesisSnapshot(FSession, SynthesesDir, Now, Snapshot,
+    ErrorText) then
+  begin
+    ShowMessage(ErrorText);
+    Exit;
+  end;
+  Log('Папка синтеза: ' + Snapshot.Folder);
+
+  FThread := TSynthesisThread.Create(FSession, FHost, Snapshot);
   FThread.OnTerminate := @ThreadFinished;
   FThread.Start;
 end;
