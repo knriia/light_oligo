@@ -11,7 +11,7 @@ uses
   {$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms, tachartlazaruspkg, lazcontrols, UMainForm, EzCadApi, UMatrixForm,
-  UOligoArrayForm, AppState, ULayerChartForm, ULaserPenForm, SynthesisThread
+  UOligoArrayForm, ULayerChartForm, ULaserPenForm, SynthesisThread
   { you can add units after this };
 
 {$R *.res}

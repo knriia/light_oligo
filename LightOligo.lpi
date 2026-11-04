@@ -133,10 +133,6 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\AppState.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
         <Filename Value="src\common\AppPaths.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -165,7 +161,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\SynthesisProtocol.pas"/>
+        <Filename Value="src\synthesis\SynthesisSession.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
