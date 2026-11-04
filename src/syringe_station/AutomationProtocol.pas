@@ -52,14 +52,6 @@ type
 const
   ALL_BLOCKS = -1;
 
-// Строит команды станции из всех операций SyrSt протокола
-// или только из блока ABlockIndex (нумерация с нуля).
-// Остальные операции (пауза, вакуум, лазер) станция пропускает.
-function ParseAutomationProtocol(const AText: string;
-  AConfigurations: TDispenserConfigList;
-  out AProtocol: TAutomationProtocol; out ErrorText: string;
-  ABlockIndex: Integer = ALL_BLOCKS): Boolean;
-
 // Строит команды станции из сценария: шприцевая станция - подача, пауза -
 // ожидание. С AItemIndex - только одна выбранная операция станции. В
 // сценарии должна быть хотя бы одна такая операция. Ошибка называет номер
@@ -455,76 +447,6 @@ begin
     if ScenarioCommands = 0 then
     begin
       ErrorText := 'В сценарии нет операций шприцевой станции.';
-      Exit;
-    end;
-    Result := True;
-  finally
-    if not Result then
-    begin
-      AProtocol.Free;
-      AProtocol := nil;
-    end;
-  end;
-end;
-
-function ParseAutomationProtocol(const AText: string;
-  AConfigurations: TDispenserConfigList;
-  out AProtocol: TAutomationProtocol; out ErrorText: string;
-  ABlockIndex: Integer): Boolean;
-var
-  Document: TProtocolDocument;
-  BlockIndex: Integer;
-  StepIndex: Integer;
-  Step: TProtocolStep;
-  Command: TAutomationProtocolCommand;
-  CommandError: string;
-begin
-  Result := False;
-  ErrorText := '';
-  AProtocol := nil;
-  if AConfigurations = nil then
-  begin
-    ErrorText := 'Не задан список дозаторов.';
-    Exit;
-  end;
-  if not ParseProtocolText(AText, Document, ErrorText) then
-    Exit;
-  if (ABlockIndex <> ALL_BLOCKS) and
-    ((ABlockIndex < 0) or (ABlockIndex > High(Document))) then
-  begin
-    ErrorText := 'Выбранный блок не найден в протоколе.';
-    Exit;
-  end;
-
-  AProtocol := TAutomationProtocol.Create;
-  try
-    for BlockIndex := 0 to High(Document) do
-    begin
-      if (ABlockIndex <> ALL_BLOCKS) and (BlockIndex <> ABlockIndex) then
-        Continue;
-      for StepIndex := 0 to High(Document[BlockIndex].Steps) do
-      begin
-        Step := Document[BlockIndex].Steps[StepIndex];
-        if Step.Kind <> pskSyringe then
-          Continue;
-        if not BuildSyringeCommand(Step.Syringe, AConfigurations, Command,
-          CommandError) then
-        begin
-          ErrorText := 'Строка ' + IntToStr(Step.LineNumber) + ' (блок "' +
-            Document[BlockIndex].Name + '"): ' + CommandError;
-          Exit;
-        end;
-        Command.Number := AProtocol.Count + 1;
-        Command.BlockName := Document[BlockIndex].Name;
-        Command.BlockIndex := BlockIndex;
-        Command.LineNumber := Step.LineNumber;
-        AProtocol.Add(Command);
-      end;
-    end;
-
-    if AProtocol.Count = 0 then
-    begin
-      ErrorText := 'В протоколе нет команд для шприцевой станции (операций SyrSt).';
       Exit;
     end;
     Result := True;

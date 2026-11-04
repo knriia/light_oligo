@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, fpcunit, testregistry, DispenserConfig,
   DispenserController, DispenserRuntimeState, DispenserTypes,
   DispenserOperationCoordinator, AutomationProtocol,
-  AutomationProtocolRunner, DispenserLimits;
+  AutomationProtocolRunner, DispenserLimits, ProtocolFormat, ScenarioList;
 
 type
   TProtocolTestController = class(TDispenserController)
@@ -75,6 +75,11 @@ type
     procedure FailedProtocolStopRemainsTrackedForRetry;
   end;
 
+// Текст протокола -> операции SyrSt всех его блоков -> команды станции. Так
+// тесты проверяют разбор записей и построение команд одним вызовом.
+function ProtocolTextToCommands(const AText: string;
+  AConfigurations: TDispenserConfigList;
+  out AProtocol: TAutomationProtocol; out ErrorText: string): Boolean;
 // Два дозатора PA (адрес 1) и PB (адрес 2) и их инициализированные состояния.
 function CreateTestConfigurations: TDispenserConfigList;
 function CreateInitializedTestStates(
@@ -230,6 +235,31 @@ begin
   Config.MaxFlowRate := 500;
 end;
 
+function ProtocolTextToCommands(const AText: string;
+  AConfigurations: TDispenserConfigList;
+  out AProtocol: TAutomationProtocol; out ErrorText: string): Boolean;
+var
+  Document: TProtocolDocument;
+  Scenario: TScenarioList;
+  B, S: Integer;
+begin
+  AProtocol := nil;
+  Result := ParseProtocolText(AText, Document, ErrorText);
+  if not Result then
+    Exit;
+  Scenario := TScenarioList.Create;
+  try
+    for B := 0 to High(Document) do
+      for S := 0 to High(Document[B].Steps) do
+        if Document[B].Steps[S].Kind = pskSyringe then
+          Scenario.Add(MakeSyringe(Document[B].Steps[S].Syringe));
+    Result := BuildScenarioProtocol(Scenario, AConfigurations, AProtocol,
+      ErrorText);
+  finally
+    Scenario.Free;
+  end;
+end;
+
 function CreateInitializedTestStates(
   AConfigurations: TDispenserConfigList): TDispenserRuntimeStates;
 var
@@ -255,7 +285,7 @@ function TAutomationProtocolRunnerTests.Parse(const AText: string;
   AConfigurations: TDispenserConfigList;
   out AProtocol: TAutomationProtocol; out ErrorText: string): Boolean;
 begin
-  Result := ParseAutomationProtocol(AText, AConfigurations, AProtocol,
+  Result := ProtocolTextToCommands(AText, AConfigurations, AProtocol,
     ErrorText);
 end;
 
