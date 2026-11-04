@@ -446,6 +446,21 @@
         <Filename Value="src\syringe_station\ScenarioList.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\UProtocolForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ProtocolForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\ProtocolModel.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\ProtocolEditing.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
