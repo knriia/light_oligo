@@ -354,9 +354,10 @@ begin
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
-// Добавить слои в синтез
+// Добавить слои в синтез: выбирается папка массива, в ней лежит Slices.lays
 var
-  ErrorText: string;
+  Dialog: TSelectDirectoryDialog;
+  ErrorText, SlicesFile: string;
 begin
   if Running then
   begin
@@ -369,12 +370,25 @@ begin
       '«Создать синтез».');
     Exit;
   end;
-  OD_File.Filter := 'Слои|*.lays';
-  OD_File.InitialDir := SlicesDir;
-  OD_File.FileName := '';
-  if not OD_File.Execute then
+  Dialog := TSelectDirectoryDialog.Create(nil);
+  try
+    Dialog.Title := 'Папка массива со слоями (в ней Slices.lays)';
+    Dialog.InitialDir := ArraysDir;
+    if not Dialog.Execute then
+      Exit;
+    SlicesFile := IncludeTrailingPathDelimiter(Dialog.FileName) +
+      SYNTHESIS_SLICES_FILE;
+  finally
+    Dialog.Free;
+  end;
+  if not FileExists(SlicesFile) then
+  begin
+    ShowMessage('В выбранной папке нет ' + SYNTHESIS_SLICES_FILE + ':' +
+      LineEnding + SlicesFile + LineEnding + 'Выберите папку массива, для ' +
+      'которого созданы EZD-файлы слоёв.');
     Exit;
-  if FWorkspace.AddLayersFile(OD_File.FileName, ErrorText) then
+  end;
+  if FWorkspace.AddLayersFile(SlicesFile, ErrorText) then
     RebuildTree
   else
     ShowMessage(ErrorText);
