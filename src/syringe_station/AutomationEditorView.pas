@@ -27,7 +27,6 @@ type
     FSaveButton: TButton;
     FRunButton: TButton;
     FAddButton: TButton;
-    FEditButton: TButton;
     FDeleteButton: TButton;
     FMoveUpButton: TButton;
     FMoveDownButton: TButton;
@@ -51,7 +50,7 @@ type
     procedure SaveButtonClick(Sender: TObject);
     procedure RunButtonClick(Sender: TObject);
     procedure AddButtonClick(Sender: TObject);
-    procedure EditButtonClick(Sender: TObject);
+    procedure EditItem(AIndex: Integer);
     procedure DeleteButtonClick(Sender: TObject);
     procedure MoveUpButtonClick(Sender: TObject);
     procedure MoveDownButtonClick(Sender: TObject);
@@ -150,8 +149,6 @@ begin
     'Выполнить весь сценарий сверху вниз, с паузами', @RunButtonClick);
   FAddButton := AddButton('Добавить операцию',
     'Новая операция после выбранной', @AddButtonClick);
-  FEditButton := AddButton('Изменить', 'Изменить выбранную операцию',
-    @EditButtonClick);
   FDeleteButton := AddButton('Удалить', 'Удалить выбранную операцию',
     @DeleteButtonClick);
   FMoveUpButton := AddButton('Вверх', 'Поднять выбранную операцию',
@@ -199,7 +196,7 @@ const
   TEXT_PADDING = 28;
   STATUS_TOP = 42;
 var
-  Buttons: array[0..8] of TButton;
+  Buttons: array[0..7] of TButton;
   I, ControlLeft, ButtonWidth: Integer;
   Measure: TBitmap;
 begin
@@ -210,10 +207,9 @@ begin
   Buttons[2] := FSaveButton;
   Buttons[3] := FRunButton;
   Buttons[4] := FAddButton;
-  Buttons[5] := FEditButton;
-  Buttons[6] := FDeleteButton;
-  Buttons[7] := FMoveUpButton;
-  Buttons[8] := FMoveDownButton;
+  Buttons[5] := FDeleteButton;
+  Buttons[6] := FMoveUpButton;
+  Buttons[7] := FMoveDownButton;
   // Холст панели недоступен, пока у неё нет окна (вкладка создаётся до
   // показа), поэтому текст измеряем на отдельном холсте.
   Measure := TBitmap.Create;
@@ -256,7 +252,6 @@ begin
   FSaveButton.Enabled := FModified or ((FCurrentFileName = '') and
     (FScenarios.Count > 0));
   FRunButton.Enabled := FScenarios.SyringeCount > 0;
-  FEditButton.Enabled := Selected >= 0;
   FDeleteButton.Enabled := Selected >= 0;
   FMoveUpButton.Enabled := Selected > 0;
   FMoveDownButton.Enabled := (Selected >= 0) and
@@ -344,9 +339,20 @@ begin
 end;
 
 procedure TAutomationEditorView.TreeDoubleClick(Sender: TObject);
+// Двойной щелчок по операции или по любой строке её параметров открывает окно
+// операции; по пустому месту ничего не происходит
+var
+  Point: TPoint;
+  Node: TTreeNode;
 begin
-  if FEditButton.Enabled then
-    EditButtonClick(Sender);
+  Point := FTree.ScreenToClient(Mouse.CursorPos);
+  Node := FTree.GetNodeAt(Point.X, Point.Y);
+  if Node = nil then
+    Exit;
+  while Node.Parent <> nil do
+    Node := Node.Parent;
+  if Node.Index < FScenarios.Count then
+    EditItem(Node.Index);
 end;
 
 function TAutomationEditorView.PrepareAutomationFolder: Boolean;
@@ -480,19 +486,15 @@ begin
   ListChanged(Position);
 end;
 
-procedure TAutomationEditorView.EditButtonClick(Sender: TObject);
+procedure TAutomationEditorView.EditItem(AIndex: Integer);
 var
-  Selected: Integer;
   Step: TProtocolStep;
 begin
-  Selected := SelectedItemIndex;
-  if Selected < 0 then
-    Exit;
-  Step := ScenarioItemToStep(FScenarios[Selected]);
+  Step := ScenarioItemToStep(FScenarios[AIndex]);
   if not EditOperation('Изменение операции', SCENARIO_KINDS, Step) then
     Exit;
-  FScenarios.Replace(Selected, ScenarioItemFromStep(Step));
-  ListChanged(Selected);
+  FScenarios.Replace(AIndex, ScenarioItemFromStep(Step));
+  ListChanged(AIndex);
 end;
 
 procedure TAutomationEditorView.DeleteButtonClick(Sender: TObject);
