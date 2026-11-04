@@ -53,7 +53,8 @@ type
     function Running: Boolean;
     procedure ThreadFinished(Sender: TObject);
     procedure RebuildTree;
-    function ConfirmDiscardUnsaved: Boolean;
+    function SaveSynthesis: Boolean;
+    function AskSaveIfNeeded: Boolean;
     procedure Log(const AText: string);
   public
     constructor Create(TheOwner: TComponent); override;
@@ -192,9 +193,8 @@ begin
       mtConfirmation, [mbYes, mbNo], 0) = mrYes;
   if Result and Running then
     FThread.Terminate;
-  if Result and not Running and FWorkspace.NeedsSave then
-    Result := MessageDlg('Синтез не сохранён. Закрыть программу без ' +
-      'сохранения?', mtConfirmation, [mbYes, mbNo], 0) = mrYes;
+  if Result and not Running then
+    Result := AskSaveIfNeeded;
 end;
 
 procedure TSynthesisForm.RebuildTree;
@@ -242,11 +242,20 @@ begin
   end;
 end;
 
-function TSynthesisForm.ConfirmDiscardUnsaved: Boolean;
+function TSynthesisForm.AskSaveIfNeeded: Boolean;
+// True - можно продолжать (сохранили или отказались сохранять); False - отмена
 begin
-  Result := not FWorkspace.NeedsSave or
-    (MessageDlg('Синтез не сохранён, загруженное будет потеряно. Продолжить?',
-      mtConfirmation, [mbYes, mbNo], 0) = mrYes);
+  Result := True;
+  if not FWorkspace.NeedsSave then
+    Exit;
+  case QuestionDlg('Синтез не сохранён', 'Сохранить синтез?', mtConfirmation,
+    [mrYes, AnsiString('Сохранить'), mrNo, AnsiString('Нет'),
+     mrCancel, AnsiString('Отмена')], 0) of
+    mrYes: Result := SaveSynthesis;
+    mrNo: Result := True;
+  else
+    Result := False;
+  end;
 end;
 
 procedure TSynthesisForm.B_NewSynthesisClick(Sender: TObject);
@@ -257,7 +266,7 @@ begin
     ShowMessage('Синтез идёт. Остановите его, чтобы создать новый.');
     Exit;
   end;
-  if not ConfirmDiscardUnsaved then
+  if not AskSaveIfNeeded then
     Exit;
   FWorkspace.NewSynthesis;
   RebuildTree;
@@ -273,7 +282,7 @@ begin
     ShowMessage('Синтез идёт. Остановите его, чтобы открыть другой.');
     Exit;
   end;
-  if not ConfirmDiscardUnsaved then
+  if not AskSaveIfNeeded then
     Exit;
   OD_File.Filter := 'Файл синтеза|' + SYNTHESIS_INFO_FILE;
   OD_File.InitialDir := SynthesesDir;
@@ -287,12 +296,14 @@ begin
   RebuildTree;
 end;
 
-procedure TSynthesisForm.B_SaveSynthesisClick(Sender: TObject);
-// Сохранить синтез: слои и протоколы копируются в папку синтеза
+function TSynthesisForm.SaveSynthesis: Boolean;
+// Сохранить синтез: слои и протоколы копируются в папку синтеза.
+// True - сохранён; False - не сохранён (отмена, ошибка, идёт синтез).
 var
   Dialog: TSaveDialog;
   Target, ErrorText, ArrayName: string;
 begin
+  Result := False;
   if Running then
   begin
     ShowMessage('Синтез идёт. Сохранять можно после остановки.');
@@ -322,11 +333,17 @@ begin
       Dialog.Free;
     end;
   end;
-  if FWorkspace.Save(Target, Now, ErrorText) then
+  Result := FWorkspace.Save(Target, Now, ErrorText);
+  if Result then
     Log('Синтез сохранён: ' + FWorkspace.Folder)
   else
     ShowMessage(ErrorText);
   RebuildTree;
+end;
+
+procedure TSynthesisForm.B_SaveSynthesisClick(Sender: TObject);
+begin
+  SaveSynthesis;
 end;
 
 procedure TSynthesisForm.B_LoadProtToSynthClick(Sender: TObject);
@@ -354,10 +371,9 @@ begin
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
-// Добавить слои в синтез: выбирается папка массива, в ней лежит Slices.lays
+// Добавить слои в синтез: файл Slices.lays лежит в папке массива
 var
-  Dialog: TSelectDirectoryDialog;
-  ErrorText, SlicesFile: string;
+  ErrorText: string;
 begin
   if Running then
   begin
@@ -370,25 +386,12 @@ begin
       '«Создать синтез».');
     Exit;
   end;
-  Dialog := TSelectDirectoryDialog.Create(nil);
-  try
-    Dialog.Title := 'Папка массива со слоями (в ней Slices.lays)';
-    Dialog.InitialDir := ArraysDir;
-    if not Dialog.Execute then
-      Exit;
-    SlicesFile := IncludeTrailingPathDelimiter(Dialog.FileName) +
-      SYNTHESIS_SLICES_FILE;
-  finally
-    Dialog.Free;
-  end;
-  if not FileExists(SlicesFile) then
-  begin
-    ShowMessage('В выбранной папке нет ' + SYNTHESIS_SLICES_FILE + ':' +
-      LineEnding + SlicesFile + LineEnding + 'Выберите папку массива, для ' +
-      'которого созданы EZD-файлы слоёв.');
+  OD_File.Filter := 'Слои|*.lays';
+  OD_File.InitialDir := ArraysDir;
+  OD_File.FileName := '';
+  if not OD_File.Execute then
     Exit;
-  end;
-  if FWorkspace.AddLayersFile(SlicesFile, ErrorText) then
+  if FWorkspace.AddLayersFile(OD_File.FileName, ErrorText) then
     RebuildTree
   else
     ShowMessage(ErrorText);
