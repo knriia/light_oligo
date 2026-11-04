@@ -7,9 +7,8 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Graphics, Buttons,
-  UProtocolForm, UDispenserStationHost, DispenserLayout,
-  CommonUtils, OligoSlices, SynthesisSession,
-  AppPaths, IniFiles, SynthesisThread,
+  UProtocolForm, USynthesisForm, UDispenserStationHost, DispenserLayout,
+  OligoSlices, AppPaths, IniFiles,
   USequencesForm, UManualForm, EzCadApp;
 
 
@@ -18,29 +17,15 @@ type
   { TMainForm }
 
   TMainForm = class(TForm)
-    B_ClearAll: TButton;
-    B_Pause: TButton;
-    B_Start: TButton;
-    B_LoadLayers: TButton;
-    B_LoadProtToSynth: TButton;
-    GB_Files: TGroupBox;
-    GB_SynthControl: TGroupBox;
-    OD_File: TOpenDialog;
     Memo1: TMemo;
     PageControl1: TPageControl;
     Panel1: TPanel;
-    TV_Synthesis: TTreeView;
     TS_Synthesis: TTabSheet;
     Tmr_EzCADer: TTimer;
     TS_Protocol: TTabSheet;
     TS_Manual: TTabSheet;
     TS_Log: TTabSheet;
     TS_Sequences: TTabSheet;
-    procedure B_ClearAllClick(Sender: TObject);
-    procedure B_LoadLayersClick(Sender: TObject);
-    procedure B_LoadProtToSynthClick(Sender: TObject);
-    procedure B_PauseClick(Sender: TObject);
-    procedure B_StartClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
@@ -49,18 +34,16 @@ type
     FDispenserStation: TDispenserStationForm;
     FSequencesForm: TSequencesForm;
     FProtocolForm: TProtocolForm;
-    FSession: TSynthesisSession;          // слои и протоколы для синтеза
-    FSynthesisThread: TSynthesisThread;   // nil, пока синтез не идёт
+    FSynthesisForm: TSynthesisForm;
     FManualForm: TManualForm;
     FEzCadWatcher: TEzCadDialogWatcher;
-    function SynthesisRunning: Boolean;
-    procedure SynthesisFinished(Sender: TObject);
     procedure SequencesLayersChanged(const ALayers: TSliceLayers);
+    procedure SynthesisClearLog(Sender: TObject);
+    procedure SynthesisEzCadOpening(Sender: TObject);
     procedure SequencesLog(const AMsg: string);
     procedure UpdateManualControlsWidth;
     procedure UpdateMinimumWindowWidth;
     procedure DispenserStationLogMessage(Sender: TObject; const Msg: string);
-    procedure LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
   public
     property DispenserStation: TDispenserStationForm read FDispenserStation;
     // Синтез запустил EzCAD: закрывать его окна лицензии и предупреждений.
@@ -100,14 +83,6 @@ begin
   TS_Log.Caption:=MyInterface.ReadString('Main','TS_Log','Лог');
 
 
-  GB_SynthControl.Caption:=MyInterface.ReadString('Synthesis','GB_SynthControl','Synthesis Control');
-  GB_Files.Caption:=MyInterface.ReadString('Synthesis','GB_Files','Files');
-  B_LoadProtToSynth.Caption:=MyInterface.ReadString('Synthesis','B_LoadProtToSynth','Load Protocol');
-  B_LoadLayers.Caption:=MyInterface.ReadString('Synthesis','B_LoadLayers','Load Layers');
-  B_ClearAll.Caption:=MyInterface.ReadString('Synthesis','B_ClearAll','Clear All');
-  B_Start.Caption:=MyInterface.ReadString('Synthesis','B_Start','Start');
-  B_Pause.Caption:=MyInterface.ReadString('Synthesis','B_Pause','Pause');
-
   // значения
   MyIni:=TIniFile.Create(ConfigFilePath(PROG_CONFIG_FILE));
 
@@ -121,7 +96,6 @@ begin
   FManualForm.LoadSettings;
   FManualForm.OnLog := @SequencesLog;
   FManualForm.Show;
-  FSession := TSynthesisSession.Create;
   FProtocolForm := TProtocolForm.Create(Self);
   FProtocolForm.BorderStyle := bsNone;
   FProtocolForm.Parent := TS_Protocol;
@@ -134,6 +108,17 @@ begin
   FDispenserStation.Align := alClient;
   FDispenserStation.AttachLogSink(@DispenserStationLogMessage);
   FDispenserStation.Show;
+  FSynthesisForm := TSynthesisForm.Create(Self);
+  FSynthesisForm.BorderStyle := bsNone;
+  FSynthesisForm.Parent := TS_Synthesis;
+  FSynthesisForm.Align := alClient;
+  FSynthesisForm.ApplyCaptions(MyInterface);
+  FSynthesisForm.Station := FDispenserStation;
+  FSynthesisForm.OnLog := @SequencesLog;
+  FSynthesisForm.OnClearLog := @SynthesisClearLog;
+  FSynthesisForm.OnEzCadOpening := @SynthesisEzCadOpening;
+  FSynthesisForm.EzCadOpenDelayMs := MyIni.ReadInteger('Laser','EzCAD2OpenTime',1000);
+  FSynthesisForm.Show;
   FSequencesForm := TSequencesForm.Create(Self);
   FSequencesForm.BorderStyle := bsNone;
   FSequencesForm.Parent := TS_Sequences;
@@ -205,44 +190,9 @@ begin
   Tmr_EzCADer.Enabled:=True;
 end;
 
-procedure TMainForm.LoadFileIntoTreeView(const FileName: string; TreeView: TTreeView);
-// Загрузка содержимого файла в ноду TreeView
-var
-  FileLines: TStringList;
-  NewNode, ChildNode: TTreeNode;
-  i: Integer;
-begin
-  // Проверяем, существует ли файл
-  if not FileExists(FileName) then
-  begin
-    ShowMessage('Файл не найден: ' + FileName);
-    Exit;
-  end;
-
-  // Создаем список строк из файла
-  FileLines:=TStringList.Create;
-  try
-    FileLines.LoadFromFile(FileName); // Загружаем содержимое файла в TStringList
-
-    // Создаем новую корневую ноду
-    NewNode:=TreeView.Items.Add(nil, ExtractFileName(FileName)); // Имя новой ноды - имя файла
-
-    // Добавляем строки файла как дочерние элементы новой ноды
-    for i:=0 to FileLines.Count-1 do
-    begin
-      ChildNode:=TreeView.Items.AddChild(NewNode, FileLines[i]); // Добавляем дочерний элемент
-    end;
-
-    // Раскрываем новую ноду
-    NewNode.Expand(True);
-  finally
-    FileLines.Free; // Освобождаем память
-  end;
-end;
-
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
-  // сначала массив и протокол: вопрос о сохранении ничего не меняет в
+  // сначала протокол и массив: вопрос о сохранении ничего не меняет в
   // оборудовании
   if Assigned(FProtocolForm) and
      not FProtocolForm.CanCloseFromHost then
@@ -258,6 +208,13 @@ begin
     Exit;
   end;
 
+  if Assigned(FSynthesisForm) and
+     not FSynthesisForm.CanCloseFromHost then
+  begin
+    CloseAction := caNone;
+    Exit;
+  end;
+
   if Assigned(FDispenserStation) and
      not FDispenserStation.CanCloseFromHost then
   begin
@@ -265,11 +222,6 @@ begin
     Exit;
   end;
 
-  // идущий синтез останавливаем; сессию он ещё читает, поэтому не освобождаем
-  if FSynthesisThread <> nil then
-    FSynthesisThread.Terminate
-  else
-    FreeAndNil(FSession);
   MyInterface.Free;
   MyIni.Free;
   FreeAndNil(FEzCadWatcher);
@@ -290,126 +242,19 @@ end;
 
 {ВКЛАДКА Synthesis}
 
-function TMainForm.SynthesisRunning: Boolean;
-begin
-  Result:=FSynthesisThread<>nil;
-end;
-
-procedure TMainForm.SynthesisFinished(Sender: TObject);
-// Поток закончил работу (сам освободится): синтез можно запускать снова
-begin
-  FSynthesisThread:=nil;
-end;
-
 procedure TMainForm.SequencesLayersChanged(const ALayers: TSliceLayers);
 begin
-  FSession.SetLayers(ALayers);
+  FSynthesisForm.SetLayers(ALayers);
 end;
 
-procedure TMainForm.B_LoadProtToSynthClick(Sender: TObject);
-// Загрузить файлы протоколов
-var
-  Letter, ErrorText: String;
+procedure TMainForm.SynthesisClearLog(Sender: TObject);
 begin
-  if SynthesisRunning then
-  begin
-    ShowMessage('Синтез идёт. Остановите его, чтобы менять протоколы.');
-    Exit;
-  end;
-  OD_File.Filter:='Протокол|*.pro';
-  OD_File.InitialDir:=ProtocolsDir;
-  OD_File.FileName:='';
-  if not OD_File.Execute then
-    Exit;
-  if FSession.AddProtocolFile(OD_File.FileName, Letter, ErrorText) then
-  begin
-    Memo1.Lines.Add('Протокол для буквы '+Letter+' загружен: '+OD_File.FileName);
-    LoadFileIntoTreeView(OD_File.FileName, TV_Synthesis);
-  end
-  else
-    ShowMessage(ErrorText);
-end;
-
-procedure TMainForm.B_LoadLayersClick(Sender: TObject);
-// Загрузить файлы слоев
-var
-  ErrorText: String;
-  Node: TTreeNode;
-begin
-  Node := TV_Synthesis.Items.GetFirstNode; // Получаем первый корневой узел
-  while Node <> nil do
-  begin
-    // Проверяем, содержит ли узел искомый текст
-    if Pos('.lays', Node.Text) > 0 then
-      begin
-        ShowMessage('Файл слоев уже загружен!');
-        Exit;
-      end;
-    Node := Node.GetNext; // Переходим к следующему корневому узлу
-  end;
-
-  OD_File.Filter:='Слои|*.lays';
-  OD_File.InitialDir:=SlicesDir;
-  OD_File.FileName:='';
-  if not OD_File.Execute then
-    Exit;
-  if FSession.LoadLayersFile(OD_File.FileName, ErrorText) then
-    LoadFileIntoTreeView(OD_File.FileName, TV_Synthesis)
-  else
-    ShowMessage(ErrorText);
-end;
-
-procedure TMainForm.B_ClearAllClick(Sender: TObject);
-// Очистить протоколы и файлы
-begin
-  if SynthesisRunning then
-  begin
-    ShowMessage('Синтез идёт. Остановите его, чтобы очистить загруженное.');
-    Exit;
-  end;
-  FSession.Clear;
-  TV_Synthesis.Items.Clear;
-end;
-
-procedure TMainForm.B_StartClick(Sender: TObject);
-//запуск синтеза
-var
-  i: integer;
-  ErrorText: String;
-begin
-  if SynthesisRunning then
-  begin
-    ShowMessage('Синтез уже идёт.');
-    Exit;
-  end;
   Memo1.Clear;
-
-  // Перед запуском проверяем, что есть слои и протоколы на все буквы
-  if not FSession.CheckReady(ErrorText) then
-  begin
-    ShowMessage(ErrorText);
-    Exit;
-  end;
-
-  for i:=0 to FSession.ProtocolCount-1 do
-    Memo1.Lines.Add(FSession.ProtocolLetters[i]);
-  Memo1.Lines.Add('Число слоев='+IntToStr(FSession.LayerCount));
-  Memo1.Lines.Add('Первыйслой='+IntToStr(FSession.Layers[0].LayerNumber)+' '+
-                  FSession.Layers[0].EZDFile);
-  Memo1.Lines.Add('Последний слой='+
-                  IntToStr(FSession.Layers[FSession.LayerCount-1].LayerNumber)+' '+
-                  FSession.Layers[FSession.LayerCount-1].EZDFile);
-
-  FSynthesisThread:=TSynthesisThread.Create(FSession);
-  FSynthesisThread.OnTerminate:=@SynthesisFinished;
-  FSynthesisThread.Start;
 end;
 
-procedure TMainForm.B_PauseClick(Sender: TObject);
+procedure TMainForm.SynthesisEzCadOpening(Sender: TObject);
 begin
-  if FSynthesisThread<>nil then
-    FSynthesisThread.Terminate;
-  Memo1.Lines.Add('Synthesis aborted');
+  StartEzCadWatcher;
 end;
 
 end.
