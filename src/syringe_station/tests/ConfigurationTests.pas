@@ -10,7 +10,7 @@ uses
   DispenserLimits, DispenserCapacityValidator, WindowSettingsStorage,
   DispenserOperationRules, DispenserController, DispenserResolution,
   DispenserTypes, DispenserLayout, AutomationDocumentStorage,
-  AutomationProtocol;
+  AutomationProtocol, AutomationProtocolRunnerTests;
 
 type
   TDispenserOperationRulesTests = class(TTestCase)
@@ -82,7 +82,6 @@ type
     procedure RejectsSpeedAboveConfiguredMaximum;
     procedure RejectsVolumeBelowStepResolution;
     procedure RejectsDuplicateSyringeParameter;
-    procedure NumbersCommandsAcrossBlocks;
     procedure RejectsLegacySyringeLine;
     procedure FindsNameIgnoringCase;
     procedure RejectsMissingFieldsAndEmptyProtocol;
@@ -320,7 +319,7 @@ function TAutomationProtocolTests.Parse(const AText: string;
   AConfigurations: TDispenserConfigList;
   out AProtocol: TAutomationProtocol; out ErrorText: string): Boolean;
 begin
-  Result := ParseAutomationProtocol(AText, AConfigurations, AProtocol,
+  Result := ProtocolTextToCommands(AText, AConfigurations, AProtocol,
     ErrorText);
 end;
 
@@ -613,50 +612,6 @@ begin
   end;
 end;
 
-procedure TAutomationProtocolTests.NumbersCommandsAcrossBlocks;
-var
-  Configurations: TDispenserConfigList;
-  Protocol: TAutomationProtocol;
-  ErrorText: string;
-  Text: string;
-begin
-  Configurations := CreateConfigurations;
-  Protocol := nil;
-  // Второй блок с паузой и лазером: станция берёт только SyrSt.
-  Text := SyrStText('P1', '2', '10', 'мкл', '10', 'мкл/с') +
-    'Block=Wash;' + LineEnding +
-    #9'Pause=5;' + LineEnding +
-    #9'Laser=1; Time=3;' + LineEnding +
-    #9'SyrSt;' + LineEnding +
-    #9#9'Dispensers=P2;' + LineEnding +
-    #9#9'Valves=2;' + LineEnding +
-    #9#9'Volumes=20;' + LineEnding +
-    #9#9'VolumeUnit=мкл;' + LineEnding +
-    #9#9'Speeds=10;' + LineEnding +
-    #9#9'SpeedUnit=мкл/с;' + LineEnding;
-  try
-    AssertTrue(ErrorText, Parse(Text, Configurations, Protocol, ErrorText));
-    try
-      AssertEquals(2, Protocol.Count);
-      AssertEquals(2, Protocol[1].Number);
-      AssertEquals('Wash', Protocol[1].BlockName);
-      AssertEquals(1, Protocol[1].BlockIndex);
-      AssertEquals('P2', Protocol[1].Targets[0].Config.Name);
-    finally
-      FreeAndNil(Protocol);
-    end;
-
-    // Запуск одного блока: только его операции SyrSt.
-    AssertTrue(ErrorText, ParseAutomationProtocol(Text, Configurations,
-      Protocol, ErrorText, 1));
-    AssertEquals(1, Protocol.Count);
-    AssertEquals('Wash', Protocol[0].BlockName);
-  finally
-    Protocol.Free;
-    Configurations.Free;
-  end;
-end;
-
 procedure TAutomationProtocolTests.RejectsLegacySyringeLine;
 var
   Configurations: TDispenserConfigList;
@@ -686,7 +641,7 @@ begin
   Protocol := nil;
   try
     AssertFalse(Parse('', Configurations, Protocol, ErrorText));
-    AssertTrue(Pos('нет команд', ErrorText) > 0);
+    AssertTrue(Pos('нет операций', ErrorText) > 0);
     AssertFalse(Parse(
       'Block=Test;' + LineEnding +
       #9'SyrSt;' + LineEnding +
