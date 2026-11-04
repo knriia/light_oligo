@@ -37,50 +37,68 @@ object SynthesisForm: TSynthesisForm
     ClientHeight = 473
     ClientWidth = 181
     TabOrder = 1
-    object B_LoadProtToSynth: TButton
-      Left = 32
+    object B_NewSynthesis: TButton
+      Left = 16
       Height = 25
-      Top = 24
-      Width = 90
-      Caption = 'B_LoadProtToSynth'
+      Top = 16
+      Width = 150
+      Caption = 'B_NewSynthesis'
       TabOrder = 0
+      OnClick = B_NewSynthesisClick
+    end
+    object B_OpenSynthesis: TButton
+      Left = 16
+      Height = 25
+      Top = 48
+      Width = 150
+      Caption = 'B_OpenSynthesis'
+      TabOrder = 1
+      OnClick = B_OpenSynthesisClick
+    end
+    object B_SaveSynthesis: TButton
+      Left = 16
+      Height = 25
+      Top = 80
+      Width = 150
+      Caption = 'B_SaveSynthesis'
+      TabOrder = 2
+      OnClick = B_SaveSynthesisClick
+    end
+    object B_LoadProtToSynth: TButton
+      Left = 16
+      Height = 25
+      Top = 128
+      Width = 150
+      Caption = 'B_LoadProtToSynth'
+      TabOrder = 3
       OnClick = B_LoadProtToSynthClick
     end
     object B_LoadLayers: TButton
-      Left = 32
+      Left = 16
       Height = 25
-      Top = 56
-      Width = 90
+      Top = 160
+      Width = 150
       Caption = 'B_LoadLayers'
-      TabOrder = 1
+      TabOrder = 4
       OnClick = B_LoadLayersClick
     end
     object B_Start: TButton
-      Left = 32
+      Left = 16
       Height = 25
-      Top = 192
-      Width = 90
+      Top = 208
+      Width = 150
       Caption = 'B_Start'
-      TabOrder = 2
+      TabOrder = 5
       OnClick = B_StartClick
     end
     object B_Pause: TButton
-      Left = 32
+      Left = 16
       Height = 25
-      Top = 224
-      Width = 90
+      Top = 240
+      Width = 150
       Caption = 'B_Pause'
-      TabOrder = 3
+      TabOrder = 6
       OnClick = B_PauseClick
-    end
-    object B_ClearAll: TButton
-      Left = 32
-      Height = 25
-      Top = 120
-      Width = 90
-      Caption = 'B_ClearAll'
-      TabOrder = 4
-      OnClick = B_ClearAllClick
     end
   end
   object OD_File: TOpenDialog

@@ -1,24 +1,27 @@
 unit SynthesisFolder;
-// Папка одного запуска синтеза: data\syntheses\<дата_время>_<массив>\.
-// При старте в неё копируются слои (EZD-файлы) и протоколы букв, которые
-// используются, записываются Slices.lays с путями к копиям и synthesis.ini
-// (когда запущен, какой массив, сколько слоёв и какие буквы). Синтез идёт по
-// копиям, поэтому папка - точная запись того, что выполнялось, даже если
-// исходные файлы потом изменятся. Туда же пишется журнал log.txt, а при
-// завершении - итог (завершён, остановлен или ошибка).
+// Папка одного синтеза: data\syntheses\<имя>\. В неё копируются слои
+// (EZD-файлы, layers\), протоколы букв (protocols\) и Slices.lays с путями к
+// копиям, а файл синтеза synthesis.ini хранит, когда синтез сохранён, какой
+// массив, сколько слоёв и какие буквы. При запуске в него дописывается время
+// запуска, рядом пишется журнал log.txt, а при завершении - итог (завершён,
+// остановлен или ошибка). Синтез идёт по копиям, поэтому папка - точная запись
+// того, что выполнялось, даже если исходные файлы потом изменятся. Здесь
+// отдельные действия над папкой; когда и что копировать, решает
+// SynthesisWorkspace.
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, IniFiles, OligoSlices, ProtocolModel, SynthesisSession;
+  Classes, SysUtils, IniFiles, OligoSlices, ProtocolModel;
 
 const
   SYNTHESIS_INFO_FILE = 'synthesis.ini';
   SYNTHESIS_LOG_FILE = 'log.txt';
   SYNTHESIS_LAYERS_FOLDER = 'layers';
   SYNTHESIS_PROTOCOLS_FOLDER = 'protocols';
+  SYNTHESIS_SLICES_FILE = 'Slices.lays';   // таблица слоёв с путями к копиям
 
 type
   TSynthesisSnapshot = record
@@ -29,19 +32,49 @@ type
 
   TSynthesisResult = (srCompleted, srStopped, srFailed);
 
+  // Что записано о синтезе в synthesis.ini (файл синтеза).
+  TSynthesisInfo = record
+    ArrayName: string;
+    SourceFolder: string;   // откуда взяты слои
+    LayerCount: Integer;
+    Started: Boolean;       // синтез уже запускался
+  end;
+
 // Имя массива по папке слоёв: папка ezd или layers внутри папки массива -
 // имя берётся от папки массива. Пусто - 'array'.
 function ArrayNameOfLayers(const ALayers: TSliceLayers): string;
 // Часть имени папки без символов, недопустимых в Windows, не длиннее 60.
 function SafeFolderPart(const AText: string): string;
-// <гггг-мм-дд>_<ччммсс>_<массив>
+// <гггг-мм-дд>_<ччммсс>_<массив>; без массива - только дата и время
 function SynthesisFolderName(const AArrayName: string; ANow: TDateTime): string;
 
-// Создаёт папку запуска внутри ABaseDir и наполняет её копиями слоёв и
-// протоколов. Ошибка (нет файла слоя, не копируется, нет места) - False,
-// текст называет слой и файл, а недоделанная папка удаляется.
-function CreateSynthesisSnapshot(ASession: TSynthesisSession;
-  const ABaseDir: string; ANow: TDateTime; out ASnapshot: TSynthesisSnapshot;
+// Удаляет папку со всем содержимым (нет папки - ничего не делает).
+procedure RemoveDirectoryTree(const ADirectory: string);
+
+// Папка с EZD-копиями слоёв внутри папки синтеза (с разделителем на конце).
+function LayersFolderOf(const AFolder: string): string;
+
+// Копирует EZD каждого слоя в AFolder\layers, один исходный файл - один раз.
+// ACopies - те же слои с путями к копиям. Нет файла, не копируется, нет места -
+// False, текст называет слой и файл.
+function CopyLayersToFolder(const ALayers: TSliceLayers; const AFolder: string;
+  out ACopies: TSliceLayers; out AErrorText: string): Boolean;
+
+// Записывает протокол буквы в AFolder\protocols\<буква>.pro как есть.
+function WriteProtocolCopy(AProtocol: TProtocolModel; const ALetter,
+  AFolder: string; out AErrorText: string): Boolean;
+
+// Записывает файл синтеза synthesis.ini: когда сохранён, массив, слои, буквы.
+function SaveSynthesisInfo(const AFolder, AArrayName, ASourceFolder: string;
+  ALayerCount: Integer; ALetters: TStringList; ANow: TDateTime;
+  out AErrorText: string): Boolean;
+
+// Дописывает в synthesis.ini, когда синтез запущен.
+function SaveSynthesisStart(const AFolder: string; ANow: TDateTime;
+  out AErrorText: string): Boolean;
+
+// Читает файл синтеза; не тот файл или не читается - False, текст объясняет.
+function ReadSynthesisInfo(const AIniFile: string; out AInfo: TSynthesisInfo;
   out AErrorText: string): Boolean;
 
 // Дописывает в synthesis.ini итог запуска: когда закончен и как.
@@ -94,11 +127,12 @@ end;
 
 function SynthesisFolderName(const AArrayName: string; ANow: TDateTime): string;
 begin
-  Result := FormatDateTime('yyyy-mm-dd"_"hhnnss', ANow) + '_' +
-    SafeFolderPart(AArrayName);
+  Result := FormatDateTime('yyyy-mm-dd"_"hhnnss', ANow);
+  if AArrayName <> '' then
+    Result := Result + '_' + SafeFolderPart(AArrayName);
 end;
 
-procedure RemoveTree(const ADirectory: string);
+procedure RemoveDirectoryTree(const ADirectory: string);
 var
   Search: TSearchRec;
   Dir: string;
@@ -110,7 +144,7 @@ begin
       if (Search.Name = '.') or (Search.Name = '..') then
         Continue;
       if (Search.Attr and faDirectory) <> 0 then
-        RemoveTree(Dir + Search.Name)
+        RemoveDirectoryTree(Dir + Search.Name)
       else
         DeleteFile(Dir + Search.Name);
     until FindNext(Search) <> 0;
@@ -163,9 +197,14 @@ begin
   until not FileExists(ADir + Result);
 end;
 
-function CopyLayers(const ALayers: TSliceLayers; const AFolder: string;
+function LayersFolderOf(const AFolder: string): string;
+begin
+  Result := IncludeTrailingPathDelimiter(AFolder) + SYNTHESIS_LAYERS_FOLDER +
+    PathDelim;
+end;
+
+function CopyLayersToFolder(const ALayers: TSliceLayers; const AFolder: string;
   out ACopies: TSliceLayers; out AErrorText: string): Boolean;
-// EZD каждого слоя - в AFolder\layers; один исходный файл копируется один раз
 var
   LayersDir, DestName, CopyError: string;
   Sources, Dests: TStringList;
@@ -174,8 +213,7 @@ begin
   Result := False;
   ACopies := nil;
   AErrorText := '';
-  LayersDir := IncludeTrailingPathDelimiter(AFolder) + SYNTHESIS_LAYERS_FOLDER +
-    PathDelim;
+  LayersDir := LayersFolderOf(AFolder);
   if not ForceDirectories(LayersDir) then
   begin
     AErrorText := 'Не удалось создать папку для слоёв:' + LineEnding + LayersDir;
@@ -219,23 +257,10 @@ begin
   Result := True;
 end;
 
-// Буквы слоёв без повторов в порядке слоёв
-function LettersOf(const ALayers: TSliceLayers): TStringList;
-var
-  I: Integer;
-begin
-  Result := TStringList.Create;
-  for I := 0 to High(ALayers) do
-    if Result.IndexOf(ALayers[I].Letter) < 0 then
-      Result.Add(ALayers[I].Letter);
-end;
-
-function CopyProtocols(ASession: TSynthesisSession; ALetters: TStringList;
-  const AFolder: string; out AErrorText: string): Boolean;
+function WriteProtocolCopy(AProtocol: TProtocolModel; const ALetter,
+  AFolder: string; out AErrorText: string): Boolean;
 var
   Dir, FileName, WriteError: string;
-  Protocol: TProtocolModel;
-  I: Integer;
 begin
   Result := False;
   AErrorText := '';
@@ -246,27 +271,18 @@ begin
     AErrorText := 'Не удалось создать папку для протоколов:' + LineEnding + Dir;
     Exit;
   end;
-  for I := 0 to ALetters.Count - 1 do
+  // это запись того, что выполнялось: пишем как есть, без новой проверки
+  FileName := Dir + SafeFolderPart(ALetter) + '.pro';
+  if not WriteUtf8TextFile(FileName, AProtocol.ToText, WriteError) then
   begin
-    Protocol := ASession.ProtocolOf(ALetters[I]);
-    if Protocol = nil then
-    begin
-      AErrorText := 'Нет протокола для буквы "' + ALetters[I] + '".';
-      Exit;
-    end;
-    // это запись того, что выполнялось: пишем как есть, без новой проверки
-    FileName := Dir + SafeFolderPart(ALetters[I]) + '.pro';
-    if not WriteUtf8TextFile(FileName, Protocol.ToText, WriteError) then
-    begin
-      AErrorText := 'Не удалось записать протокол буквы "' + ALetters[I] +
-        '":' + LineEnding + FileName + LineEnding + WriteError;
-      Exit;
-    end;
+    AErrorText := 'Не удалось записать протокол буквы "' + ALetter + '":' +
+      LineEnding + FileName + LineEnding + WriteError;
+    Exit;
   end;
   Result := True;
 end;
 
-function WriteInfo(const AFolder, AArrayName, ASourceFolder: string;
+function SaveSynthesisInfo(const AFolder, AArrayName, ASourceFolder: string;
   ALayerCount: Integer; ALetters: TStringList; ANow: TDateTime;
   out AErrorText: string): Boolean;
 var
@@ -279,7 +295,7 @@ begin
       SYNTHESIS_INFO_FILE);
     try
       Ini.WriteString(INFO_SECTION, 'Program', 'LightOligo');
-      Ini.WriteString(INFO_SECTION, 'Started', FormatDateTime(DATE_TIME_FORMAT, ANow));
+      Ini.WriteString(INFO_SECTION, 'Saved', FormatDateTime(DATE_TIME_FORMAT, ANow));
       Ini.WriteString(INFO_SECTION, 'ArrayName', AArrayName);
       Ini.WriteString(INFO_SECTION, 'SourceFolder', ASourceFolder);
       Ini.WriteInteger(INFO_SECTION, 'LayerCount', ALayerCount);
@@ -296,61 +312,70 @@ begin
   end;
 end;
 
-function CreateSynthesisSnapshot(ASession: TSynthesisSession;
-  const ABaseDir: string; ANow: TDateTime; out ASnapshot: TSynthesisSnapshot;
+function SaveSynthesisStart(const AFolder: string; ANow: TDateTime;
   out AErrorText: string): Boolean;
 var
-  ArrayName, Name, Folder, StepError: string;
-  Copies: TSliceLayers;
-  Letters: TStringList;
-  N: Integer;
+  Ini: TMemIniFile;
 begin
   Result := False;
-  ASnapshot := Default(TSynthesisSnapshot);
   AErrorText := '';
-  if ASession.LayerCount = 0 then
+  if not DirectoryExists(AFolder) then
   begin
-    AErrorText := 'Нет слоёв для синтеза.';
+    AErrorText := 'Папка синтеза не найдена, запуск не записан:' + LineEnding +
+      AFolder;
     Exit;
   end;
-  ArrayName := ArrayNameOfLayers(ASession.Layers);
-  Name := SynthesisFolderName(ArrayName, ANow);
-  Folder := IncludeTrailingPathDelimiter(ABaseDir) + Name;
-  N := 2;
-  while DirectoryExists(Folder) do
-  begin
-    Folder := IncludeTrailingPathDelimiter(ABaseDir) + Name + '_' + IntToStr(N);
-    Inc(N);
-  end;
-  if not ForceDirectories(Folder) then
-  begin
-    AErrorText := 'Не удалось создать папку синтеза:' + LineEnding + Folder;
-    Exit;
-  end;
-
-  Letters := LettersOf(ASession.Layers);
   try
-    if CopyLayers(ASession.Layers, Folder, Copies, StepError) and
-       CopyProtocols(ASession, Letters, Folder, StepError) and
-       SaveSliceStatistics(Folder, Copies, SLICES_EZD_FILE, StepError) and
-       WriteInfo(Folder, ArrayName,
-         ExtractFileDir(ASession.Layers[0].EZDFile), ASession.LayerCount,
-         Letters, ANow, StepError) then
-    begin
-      ASnapshot.Folder := Folder;
-      ASnapshot.LogFile := IncludeTrailingPathDelimiter(Folder) +
-        SYNTHESIS_LOG_FILE;
-      ASnapshot.Layers := Copies;
-      Result := True;
-    end
-    else
-    begin
-      AErrorText := 'Синтез не запущен: не удалось подготовить папку ' +
-        'синтеза.' + LineEnding + StepError;
-      RemoveTree(Folder); // недоделанная папка не нужна
+    Ini := TMemIniFile.Create(IncludeTrailingPathDelimiter(AFolder) +
+      SYNTHESIS_INFO_FILE);
+    try
+      Ini.WriteString(INFO_SECTION, 'Started', FormatDateTime(DATE_TIME_FORMAT, ANow));
+      Ini.UpdateFile;
+    finally
+      Ini.Free;
     end;
-  finally
-    Letters.Free;
+    Result := True;
+  except
+    on E: Exception do
+      AErrorText := 'Не удалось записать ' + SYNTHESIS_INFO_FILE + ':' +
+        LineEnding + E.Message;
+  end;
+end;
+
+function ReadSynthesisInfo(const AIniFile: string; out AInfo: TSynthesisInfo;
+  out AErrorText: string): Boolean;
+var
+  Ini: TMemIniFile;
+begin
+  Result := False;
+  AInfo := Default(TSynthesisInfo);
+  AErrorText := '';
+  if not FileExists(AIniFile) then
+  begin
+    AErrorText := 'Файл синтеза не найден:' + LineEnding + AIniFile;
+    Exit;
+  end;
+  try
+    Ini := TMemIniFile.Create(AIniFile);
+    try
+      if not Ini.SectionExists(INFO_SECTION) then
+      begin
+        AErrorText := 'Это не файл синтеза (нет раздела [' + INFO_SECTION +
+          ']):' + LineEnding + AIniFile;
+        Exit;
+      end;
+      AInfo.ArrayName := Ini.ReadString(INFO_SECTION, 'ArrayName', '');
+      AInfo.SourceFolder := Ini.ReadString(INFO_SECTION, 'SourceFolder', '');
+      AInfo.LayerCount := Ini.ReadInteger(INFO_SECTION, 'LayerCount', 0);
+      AInfo.Started := Ini.ValueExists(INFO_SECTION, 'Started');
+    finally
+      Ini.Free;
+    end;
+    Result := True;
+  except
+    on E: Exception do
+      AErrorText := 'Не удалось прочитать ' + AIniFile + ':' + LineEnding +
+        E.Message;
   end;
 end;
 

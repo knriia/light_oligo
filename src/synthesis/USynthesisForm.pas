@@ -1,6 +1,7 @@
 unit USynthesisForm;
 // Вкладка «Синтез»: загрузка слоёв и протоколов, запуск и остановка синтеза.
-// Что загружено - в сессии (SynthesisSession), ход синтеза - в потоке
+// Что загружено - в синтезе (SynthesisWorkspace: сессия и папка на диске, куда
+// слои и протоколы копируются кнопкой «Сохранить»), ход синтеза - в потоке
 // (SynthesisThread и SynthesisRunner). Вкладка ничего не знает о главном окне:
 // журнал, шприцевую станцию и запуск наблюдателя за окнами EzCAD ей передаёт
 // владелец.
@@ -12,7 +13,8 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, IniFiles,
-  OligoSlices, SynthesisSession, SynthesisThread, SynthesisFolder,
+  OligoSlices, SynthesisSession, SynthesisWorkspace, SynthesisThread,
+  SynthesisFolder,
   UDispenserStationHost;
 
 type
@@ -21,7 +23,9 @@ type
   { TSynthesisForm }
 
   TSynthesisForm = class(TForm)
-    B_ClearAll: TButton;
+    B_NewSynthesis: TButton;
+    B_OpenSynthesis: TButton;
+    B_SaveSynthesis: TButton;
     B_LoadLayers: TButton;
     B_LoadProtToSynth: TButton;
     B_Pause: TButton;
@@ -30,13 +34,15 @@ type
     GB_SynthControl: TGroupBox;
     OD_File: TOpenDialog;
     TV_Synthesis: TTreeView;
-    procedure B_ClearAllClick(Sender: TObject);
     procedure B_LoadLayersClick(Sender: TObject);
+    procedure B_NewSynthesisClick(Sender: TObject);
+    procedure B_OpenSynthesisClick(Sender: TObject);
+    procedure B_SaveSynthesisClick(Sender: TObject);
     procedure B_LoadProtToSynthClick(Sender: TObject);
     procedure B_PauseClick(Sender: TObject);
     procedure B_StartClick(Sender: TObject);
   private
-    FSession: TSynthesisSession;          // слои и протоколы для синтеза
+    FWorkspace: TSynthesisWorkspace;      // слои и протоколы синтеза и его папка
     FThread: TSynthesisThread;            // nil, пока синтез не идёт
     FHost: TSynthesisHost;                // связь потока с окнами
     FStation: TDispenserStationForm;
@@ -46,7 +52,8 @@ type
     FEzCadOpenDelayMs: Integer;
     function Running: Boolean;
     procedure ThreadFinished(Sender: TObject);
-    procedure ShowFileInTree(const AFileName: string);
+    procedure RebuildTree;
+    function ConfirmDiscardUnsaved: Boolean;
     procedure Log(const AText: string);
   public
     constructor Create(TheOwner: TComponent); override;
@@ -120,7 +127,7 @@ end;
 constructor TSynthesisForm.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
-  FSession := TSynthesisSession.Create;
+  FWorkspace := TSynthesisWorkspace.Create;
   FHost := TFormHost.Create(Self);
   FEzCadOpenDelayMs := 1000;
 end;
@@ -131,17 +138,19 @@ begin
   if FThread <> nil then
     FThread.Terminate
   else
-    FreeAndNil(FSession);
+    FreeAndNil(FWorkspace);
   inherited Destroy;
 end;
 
 procedure TSynthesisForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
   GB_SynthControl.Caption := AIni.ReadString('Synthesis', 'GB_SynthControl', 'Synthesis Control');
-  GB_Files.Caption := AIni.ReadString('Synthesis', 'GB_Files', 'Files');
+  GB_Files.Caption := AIni.ReadString('Synthesis', 'GB_Files', 'Synthesis Tree');
   B_LoadProtToSynth.Caption := AIni.ReadString('Synthesis', 'B_LoadProtToSynth', 'Load Protocol');
   B_LoadLayers.Caption := AIni.ReadString('Synthesis', 'B_LoadLayers', 'Load Layers');
-  B_ClearAll.Caption := AIni.ReadString('Synthesis', 'B_ClearAll', 'Clear All');
+  B_NewSynthesis.Caption := AIni.ReadString('Synthesis', 'B_NewSynthesis', 'New Synthesis');
+  B_OpenSynthesis.Caption := AIni.ReadString('Synthesis', 'B_OpenSynthesis', 'Open');
+  B_SaveSynthesis.Caption := AIni.ReadString('Synthesis', 'B_SaveSynthesis', 'Save');
   B_Start.Caption := AIni.ReadString('Synthesis', 'B_Start', 'Start');
   B_Pause.Caption := AIni.ReadString('Synthesis', 'B_Pause', 'Pause');
 end;
@@ -165,7 +174,14 @@ end;
 
 procedure TSynthesisForm.SetLayers(const ALayers: TSliceLayers);
 begin
-  FSession.SetLayers(ALayers);
+  if Running then
+  begin
+    Log('WARNING: слои массива изменились во время синтеза, в синтез они ' +
+      'не добавлены');
+    Exit;
+  end;
+  FWorkspace.ReplaceLayers(ALayers);
+  RebuildTree;
 end;
 
 function TSynthesisForm.CanCloseFromHost: Boolean;
@@ -176,34 +192,145 @@ begin
       mtConfirmation, [mbYes, mbNo], 0) = mrYes;
   if Result and Running then
     FThread.Terminate;
+  if Result and not Running and FWorkspace.NeedsSave then
+    Result := MessageDlg('Синтез не сохранён. Закрыть программу без ' +
+      'сохранения?', mtConfirmation, [mbYes, mbNo], 0) = mrYes;
 end;
 
-procedure TSynthesisForm.ShowFileInTree(const AFileName: string);
-// Содержимое файла - узлом дерева: имя файла, под ним его строки
+procedure TSynthesisForm.RebuildTree;
+// Дерево синтеза: папка, протоколы и слои так, как они сейчас в синтезе
 var
-  FileLines: TStringList;
-  NewNode: TTreeNode;
-  I: Integer;
+  Root, Node: TTreeNode;
+  Lines: TStringList;
+  I, J: Integer;
+  Session: TSynthesisSession;
+  Letter: string;
 begin
-  if not FileExists(AFileName) then
+  Session := FWorkspace.Session;
+  Lines := TStringList.Create;
+  TV_Synthesis.Items.BeginUpdate;
+  try
+    TV_Synthesis.Items.Clear;
+    if (Session.ProtocolCount = 0) and (Session.LayerCount = 0) then
+      Exit;
+    if FWorkspace.Folder = '' then
+      Root := TV_Synthesis.Items.Add(nil, 'Синтез не сохранён')
+    else
+      Root := TV_Synthesis.Items.Add(nil, 'Синтез: ' + FWorkspace.Folder);
+    for I := 0 to Session.ProtocolCount - 1 do
+    begin
+      Letter := Session.ProtocolLetters[I];
+      Node := TV_Synthesis.Items.AddChild(Root, Letter + '.pro');
+      Lines.Text := Session.ProtocolOf(Letter).ToText;
+      for J := 0 to Lines.Count - 1 do
+        if Trim(Lines[J]) <> '' then
+          TV_Synthesis.Items.AddChild(Node, Lines[J]);
+      Node.Expand(True);
+    end;
+    if Session.LayerCount > 0 then
+    begin
+      Node := TV_Synthesis.Items.AddChild(Root, 'Слои: ' +
+        IntToStr(Session.LayerCount));
+      for I := 0 to Session.LayerCount - 1 do
+        TV_Synthesis.Items.AddChild(Node, IntToStr(Session.Layers[I].LayerNumber) +
+          ' ' + Session.Layers[I].Letter + ' ' + Session.Layers[I].EZDFile);
+    end;
+    Root.Expand(False);
+  finally
+    TV_Synthesis.Items.EndUpdate;
+    Lines.Free;
+  end;
+end;
+
+function TSynthesisForm.ConfirmDiscardUnsaved: Boolean;
+begin
+  Result := not FWorkspace.NeedsSave or
+    (MessageDlg('Синтез не сохранён, загруженное будет потеряно. Продолжить?',
+      mtConfirmation, [mbYes, mbNo], 0) = mrYes);
+end;
+
+procedure TSynthesisForm.B_NewSynthesisClick(Sender: TObject);
+// Новый пустой синтез; сохранённые файлы остаются в своих папках
+begin
+  if Running then
   begin
-    ShowMessage('Файл не найден: ' + AFileName);
+    ShowMessage('Синтез идёт. Остановите его, чтобы создать новый.');
     Exit;
   end;
-  FileLines := TStringList.Create;
-  try
-    FileLines.LoadFromFile(AFileName);
-    NewNode := TV_Synthesis.Items.Add(nil, ExtractFileName(AFileName));
-    for I := 0 to FileLines.Count - 1 do
-      TV_Synthesis.Items.AddChild(NewNode, FileLines[I]);
-    NewNode.Expand(True);
-  finally
-    FileLines.Free;
+  if not ConfirmDiscardUnsaved then
+    Exit;
+  FWorkspace.NewSynthesis;
+  RebuildTree;
+end;
+
+procedure TSynthesisForm.B_OpenSynthesisClick(Sender: TObject);
+// Открыть сохранённый синтез по его файлу synthesis.ini
+var
+  ErrorText: string;
+begin
+  if Running then
+  begin
+    ShowMessage('Синтез идёт. Остановите его, чтобы открыть другой.');
+    Exit;
   end;
+  if not ConfirmDiscardUnsaved then
+    Exit;
+  OD_File.Filter := 'Файл синтеза|' + SYNTHESIS_INFO_FILE;
+  OD_File.InitialDir := SynthesesDir;
+  OD_File.FileName := '';
+  if not OD_File.Execute then
+    Exit;
+  if FWorkspace.Open(OD_File.FileName, ErrorText) then
+    Log('Синтез открыт: ' + FWorkspace.Folder)
+  else
+    ShowMessage(ErrorText);
+  RebuildTree;
+end;
+
+procedure TSynthesisForm.B_SaveSynthesisClick(Sender: TObject);
+// Сохранить синтез: слои и протоколы копируются в папку синтеза
+var
+  Dialog: TSaveDialog;
+  Target, ErrorText, ArrayName: string;
+begin
+  if Running then
+  begin
+    ShowMessage('Синтез идёт. Сохранять можно после остановки.');
+    Exit;
+  end;
+  if FWorkspace.Folder <> '' then
+    Target := FWorkspace.Folder
+  else
+    Target := '';
+  // сохранённый и не запускавшийся синтез сохраняется на месте, иначе
+  // спрашиваем, где создать папку
+  if (Target = '') or FWorkspace.Started then
+  begin
+    ForceDirectories(SynthesesDir);
+    ArrayName := '';
+    if FWorkspace.Session.LayerCount > 0 then
+      ArrayName := ArrayNameOfLayers(FWorkspace.Session.Layers);
+    Dialog := TSaveDialog.Create(nil);
+    try
+      Dialog.Title := 'Сохранить синтез: имя папки синтеза';
+      Dialog.InitialDir := SynthesesDir;
+      Dialog.FileName := SynthesisFolderName(ArrayName, Now);
+      if not Dialog.Execute then
+        Exit;
+      Target := Dialog.FileName;
+    finally
+      Dialog.Free;
+    end;
+  end;
+  if FWorkspace.Save(Target, Now, ErrorText) then
+    Log('Синтез сохранён: ' + FWorkspace.Folder)
+  else
+    ShowMessage(ErrorText);
+  RebuildTree;
 end;
 
 procedure TSynthesisForm.B_LoadProtToSynthClick(Sender: TObject);
-// Загрузить файлы протоколов
+// Добавить протокол в синтез
 var
   Letter, ErrorText: string;
 begin
@@ -217,62 +344,49 @@ begin
   OD_File.FileName := '';
   if not OD_File.Execute then
     Exit;
-  if FSession.AddProtocolFile(OD_File.FileName, Letter, ErrorText) then
+  if FWorkspace.AddProtocolFile(OD_File.FileName, Letter, ErrorText) then
   begin
     Log('Протокол для буквы ' + Letter + ' загружен: ' + OD_File.FileName);
-    ShowFileInTree(OD_File.FileName);
+    RebuildTree;
   end
   else
     ShowMessage(ErrorText);
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
-// Загрузить файлы слоев
+// Добавить слои в синтез
 var
   ErrorText: string;
-  Node: TTreeNode;
 begin
-  Node := TV_Synthesis.Items.GetFirstNode;
-  while Node <> nil do
+  if Running then
   begin
-    // Проверяем, содержит ли узел искомый текст
-    if Pos('.lays', Node.Text) > 0 then
-    begin
-      ShowMessage('Файл слоев уже загружен!');
-      Exit;
-    end;
-    Node := Node.GetNext;
+    ShowMessage('Синтез идёт. Остановите его, чтобы менять слои.');
+    Exit;
   end;
-
+  if FWorkspace.Session.LayerCount > 0 then
+  begin
+    ShowMessage('Слои уже загружены. Чтобы загрузить другие, нажмите ' +
+      '«Создать синтез».');
+    Exit;
+  end;
   OD_File.Filter := 'Слои|*.lays';
   OD_File.InitialDir := SlicesDir;
   OD_File.FileName := '';
   if not OD_File.Execute then
     Exit;
-  if FSession.LoadLayersFile(OD_File.FileName, ErrorText) then
-    ShowFileInTree(OD_File.FileName)
+  if FWorkspace.AddLayersFile(OD_File.FileName, ErrorText) then
+    RebuildTree
   else
     ShowMessage(ErrorText);
 end;
 
-procedure TSynthesisForm.B_ClearAllClick(Sender: TObject);
-// Очистить протоколы и файлы
-begin
-  if Running then
-  begin
-    ShowMessage('Синтез идёт. Остановите его, чтобы очистить загруженное.');
-    Exit;
-  end;
-  FSession.Clear;
-  TV_Synthesis.Items.Clear;
-end;
-
 procedure TSynthesisForm.B_StartClick(Sender: TObject);
-// Запуск синтеза
+// Запуск синтеза: только сохранённого и неизменённого
 var
   I: Integer;
   ErrorText: string;
   Snapshot: TSynthesisSnapshot;
+  Session: TSynthesisSession;
 begin
   if Running then
   begin
@@ -282,32 +396,24 @@ begin
   if Assigned(FOnClearLog) then
     FOnClearLog(Self);
 
-  // Перед запуском проверяем, что есть слои и протоколы на все буквы
-  if not FSession.CheckReady(ErrorText) then
+  // проверка, что синтез сохранён, есть слои и протоколы на все буквы
+  if not FWorkspace.PrepareStart(Now, Snapshot, ErrorText) then
   begin
     ShowMessage(ErrorText);
     Exit;
   end;
-
-  for I := 0 to FSession.ProtocolCount - 1 do
-    Log(FSession.ProtocolLetters[I]);
-  Log('Число слоев=' + IntToStr(FSession.LayerCount));
-  Log('Первыйслой=' + IntToStr(FSession.Layers[0].LayerNumber) + ' ' +
-    FSession.Layers[0].EZDFile);
+  Session := FWorkspace.Session;
+  for I := 0 to Session.ProtocolCount - 1 do
+    Log(Session.ProtocolLetters[I]);
+  Log('Число слоев=' + IntToStr(Session.LayerCount));
+  Log('Первыйслой=' + IntToStr(Session.Layers[0].LayerNumber) + ' ' +
+    Session.Layers[0].EZDFile);
   Log('Последний слой=' +
-    IntToStr(FSession.Layers[FSession.LayerCount - 1].LayerNumber) + ' ' +
-    FSession.Layers[FSession.LayerCount - 1].EZDFile);
-
-  // папка запуска: копии слоёв и протоколов, synthesis.ini, журнал
-  if not CreateSynthesisSnapshot(FSession, SynthesesDir, Now, Snapshot,
-    ErrorText) then
-  begin
-    ShowMessage(ErrorText);
-    Exit;
-  end;
+    IntToStr(Session.Layers[Session.LayerCount - 1].LayerNumber) + ' ' +
+    Session.Layers[Session.LayerCount - 1].EZDFile);
   Log('Папка синтеза: ' + Snapshot.Folder);
 
-  FThread := TSynthesisThread.Create(FSession, FHost, Snapshot);
+  FThread := TSynthesisThread.Create(Session, FHost, Snapshot);
   FThread.OnTerminate := @ThreadFinished;
   FThread.Start;
 end;

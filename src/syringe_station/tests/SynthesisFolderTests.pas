@@ -1,5 +1,6 @@
 unit SynthesisFolderTests;
-// Тесты папки запуска синтеза: имя, копии слоёв и протоколов, synthesis.ini.
+// Тесты действий над папкой синтеза: имя, копии слоёв и протоколов,
+// synthesis.ini и итог.
 
 {$mode objfpc}{$H+}
 
@@ -7,21 +8,19 @@ interface
 
 uses
   Classes, SysUtils, IniFiles, fpcunit, testregistry, OligoSlices,
-  ProtocolModel, SynthesisSession, SynthesisFolder;
+  ProtocolModel, SynthesisFolder;
 
 type
   TSynthesisFolderTests = class(TTestCase)
   private
     FRoot: string;        // временная папка теста
-    FSession: TSynthesisSession;
     function Path(const ARelative: string): string;
     procedure WriteText(const AFileName, AText: string);
     function ReadText(const AFileName: string): string;
     function AddLayer(var ATable: TSliceLayers; ANumber: Integer;
       const ALetter, AEzdFile: string): Integer;
-    procedure LoadProtocol(const ALetter, ABlock: string);
     function Moment: TDateTime;
-    procedure RemoveTree(const ADirectory: string);
+    function Later: TDateTime;
     function Ini(const AFolder: string): TMemIniFile;
   protected
     procedure SetUp; override;
@@ -29,17 +28,19 @@ type
   published
     procedure ArrayNameComesFromArrayFolderNotFromEzdFolder;
     procedure FolderNameHasDateTimeAndSafeArrayName;
-    procedure SnapshotCopiesLayersAndProtocolsAndWritesInfo;
-    procedure SnapshotLayersPointIntoSnapshotFolder;
-    procedure SlicesLaysOfSnapshotLoadsBack;
-    procedure OnlyProtocolsOfUsedLettersAreCopied;
-    procedure SameMomentGetsSecondFolderWithSuffix;
+    procedure FolderNameWithoutArrayIsOnlyDateTime;
+    procedure LayersAreCopiedIntoLayersFolder;
     procedure SameEzdFileIsCopiedOnce;
     procedure EzdFilesWithSameNameGetDistinctCopies;
-    procedure MissingLayerFileFailsAndLeavesNoFolder;
-    procedure NoLayersFails;
+    procedure MissingLayerFileFailsNamingLayerAndFile;
+    procedure ProtocolCopyIsWrittenAsIs;
+    procedure ProtocolCopyFailureNamesFile;
+    procedure InfoIsWrittenAndReadBack;
+    procedure StartIsAddedToInfo;
+    procedure ReadInfoRejectsMissingAndForeignFiles;
     procedure ResultIsAppendedToInfo;
     procedure ResultReportsMissingFolder;
+    procedure RemoveDirectoryTreeRemovesNestedFiles;
   end;
 
 implementation
@@ -50,36 +51,12 @@ begin
   FRoot := IncludeTrailingPathDelimiter(GetTempDir(False)) +
     'light_oligo_synfolder_' + IntToStr(GetTickCount64);
   AssertTrue(ForceDirectories(FRoot));
-  FSession := TSynthesisSession.Create;
 end;
 
 procedure TSynthesisFolderTests.TearDown;
 begin
-  FSession.Free;
-  RemoveTree(FRoot);
+  RemoveDirectoryTree(FRoot);
   inherited TearDown;
-end;
-
-procedure TSynthesisFolderTests.RemoveTree(const ADirectory: string);
-var
-  Search: TSearchRec;
-  Dir: string;
-begin
-  Dir := IncludeTrailingPathDelimiter(ADirectory);
-  if FindFirst(Dir + '*', faAnyFile, Search) = 0 then
-  try
-    repeat
-      if (Search.Name = '.') or (Search.Name = '..') then
-        Continue;
-      if (Search.Attr and faDirectory) <> 0 then
-        RemoveTree(Dir + Search.Name)
-      else
-        DeleteFile(Dir + Search.Name);
-    until FindNext(Search) <> 0;
-  finally
-    FindClose(Search);
-  end;
-  RemoveDir(ADirectory);
 end;
 
 function TSynthesisFolderTests.Path(const ARelative: string): string;
@@ -125,19 +102,14 @@ begin
   ATable[Result].EZDFile := AEzdFile;
 end;
 
-procedure TSynthesisFolderTests.LoadProtocol(const ALetter, ABlock: string);
-var
-  Letter, ErrorText: string;
-begin
-  WriteText(Path('src_protocols' + PathDelim + ALetter + '.pro'),
-    'Block=' + ABlock + ';' + LineEnding + #9'Pause=5;');
-  AssertTrue(ErrorText, FSession.AddProtocolFile(
-    Path('src_protocols' + PathDelim + ALetter + '.pro'), Letter, ErrorText));
-end;
-
 function TSynthesisFolderTests.Moment: TDateTime;
 begin
   Result := EncodeDate(2026, 11, 4) + EncodeTime(14, 30, 5, 0);
+end;
+
+function TSynthesisFolderTests.Later: TDateTime;
+begin
+  Result := Moment + EncodeTime(0, 10, 0, 0);
 end;
 
 function TSynthesisFolderTests.Ini(const AFolder: string): TMemIniFile;
@@ -168,157 +140,54 @@ begin
     SynthesisFolderName('MyArray', Moment));
   AssertEquals('2026-11-04_143005_a_b_c_d',
     SynthesisFolderName('a/b:c*d', Moment));
-  AssertEquals('2026-11-04_143005_array', SynthesisFolderName('', Moment));
   AssertEquals('name', SafeFolderPart('name...'));
   AssertEquals(60, Length(SafeFolderPart(StringOfChar('x', 200))));
 end;
 
-procedure TSynthesisFolderTests.SnapshotCopiesLayersAndProtocolsAndWritesInfo;
+procedure TSynthesisFolderTests.FolderNameWithoutArrayIsOnlyDateTime;
+begin
+  AssertEquals('2026-11-04_143005', SynthesisFolderName('', Moment));
+end;
+
+procedure TSynthesisFolderTests.LayersAreCopiedIntoLayersFolder;
 var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
+  T, Copies: TSliceLayers;
   ErrorText, Folder: string;
-  I: TMemIniFile;
 begin
   T := nil;
-  WriteText(Path('arrays' + PathDelim + 'Arr1' + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'), 'ezd-one');
-  WriteText(Path('arrays' + PathDelim + 'Arr1' + PathDelim + 'ezd' + PathDelim + 'Layer2.ezd'), 'ezd-two');
-  AddLayer(T, 1, 'A', Path('arrays' + PathDelim + 'Arr1' + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'));
-  AddLayer(T, 2, 'T', Path('arrays' + PathDelim + 'Arr1' + PathDelim + 'ezd' + PathDelim + 'Layer2.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'BlockA');
-  LoadProtocol('T', 'BlockT');
-
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syntheses'),
-    Moment, Snap, ErrorText));
-  Folder := Snap.Folder;
-  AssertEquals(Path('syntheses' + PathDelim + '2026-11-04_143005_Arr1'), Folder);
-  AssertEquals(IncludeTrailingPathDelimiter(Folder) + 'log.txt', Snap.LogFile);
-  AssertEquals('ezd-one', ReadText(Folder + PathDelim + 'layers' + PathDelim + 'Layer1.ezd'));
-  AssertEquals('ezd-two', ReadText(Folder + PathDelim + 'layers' + PathDelim + 'Layer2.ezd'));
-  AssertEquals(FSession.ProtocolOf('A').ToText,
-    ReadText(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro') + LineEnding);
-  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'T.pro'));
-  AssertTrue(FileExists(Folder + PathDelim + 'Slices.lays'));
-
-  I := Ini(Folder);
-  try
-    AssertEquals('LightOligo', I.ReadString('Synthesis', 'Program', ''));
-    AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Started', ''));
-    AssertEquals('Arr1', I.ReadString('Synthesis', 'ArrayName', ''));
-    AssertEquals(2, I.ReadInteger('Synthesis', 'LayerCount', 0));
-    AssertEquals('A,T', I.ReadString('Synthesis', 'Letters', ''));
-    AssertTrue(I.ReadString('Synthesis', 'SourceFolder', '') <> '');
-  finally
-    I.Free;
-  end;
-end;
-
-procedure TSynthesisFolderTests.SnapshotLayersPointIntoSnapshotFolder;
-var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
-  ErrorText: string;
-begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'Layer1.ezd'), 'x');
+  WriteText(Path('a' + PathDelim + 'Layer1.ezd'), 'ezd-one');
+  WriteText(Path('a' + PathDelim + 'Layer2.ezd'), 'ezd-two');
   AddLayer(T, 7, 'A', Path('a' + PathDelim + 'Layer1.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Snap, ErrorText));
-  AssertEquals(1, Length(Snap.Layers));
-  AssertEquals(7, Snap.Layers[0].LayerNumber);
-  AssertEquals('A', Snap.Layers[0].Letter);
-  AssertEquals(Snap.Folder + PathDelim + 'layers' + PathDelim + 'Layer1.ezd',
-    Snap.Layers[0].EZDFile);
-  AssertTrue(FileExists(Snap.Layers[0].EZDFile));
-  AssertEquals('исходный слой сессии не тронут', Path('a' + PathDelim + 'Layer1.ezd'),
-    FSession.Layers[0].EZDFile);
-end;
-
-procedure TSynthesisFolderTests.SlicesLaysOfSnapshotLoadsBack;
-var
-  T, Loaded: TSliceLayers;
-  Snap: TSynthesisSnapshot;
-  ErrorText: string;
-begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'L1.ezd'), '1');
-  WriteText(Path('a' + PathDelim + 'L2.ezd'), '2');
-  AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L1.ezd'));
-  AddLayer(T, 2, 'A', Path('a' + PathDelim + 'L2.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Snap, ErrorText));
-  AssertTrue(ErrorText, LoadSliceLayers(Snap.Folder + PathDelim + 'Slices.lays',
-    Loaded, ErrorText));
-  AssertEquals(2, Length(Loaded));
-  AssertEquals(Snap.Layers[1].EZDFile, Loaded[1].EZDFile);
-end;
-
-procedure TSynthesisFolderTests.OnlyProtocolsOfUsedLettersAreCopied;
-var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
-  ErrorText: string;
-begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'L1.ezd'), '1');
-  AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L1.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  LoadProtocol('G', 'Extra');   // загружен, но слоёв с G нет
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Snap, ErrorText));
-  AssertTrue(FileExists(Snap.Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
-  AssertFalse(FileExists(Snap.Folder + PathDelim + 'protocols' + PathDelim + 'G.pro'));
-end;
-
-procedure TSynthesisFolderTests.SameMomentGetsSecondFolderWithSuffix;
-var
-  T: TSliceLayers;
-  First, Second: TSynthesisSnapshot;
-  ErrorText: string;
-begin
-  T := nil;
-  WriteText(Path('arr' + PathDelim + 'L1.ezd'), '1');
-  AddLayer(T, 1, 'A', Path('arr' + PathDelim + 'L1.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    First, ErrorText));
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Second, ErrorText));
-  AssertTrue(First.Folder <> Second.Folder);
-  AssertEquals(First.Folder + '_2', Second.Folder);
-  AssertTrue(DirectoryExists(First.Folder));
-  AssertTrue(DirectoryExists(Second.Folder));
+  AddLayer(T, 8, 'T', Path('a' + PathDelim + 'Layer2.ezd'));
+  Folder := Path('syn');
+  AssertTrue(ErrorText, CopyLayersToFolder(T, Folder, Copies, ErrorText));
+  AssertEquals(2, Length(Copies));
+  AssertEquals(7, Copies[0].LayerNumber);
+  AssertEquals('T', Copies[1].Letter);
+  AssertEquals(LayersFolderOf(Folder) + 'Layer1.ezd', Copies[0].EZDFile);
+  AssertEquals('ezd-one', ReadText(Copies[0].EZDFile));
+  AssertEquals('ezd-two', ReadText(Copies[1].EZDFile));
+  AssertEquals('исходные слои не тронуты', Path('a' + PathDelim + 'Layer1.ezd'),
+    T[0].EZDFile);
 end;
 
 procedure TSynthesisFolderTests.SameEzdFileIsCopiedOnce;
 var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
+  T, Copies: TSliceLayers;
   ErrorText: string;
 begin
   T := nil;
   WriteText(Path('a' + PathDelim + 'L.ezd'), 'same');
   AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L.ezd'));
   AddLayer(T, 2, 'A', Path('a' + PathDelim + 'L.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Snap, ErrorText));
-  AssertEquals(Snap.Layers[0].EZDFile, Snap.Layers[1].EZDFile);
-  AssertFalse(FileExists(Snap.Folder + PathDelim + 'layers' + PathDelim + 'L_2.ezd'));
+  AssertTrue(ErrorText, CopyLayersToFolder(T, Path('syn'), Copies, ErrorText));
+  AssertEquals(Copies[0].EZDFile, Copies[1].EZDFile);
+  AssertFalse(FileExists(LayersFolderOf(Path('syn')) + 'L_2.ezd'));
 end;
 
 procedure TSynthesisFolderTests.EzdFilesWithSameNameGetDistinctCopies;
 var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
+  T, Copies: TSliceLayers;
   ErrorText: string;
 begin
   T := nil;
@@ -326,80 +195,164 @@ begin
   WriteText(Path('b' + PathDelim + 'L.ezd'), 'from b');
   AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L.ezd'));
   AddLayer(T, 2, 'A', Path('b' + PathDelim + 'L.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Snap, ErrorText));
-  AssertTrue(Snap.Layers[0].EZDFile <> Snap.Layers[1].EZDFile);
-  AssertEquals('from a', ReadText(Snap.Layers[0].EZDFile));
-  AssertEquals('from b', ReadText(Snap.Layers[1].EZDFile));
+  AssertTrue(ErrorText, CopyLayersToFolder(T, Path('syn'), Copies, ErrorText));
+  AssertTrue(Copies[0].EZDFile <> Copies[1].EZDFile);
+  AssertEquals('from a', ReadText(Copies[0].EZDFile));
+  AssertEquals('from b', ReadText(Copies[1].EZDFile));
 end;
 
-procedure TSynthesisFolderTests.MissingLayerFileFailsAndLeavesNoFolder;
+procedure TSynthesisFolderTests.MissingLayerFileFailsNamingLayerAndFile;
 var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
+  T, Copies: TSliceLayers;
   ErrorText: string;
 begin
   T := nil;
   WriteText(Path('a' + PathDelim + 'L1.ezd'), '1');
   AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L1.ezd'));
   AddLayer(T, 5, 'A', Path('a' + PathDelim + 'gone.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertFalse(CreateSynthesisSnapshot(FSession, Path('syn'), Moment, Snap,
-    ErrorText));
+  AssertFalse(CopyLayersToFolder(T, Path('syn'), Copies, ErrorText));
   AssertTrue(ErrorText, Pos('gone.ezd', ErrorText) > 0);
   AssertTrue(ErrorText, Pos('5', ErrorText) > 0);   // номер слоя
-  AssertEquals('', Snap.Folder);
-  AssertFalse('недоделанная папка удалена',
-    DirectoryExists(Path('syn' + PathDelim + '2026-11-04_143005_a')));
-  AssertFalse(DirectoryExists(Path('syn' + PathDelim + '2026-11-04_143005_array')));
 end;
 
-procedure TSynthesisFolderTests.NoLayersFails;
+procedure TSynthesisFolderTests.ProtocolCopyIsWrittenAsIs;
 var
-  Snap: TSynthesisSnapshot;
+  Model: TProtocolModel;
   ErrorText: string;
 begin
-  AssertFalse(CreateSynthesisSnapshot(FSession, Path('syn'), Moment, Snap,
-    ErrorText));
+  WriteText(Path('A.pro'), 'Block=BlockA;' + LineEnding + #9'Pause=5;');
+  Model := TProtocolModel.Create;
+  try
+    AssertTrue(ErrorText, Model.LoadFromFile(Path('A.pro'), ErrorText));
+    AssertTrue(ErrorText, WriteProtocolCopy(Model, 'A', Path('syn'), ErrorText));
+    AssertEquals(Trim(Model.ToText),
+      ReadText(Path('syn' + PathDelim + 'protocols' + PathDelim + 'A.pro')));
+  finally
+    Model.Free;
+  end;
+end;
+
+procedure TSynthesisFolderTests.ProtocolCopyFailureNamesFile;
+var
+  Model: TProtocolModel;
+  ErrorText: string;
+begin
+  WriteText(Path('A.pro'), 'Block=BlockA;' + LineEnding + #9'Pause=5;');
+  // на месте папки protocols лежит файл: создать её нельзя
+  WriteText(Path('syn' + PathDelim + 'protocols'), 'file in the way');
+  Model := TProtocolModel.Create;
+  try
+    AssertTrue(ErrorText, Model.LoadFromFile(Path('A.pro'), ErrorText));
+    AssertFalse(WriteProtocolCopy(Model, 'A', Path('syn'), ErrorText));
+    AssertTrue(ErrorText, Pos('protocols', ErrorText) > 0);
+  finally
+    Model.Free;
+  end;
+end;
+
+procedure TSynthesisFolderTests.InfoIsWrittenAndReadBack;
+var
+  Letters: TStringList;
+  ErrorText: string;
+  I: TMemIniFile;
+  Info: TSynthesisInfo;
+begin
+  ForceDirectories(Path('syn'));
+  Letters := TStringList.Create;
+  try
+    Letters.Add('A');
+    Letters.Add('T');
+    AssertTrue(ErrorText, SaveSynthesisInfo(Path('syn'), 'Arr1', 'D:\src', 2,
+      Letters, Moment, ErrorText));
+  finally
+    Letters.Free;
+  end;
+  I := Ini(Path('syn'));
+  try
+    AssertEquals('LightOligo', I.ReadString('Synthesis', 'Program', ''));
+    AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Saved', ''));
+    AssertEquals('A,T', I.ReadString('Synthesis', 'Letters', ''));
+    AssertFalse('запуска ещё не было', I.ValueExists('Synthesis', 'Started'));
+  finally
+    I.Free;
+  end;
+  AssertTrue(ErrorText, ReadSynthesisInfo(Path('syn' + PathDelim +
+    SYNTHESIS_INFO_FILE), Info, ErrorText));
+  AssertEquals('Arr1', Info.ArrayName);
+  AssertEquals('D:\src', Info.SourceFolder);
+  AssertEquals(2, Info.LayerCount);
+  AssertFalse(Info.Started);
+end;
+
+procedure TSynthesisFolderTests.StartIsAddedToInfo;
+var
+  Letters: TStringList;
+  ErrorText: string;
+  Info: TSynthesisInfo;
+begin
+  ForceDirectories(Path('syn'));
+  Letters := TStringList.Create;
+  try
+    AssertTrue(ErrorText, SaveSynthesisInfo(Path('syn'), 'Arr1', '', 1,
+      Letters, Moment, ErrorText));
+  finally
+    Letters.Free;
+  end;
+  AssertTrue(ErrorText, SaveSynthesisStart(Path('syn'), Later, ErrorText));
+  AssertTrue(ErrorText, ReadSynthesisInfo(Path('syn' + PathDelim +
+    SYNTHESIS_INFO_FILE), Info, ErrorText));
+  AssertTrue(Info.Started);
+  AssertEquals('Arr1', Info.ArrayName);
+  AssertFalse(SaveSynthesisStart(Path('nowhere'), Later, ErrorText));
   AssertTrue(ErrorText <> '');
+end;
+
+procedure TSynthesisFolderTests.ReadInfoRejectsMissingAndForeignFiles;
+var
+  Info: TSynthesisInfo;
+  ErrorText: string;
+begin
+  AssertFalse(ReadSynthesisInfo(Path('none.ini'), Info, ErrorText));
+  AssertTrue(ErrorText, Pos('none.ini', ErrorText) > 0);
+  WriteText(Path('other.ini'), '[Laser]' + LineEnding + 'A=1');
+  AssertFalse(ReadSynthesisInfo(Path('other.ini'), Info, ErrorText));
+  AssertTrue(ErrorText, Pos('other.ini', ErrorText) > 0);
 end;
 
 procedure TSynthesisFolderTests.ResultIsAppendedToInfo;
 var
-  T: TSliceLayers;
-  Snap: TSynthesisSnapshot;
+  Letters: TStringList;
   ErrorText: string;
   I: TMemIniFile;
 begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'L1.ezd'), '1');
-  AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L1.ezd'));
-  FSession.SetLayers(T);
-  LoadProtocol('A', 'B');
-  AssertTrue(ErrorText, CreateSynthesisSnapshot(FSession, Path('syn'), Moment,
-    Snap, ErrorText));
-  AssertTrue(ErrorText, SaveSynthesisResult(Snap.Folder, srStopped,
+  ForceDirectories(Path('syn'));
+  Letters := TStringList.Create;
+  try
+    Letters.Add('A');
+    AssertTrue(ErrorText, SaveSynthesisInfo(Path('syn'), 'Arr1', '', 1,
+      Letters, Moment, ErrorText));
+  finally
+    Letters.Free;
+  end;
+  AssertTrue(ErrorText, SaveSynthesisResult(Path('syn'), srStopped,
     Moment + EncodeTime(0, 10, 0, 0), ErrorText));
-  I := Ini(Snap.Folder);
+  I := Ini(Path('syn'));
   try
     AssertEquals('stopped', I.ReadString('Result', 'Status', ''));
     AssertEquals('2026-11-04 14:40:05', I.ReadString('Result', 'Finished', ''));
-    AssertEquals('запуск не потерян', 'A', I.ReadString('Synthesis', 'Letters', ''));
+    AssertEquals('сохранённое не потеряно', 'A', I.ReadString('Synthesis', 'Letters', ''));
   finally
     I.Free;
   end;
-  AssertTrue(ErrorText, SaveSynthesisResult(Snap.Folder, srFailed, Moment, ErrorText));
-  I := Ini(Snap.Folder);
+  AssertTrue(ErrorText, SaveSynthesisResult(Path('syn'), srFailed, Moment, ErrorText));
+  I := Ini(Path('syn'));
   try
     AssertEquals('failed', I.ReadString('Result', 'Status', ''));
   finally
     I.Free;
   end;
-  AssertTrue(ErrorText, SaveSynthesisResult(Snap.Folder, srCompleted, Moment, ErrorText));
-  I := Ini(Snap.Folder);
+  AssertTrue(ErrorText, SaveSynthesisResult(Path('syn'), srCompleted, Moment, ErrorText));
+  I := Ini(Path('syn'));
   try
     AssertEquals('completed', I.ReadString('Result', 'Status', ''));
   finally
@@ -414,6 +367,14 @@ begin
   AssertFalse(SaveSynthesisResult(Path('nowhere' + PathDelim + 'deeper'),
     srCompleted, Moment, ErrorText));
   AssertTrue(ErrorText <> '');
+end;
+
+procedure TSynthesisFolderTests.RemoveDirectoryTreeRemovesNestedFiles;
+begin
+  WriteText(Path('x' + PathDelim + 'y' + PathDelim + 'f.txt'), 'f');
+  RemoveDirectoryTree(Path('x'));
+  AssertFalse(DirectoryExists(Path('x')));
+  RemoveDirectoryTree(Path('x'));   // нет папки - не ошибка
 end;
 
 initialization
