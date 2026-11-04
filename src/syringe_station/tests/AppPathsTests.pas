@@ -93,6 +93,8 @@ begin
     DataDir(FExecutableFileName));
   AssertEquals(IncludeTrailingPathDelimiter(FDirectory) + 'data' + PathDelim +
     'automation', AutomationDir(FExecutableFileName));
+  AssertEquals(IncludeTrailingPathDelimiter(FDirectory) + 'data' + PathDelim +
+    'syntheses', SynthesesDir(FExecutableFileName));
 end;
 
 procedure TAppPathsTests.MakePathRelativeStripsBaseDirectory;
