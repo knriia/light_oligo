@@ -110,6 +110,25 @@ function SyringeStepParamLines(const AStep: TSyringeStep): TStringArray;
 // Короткое описание SyrSt для журнала.
 function SyringeStepSummary(const AStep: TSyringeStep): string;
 
+// Запись протокола в текст - обратное к ParseProtocolText. Строка операции
+// идёт с ABaseIndent табуляциями, параметры SyrSt - с одной лишней. В
+// протоколе операции внутри блока: ABaseIndent = 1; в сценарии станции
+// блоков нет: 0. Время лазера пишется с точкой в любой локали.
+function ProtocolStepToText(const AStep: TProtocolStep;
+  ABaseIndent: Integer = 1): string;
+function ProtocolDocumentToText(const ADocument: TProtocolDocument): string;
+
+// Имя блока и текст комментария попадают в файл как "Key=Value;", поэтому в
+// них нельзя ";", переводы строк и пробелы по краям. ACaption - начало
+// сообщения ("Имя блока", "Комментарий").
+function CheckProtocolText(const AText, ACaption: string;
+  out ErrorText: string): Boolean;
+// Проверка операции перед записью в файл: SyrSt - как CheckSyringeStep,
+// пауза - секунды не меньше нуля, лазер - повторы не меньше 1 и время больше
+// нуля, комментарий - CheckProtocolText.
+function CheckProtocolStep(const AStep: TProtocolStep;
+  out ErrorText: string): Boolean;
+
 implementation
 
 uses
@@ -378,6 +397,116 @@ begin
     '; скорость ' + AStep.Speeds + ' ' + AStep.SpeedUnit;
 end;
 
+// Числа с плавающей точкой в файле: пишем с точкой, читаем с точкой или
+// запятой (старые файлы, записанные в русской локали, имеют запятую).
+function ProtocolFloatSettings: TFormatSettings;
+begin
+  Result := DefaultFormatSettings;
+  Result.DecimalSeparator := '.';
+end;
+
+function TryParseProtocolFloat(const AText: string; out AValue: Double): Boolean;
+var
+  Normalized: string;
+begin
+  Normalized := StringReplace(Trim(AText), ',', '.', [rfReplaceAll]);
+  Result := TryStrToFloat(Normalized, AValue, ProtocolFloatSettings);
+end;
+
+function ProtocolStepToText(const AStep: TProtocolStep;
+  ABaseIndent: Integer): string;
+var
+  Indent: string;
+  ParamLines: TStringArray;
+  I: Integer;
+begin
+  Indent := StringOfChar(#9, ABaseIndent);
+  case AStep.Kind of
+    pskSyringe:
+      begin
+        Result := Indent + KEY_SYRINGE + ';' + LineEnding;
+        ParamLines := SyringeStepParamLines(AStep.Syringe);
+        for I := 0 to High(ParamLines) do
+          Result := Result + Indent + #9 + ParamLines[I] + LineEnding;
+      end;
+    pskPause:
+      Result := Indent + KEY_PAUSE + '=' + IntToStr(AStep.IntValue) + ';' +
+        LineEnding;
+    pskVacuum:
+      Result := Indent + KEY_VACUUM + '=' + IfThen(AStep.BoolValue, '1', '0') +
+        ';' + LineEnding;
+    pskLaser:
+      Result := Indent + KEY_LASER + '=' + IntToStr(AStep.IntValue) + '; ' +
+        KEY_LASER_TIME + '=' + FloatToStr(AStep.FloatValue,
+        ProtocolFloatSettings) + ';' + LineEnding;
+    pskComment:
+      Result := Indent + KEY_COMMENT + '=' + AStep.Text + ';' + LineEnding;
+  else
+    Result := '';
+  end;
+end;
+
+function ProtocolDocumentToText(const ADocument: TProtocolDocument): string;
+var
+  B, S: Integer;
+begin
+  Result := '';
+  for B := 0 to High(ADocument) do
+  begin
+    Result := Result + KEY_BLOCK + '=' + ADocument[B].Name + ';' + LineEnding;
+    for S := 0 to High(ADocument[B].Steps) do
+      Result := Result + ProtocolStepToText(ADocument[B].Steps[S], 1);
+  end;
+end;
+
+function CheckProtocolText(const AText, ACaption: string;
+  out ErrorText: string): Boolean;
+begin
+  Result := False;
+  ErrorText := '';
+  if Pos(';', AText) > 0 then
+    ErrorText := ACaption + ': нельзя использовать символ ";", он разделяет ' +
+      'поля в файле протокола.'
+  else if (Pos(#13, AText) > 0) or (Pos(#10, AText) > 0) then
+    ErrorText := ACaption + ': текст должен быть в одной строке.'
+  else if AText <> Trim(AText) then
+    ErrorText := ACaption + ': уберите пробелы в начале и в конце.'
+  else
+    Result := True;
+end;
+
+function CheckProtocolStep(const AStep: TProtocolStep;
+  out ErrorText: string): Boolean;
+begin
+  ErrorText := '';
+  case AStep.Kind of
+    pskSyringe:
+      Result := CheckSyringeStep(AStep.Syringe, ErrorText);
+    pskPause:
+      begin
+        Result := AStep.IntValue >= 0;
+        if not Result then
+          ErrorText := 'Пауза должна быть целым числом секунд не меньше нуля.';
+      end;
+    pskVacuum:
+      Result := True;
+    pskLaser:
+      begin
+        Result := (AStep.IntValue >= 1) and (AStep.FloatValue > 0);
+        if not Result then
+          ErrorText := 'Для лазера число повторов должно быть не меньше 1, ' +
+            'а время больше нуля.';
+      end;
+    pskComment:
+      Result := CheckProtocolText(AStep.Text, 'Комментарий', ErrorText);
+  else
+    begin
+      Result := False;
+      ErrorText := 'Неизвестный тип операции.';
+    end;
+  end;
+end;
+
 function IsSyringeParamKey(const AKey: string): Boolean;
 begin
   Result := SameText(AKey, KEY_DISPENSERS) or SameText(AKey, KEY_VALVES) or
@@ -581,7 +710,7 @@ begin
         if not TryStrToInt(Value, Step.IntValue) then
           Exit(Fail('число повторов лазера должно быть целым.'));
         if (Keys.Count < 2) or not SameText(Keys[1], KEY_LASER_TIME) or
-          not TryStrToFloat(Values[1], Step.FloatValue) then
+          not TryParseProtocolFloat(Values[1], Step.FloatValue) then
           Exit(Fail('для лазера нужно время: Laser=N; Time=T;'));
       end
       else if SameText(Key, KEY_COMMENT) then

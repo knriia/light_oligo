@@ -218,23 +218,26 @@ end;
 
 function ScenarioListToText(AList: TScenarioList): string;
 var
-  I, J: Integer;
-  Lines: TStringArray;
+  I: Integer;
+  Step: TProtocolStep;
 begin
   Result := '';
   for I := 0 to AList.Count - 1 do
-    case AList[I].Kind of
-      sikSyringe:
-        begin
-          Result := Result + KEY_SYRINGE + ';' + LineEnding;
-          Lines := SyringeStepParamLines(AList[I].Syringe);
-          for J := 0 to High(Lines) do
-            Result := Result + #9 + Lines[J] + LineEnding;
-        end;
-      sikPause:
-        Result := Result + KEY_PAUSE + '=' +
-          IntToStr(AList[I].PauseSeconds) + ';' + LineEnding;
+  begin
+    Step := Default(TProtocolStep);
+    if AList[I].Kind = sikPause then
+    begin
+      Step.Kind := pskPause;
+      Step.IntValue := AList[I].PauseSeconds;
+    end
+    else
+    begin
+      Step.Kind := pskSyringe;
+      Step.Syringe := AList[I].Syringe;
     end;
+    // в сценарии нет блоков: операции без отступа
+    Result := Result + ProtocolStepToText(Step, 0);
+  end;
 end;
 
 function StepKey(AKind: TProtocolStepKind): string;
