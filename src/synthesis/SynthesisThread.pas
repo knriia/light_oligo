@@ -2,6 +2,7 @@ unit SynthesisThread;
 // Поток синтеза: исполняет ход синтеза (SynthesisRunner) на настоящем
 // оборудовании. Здесь только действия: шаг станции, пауза, вакуум, маркировка
 // через EzCAD и журнал в окно и в файл. Остановка - Terminate потока.
+// С окнами поток связан через TSynthesisHost, а не через главное окно.
 
 {$mode ObjFPC}{$H+}
 
@@ -12,6 +13,19 @@ uses
   SynthesisSession, SynthesisRunner, UDispenserStationHost;
 
 type
+  // Что поток берёт у окон. Все вызовы идут в главном потоке (Synchronize),
+  // кроме EzCadOpenDelayMs.
+  TSynthesisHost = class
+  public
+    procedure WriteLog(const AText: string); virtual; abstract;
+    // nil, если шприцевая станция не создана.
+    function Station: TDispenserStationForm; virtual; abstract;
+    // Синтез запускает EzCAD: включить наблюдатель за его окнами.
+    procedure EzCadOpening; virtual; abstract;
+    // Пауза после запуска EzCAD перед маркировкой, мс.
+    function EzCadOpenDelayMs: Integer; virtual; abstract;
+  end;
+
   TSynthesisThread = class;
 
   // Действия синтеза, выполняемые потоком (главное окно - через Synchronize).
@@ -35,6 +49,7 @@ type
   TSynthesisThread = class(TThread)
   private
     FSession: TSynthesisSession;
+    FHost: TSynthesisHost;
     FLayers: TSliceLayers;       // слои на момент запуска
     FActions: TSynthesisThreadActions;
     FLogText: String;            // строка для OutLog
@@ -52,13 +67,12 @@ type
     procedure Execute; override;
   public
     // Поток освобождается сам; пока он работает, сессию менять нельзя.
-    constructor Create(ASession: TSynthesisSession);
+    constructor Create(ASession: TSynthesisSession; AHost: TSynthesisHost);
     destructor Destroy; override;
   end;
 
 
 implementation
-uses UMainForm;
 
 { TSynthesisThreadActions }
 
@@ -129,7 +143,7 @@ begin
     Log('EzCAD opening');
     ShellExecute(0, 'open', PChar(ExtractFilePath(ParamStr(0))+'EzCAD2.exe'),
     PChar(AEzdFile), nil, SW_SHOWMINIMIZED);   // Открываем EzCAD2
-    Sleep(MyIni.ReadInteger('Laser','EzCAD2OpenTime',1000)); // задержка перед маркировкой на время открытия EzCAD. Читаем из ini
+    Sleep(FThread.FHost.EzCadOpenDelayMs); // задержка перед маркировкой на время открытия EzCAD
     for j:=0 to ARepeats-1 do
     begin
       SendMsgToProc('EzCAD2.exe',VK_F2); // команда на маркировку
@@ -149,11 +163,13 @@ end;
 
 { TSynthesisThread }
 
-constructor TSynthesisThread.Create(ASession: TSynthesisSession);
+constructor TSynthesisThread.Create(ASession: TSynthesisSession;
+  AHost: TSynthesisHost);
 begin
   inherited Create(True);
   FreeOnTerminate:=True;
   FSession:=ASession;
+  FHost:=AHost;
   FLayers:=Copy(ASession.Layers);
   FActions:=TSynthesisThreadActions.Create(Self);
 end;
@@ -167,24 +183,24 @@ end;
 procedure TSynthesisThread.OutLog;
 begin
   FLogText:=TimeToStr(Time())+': '+FLogText;
-  MainForm.Memo1.Lines.Add(FLogText);
+  FHost.WriteLog(FLogText);
   WriteLN(FLogFile, FLogText);
 end;
 
 procedure TSynthesisThread.TrigTimer;
 begin
-  MainForm.StartEzCadWatcher;
+  FHost.EzCadOpening;
 end;
 
 procedure TSynthesisThread.StartSyringeStep;
 begin
   FSyringeError:='';
-  if MainForm.DispenserStation=nil then
+  if FHost.Station=nil then
   begin
     FSyringeStatus:=sssFailed;
     FSyringeError:='шприцевая станция не создана.';
   end
-  else if MainForm.DispenserStation.StartSyringeStep(FSyringeStep, FSyringeError) then
+  else if FHost.Station.StartSyringeStep(FSyringeStep, FSyringeError) then
     FSyringeStatus:=sssRunning
   else
     FSyringeStatus:=sssFailed;
@@ -192,12 +208,12 @@ end;
 
 procedure TSynthesisThread.CheckSyringeStep;
 begin
-  FSyringeStatus:=MainForm.DispenserStation.SyringeStepStatus(FSyringeError);
+  FSyringeStatus:=FHost.Station.SyringeStepStatus(FSyringeError);
 end;
 
 procedure TSynthesisThread.StopSyringeStep;
 begin
-  MainForm.DispenserStation.StopSyringeStep;
+  FHost.Station.StopSyringeStep;
 end;
 
 procedure TSynthesisThread.Execute;
