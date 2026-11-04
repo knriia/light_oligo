@@ -81,8 +81,10 @@ type
   TProtocolDocument = array of TProtocolBlock;
 
 // Разбор текста протокола. При ошибке ErrorText начинается с номера строки.
+// AImplicitBlock - операции могут идти без строки Block=...: они попадают в
+// первый блок без имени (так записан сценарий станции).
 function ParseProtocolText(const AText: string; out ADocument: TProtocolDocument;
-  out ErrorText: string): Boolean;
+  out ErrorText: string; AImplicitBlock: Boolean = False): Boolean;
 
 // Списки значений через "/" (пустые элементы недопустимы).
 function SplitSlashValues(const AText: string; AValues: TStrings): Boolean;
@@ -413,7 +415,7 @@ begin
 end;
 
 function ParseProtocolText(const AText: string; out ADocument: TProtocolDocument;
-  out ErrorText: string): Boolean;
+  out ErrorText: string; AImplicitBlock: Boolean): Boolean;
 var
   Lines, Keys, Values: TStringList;
   LineIndex: Integer;
@@ -498,6 +500,14 @@ begin
   ErrorText := '';
   ADocument := nil;
   BlockIndex := -1;
+  if AImplicitBlock then
+  begin
+    SetLength(ADocument, 1);
+    BlockIndex := 0;
+    ADocument[0].Name := '';
+    ADocument[0].LineNumber := 1;
+    ADocument[0].Steps := nil;
+  end;
   Lines := TStringList.Create;
   Keys := TStringList.Create;
   Values := TStringList.Create;

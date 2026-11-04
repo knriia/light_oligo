@@ -12,6 +12,7 @@ type
   published
     procedure ParsesAllOperationKinds;
     procedure RejectsOperationOutsideBlock;
+    procedure ImplicitBlockTakesOperationsWithoutHeader;
     procedure RejectsSyringeParamWithoutSyrSt;
     procedure RejectsUnknownOperation;
     procedure ParamLinesRoundTrip;
@@ -80,6 +81,31 @@ var
 begin
   AssertFalse(ParseProtocolText('Pause=5;', Document, ErrorText));
   AssertTrue(Pos('внутри блока', ErrorText) > 0);
+end;
+
+procedure TProtocolFormatTests.ImplicitBlockTakesOperationsWithoutHeader;
+var
+  Document: TProtocolDocument;
+  ErrorText: string;
+begin
+  AssertTrue(ErrorText, ParseProtocolText('Pause=5;' + LineEnding +
+    'Vacuum=1;' + LineEnding, Document, ErrorText, True));
+  AssertEquals(1, Length(Document));
+  AssertEquals('', Document[0].Name);
+  AssertEquals(2, Length(Document[0].Steps));
+  AssertEquals('номер строки не сдвигается', 2, Document[0].Steps[1].LineNumber);
+  // следующий Block= начинает второй блок, как и раньше
+  AssertTrue(ErrorText, ParseProtocolText('Pause=5;' + LineEnding +
+    'Block=Two;' + LineEnding + 'Pause=1;' + LineEnding, Document, ErrorText,
+    True));
+  AssertEquals(2, Length(Document));
+  AssertEquals('Two', Document[1].Name);
+  // пустой текст - один пустой блок
+  AssertTrue(ErrorText, ParseProtocolText('', Document, ErrorText, True));
+  AssertEquals(1, Length(Document));
+  AssertEquals(0, Length(Document[0].Steps));
+  // без неявного блока операция вне блока по-прежнему ошибка
+  AssertFalse(ParseProtocolText('Pause=5;' + LineEnding, Document, ErrorText));
 end;
 
 procedure TProtocolFormatTests.RejectsSyringeParamWithoutSyrSt;

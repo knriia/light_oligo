@@ -75,6 +75,11 @@ type
     procedure FailedProtocolStopRemainsTrackedForRetry;
   end;
 
+// Два дозатора PA (адрес 1) и PB (адрес 2) и их инициализированные состояния.
+function CreateTestConfigurations: TDispenserConfigList;
+function CreateInitializedTestStates(
+  AConfigurations: TDispenserConfigList): TDispenserRuntimeStates;
+
 implementation
 
 constructor TProtocolTestController.Create;
@@ -199,8 +204,7 @@ begin
   FNotReadyPolls := PollCount;
 end;
 
-function TAutomationProtocolRunnerTests.CreateConfigurations:
-  TDispenserConfigList;
+function CreateTestConfigurations: TDispenserConfigList;
 var
   Config: TDispenserConfig;
 begin
@@ -226,15 +230,7 @@ begin
   Config.MaxFlowRate := 500;
 end;
 
-function TAutomationProtocolRunnerTests.Parse(const AText: string;
-  AConfigurations: TDispenserConfigList;
-  out AProtocol: TAutomationProtocol; out ErrorText: string): Boolean;
-begin
-  Result := ParseAutomationProtocol(AText, AConfigurations, AProtocol,
-    ErrorText);
-end;
-
-function TAutomationProtocolRunnerTests.CreateInitializedStates(
+function CreateInitializedTestStates(
   AConfigurations: TDispenserConfigList): TDispenserRuntimeStates;
 var
   I: Integer;
@@ -247,6 +243,26 @@ begin
     State.ValveType := dvtDistributive;
     State.MarkInitialized(AConfigurations[I]);
   end;
+end;
+
+function TAutomationProtocolRunnerTests.CreateConfigurations:
+  TDispenserConfigList;
+begin
+  Result := CreateTestConfigurations;
+end;
+
+function TAutomationProtocolRunnerTests.Parse(const AText: string;
+  AConfigurations: TDispenserConfigList;
+  out AProtocol: TAutomationProtocol; out ErrorText: string): Boolean;
+begin
+  Result := ParseAutomationProtocol(AText, AConfigurations, AProtocol,
+    ErrorText);
+end;
+
+function TAutomationProtocolRunnerTests.CreateInitializedStates(
+  AConfigurations: TDispenserConfigList): TDispenserRuntimeStates;
+begin
+  Result := CreateInitializedTestStates(AConfigurations);
 end;
 
 function TAutomationProtocolRunnerTests.BuildProtocolText(const ANames,

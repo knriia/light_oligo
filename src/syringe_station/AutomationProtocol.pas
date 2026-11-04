@@ -1,14 +1,16 @@
 unit AutomationProtocol;
-// Команды шприцевой станции, построенные из операций SyrSt протокола синтеза.
-// Формат файла описан в ProtocolFormat; здесь значения проверяются
-// по конфигурации дозаторов и переводятся в шаги и скорость двигателя.
+// Команды шприцевой станции, построенные из операций SyrSt и из сценария
+// (списка операций). Формат записи SyrSt описан в ProtocolFormat; здесь значения
+// проверяются по конфигурации дозаторов и переводятся в шаги и скорость
+// двигателя. Пауза между операциями - команда без дозаторов.
 
 {$mode objfpc}{$H+}
 
 interface
 
 uses
-  Classes, Contnrs, SysUtils, DispenserConfig, DispenserLimits, ProtocolFormat;
+  Classes, Contnrs, SysUtils, DispenserConfig, DispenserLimits, ProtocolFormat,
+  ScenarioList;
 
 type
   TAutomationProtocolTarget = record
@@ -26,7 +28,10 @@ type
     BlockName: string;    // блок протокола, из которого взята команда
     BlockIndex: Integer;  // номер блока (с нуля)
     LineNumber: Integer;  // строка операции SyrSt в файле
+    PauseSeconds: Integer; // для паузы: сколько секунд ждать
     Targets: array of TAutomationProtocolTarget;
+    // Команда без дозаторов - пауза.
+    function IsPause: Boolean;
   end;
 
   TAutomationProtocol = class
@@ -55,6 +60,15 @@ function ParseAutomationProtocol(const AText: string;
   out AProtocol: TAutomationProtocol; out ErrorText: string;
   ABlockIndex: Integer = ALL_BLOCKS): Boolean;
 
+// Строит команды станции из сценария: шприцевая станция - подача, пауза -
+// ожидание. С AItemIndex - только одна выбранная операция станции. В
+// сценарии должна быть хотя бы одна такая операция. Ошибка называет номер
+// операции в списке (с 1).
+function BuildScenarioProtocol(AScenarios: TScenarioList;
+  AConfigurations: TDispenserConfigList;
+  out AProtocol: TAutomationProtocol; out ErrorText: string;
+  AItemIndex: Integer = ALL_BLOCKS): Boolean;
+
 // Проверяет одну операцию SyrSt по конфигурации и строит из неё команду.
 function BuildSyringeCommand(const AStep: TSyringeStep;
   AConfigurations: TDispenserConfigList;
@@ -64,6 +78,11 @@ implementation
 
 uses
   Math, StrUtils, DispenserResolution;
+
+function TAutomationProtocolCommand.IsPause: Boolean;
+begin
+  Result := Length(Targets) = 0;
+end;
 
 constructor TAutomationProtocol.Create;
 begin
@@ -363,6 +382,91 @@ begin
   end;
 end;
 
+function BuildScenarioProtocol(AScenarios: TScenarioList;
+  AConfigurations: TDispenserConfigList;
+  out AProtocol: TAutomationProtocol; out ErrorText: string;
+  AItemIndex: Integer): Boolean;
+var
+  I: Integer;
+  Item: TScenarioItem;
+  Command: TAutomationProtocolCommand;
+  CommandError: string;
+  ScenarioCommands: Integer;
+begin
+  Result := False;
+  ErrorText := '';
+  AProtocol := nil;
+  if AConfigurations = nil then
+  begin
+    ErrorText := 'Не задан список дозаторов.';
+    Exit;
+  end;
+  if (AScenarios = nil) or (AScenarios.Count = 0) then
+  begin
+    ErrorText := 'В сценарии нет операций шприцевой станции.';
+    Exit;
+  end;
+  if (AItemIndex <> ALL_BLOCKS) and
+    ((AItemIndex < 0) or (AItemIndex >= AScenarios.Count)) then
+  begin
+    ErrorText := 'Выбранная операция не найдена в сценарии.';
+    Exit;
+  end;
+  if (AItemIndex <> ALL_BLOCKS) and
+    (AScenarios[AItemIndex].Kind <> sikSyringe) then
+  begin
+    ErrorText := 'Выбрана пауза. Запускать можно только операцию шприцевой станции.';
+    Exit;
+  end;
+
+  AProtocol := TAutomationProtocol.Create;
+  try
+    ScenarioCommands := 0;
+    for I := 0 to AScenarios.Count - 1 do
+    begin
+      if (AItemIndex <> ALL_BLOCKS) and (I <> AItemIndex) then
+        Continue;
+      Item := AScenarios[I];
+      if not CheckScenarioItem(Item, CommandError) then
+      begin
+        ErrorText := 'Операция ' + IntToStr(I + 1) + ': ' + CommandError;
+        Exit;
+      end;
+      if Item.Kind = sikPause then
+      begin
+        Command := TAutomationProtocolCommand.Create;
+        Command.PauseSeconds := Item.PauseSeconds;
+      end
+      else
+      begin
+        if not BuildSyringeCommand(Item.Syringe, AConfigurations, Command,
+          CommandError) then
+        begin
+          ErrorText := 'Операция ' + IntToStr(I + 1) + ': ' + CommandError;
+          Exit;
+        end;
+        Inc(ScenarioCommands);
+      end;
+      Command.Number := AProtocol.Count + 1;
+      Command.LineNumber := I + 1; // номер элемента в списке
+      AProtocol.Add(Command);
+    end;
+
+    if ScenarioCommands = 0 then
+    begin
+      ErrorText := 'В сценарии нет операций шприцевой станции.';
+      Exit;
+    end;
+    Result := True;
+  finally
+    if not Result then
+    begin
+      AProtocol.Free;
+      AProtocol := nil;
+    end;
+  end;
+end;
+
 function ParseAutomationProtocol(const AText: string;
   AConfigurations: TDispenserConfigList;
   out AProtocol: TAutomationProtocol; out ErrorText: string;
@@ -414,7 +518,7 @@ begin
         Command.BlockName := Document[BlockIndex].Name;
         Command.BlockIndex := BlockIndex;
         Command.LineNumber := Step.LineNumber;
-        AProtocol.FCommands.Add(Command);
+        AProtocol.Add(Command);
       end;
     end;
 

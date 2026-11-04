@@ -329,7 +329,7 @@ begin
   LastPort := FWindowSettings.LoadLastPort;
 
   CreateMainPages;
-  FAutomationPage.OnRunProtocol := @RunAutomationProtocol;
+  FAutomationPage.OnRun := @RunAutomationProtocol;
 
   FStorage := TDispenserConfigStorage.Create;
   FConfigurations := nil;
@@ -823,11 +823,10 @@ begin
     Exit;
   end;
 
-  if not ParseAutomationProtocol(FAutomationPage.ProtocolText,
-    FConfigurations, Protocol, ErrorText,
-    FAutomationPage.RequestedBlockIndex) then
+  if not BuildScenarioProtocol(FAutomationPage.Scenarios, FConfigurations,
+    Protocol, ErrorText, FAutomationPage.RequestedItemIndex) then
   begin
-    ShowOperationWarning('Не удалось запустить протокол: ' + ErrorText);
+    ShowOperationWarning('Не удалось запустить сценарии: ' + ErrorText);
     Exit;
   end;
 

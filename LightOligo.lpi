@@ -442,6 +442,17 @@
         <Filename Value="src\laser\EzCadApp.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\syringe_station\ScenarioList.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\syringe_station\UScenarioOperationForm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ScenarioOperationForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

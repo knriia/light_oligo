@@ -13,6 +13,8 @@ type
   TAutomationProtocolStateEvent = procedure(Address: Integer) of object;
   TAutomationProtocolFinishedEvent = procedure(const MessageText: string;
     Failed: Boolean) of object;
+  // Источник времени в миллисекундах (в тестах подменяется).
+  TAutomationClockFunc = function: QWord;
 
   TAutomationProtocolRunner = class
   private
@@ -35,6 +37,9 @@ type
     FStageStartedAt: QWord;
     FStageTimeoutMs: QWord;
     FIsRunning: Boolean;
+    FPauseActive: Boolean;
+    FPauseStartedAt: QWord;
+    FClock: TAutomationClockFunc;
     FOnLogMessage: TAutomationProtocolLogEvent;
     FOnStateChanged: TAutomationProtocolStateEvent;
     FOnFinished: TAutomationProtocolFinishedEvent;
@@ -45,6 +50,9 @@ type
     procedure FailAndStop(const MessageText: string);
     procedure LoadCurrentCommand;
     procedure BeginNextAction;
+    procedure BeginPause;
+    procedure PollPause;
+    procedure CompleteCommand;
     procedure StartStage(const TargetIndexes: array of Integer;
       const Steps: array of Integer; AIsFill: Boolean);
     procedure BeginStageMovement;
@@ -61,7 +69,8 @@ type
       out ErrorText: string): Boolean;
   public
     constructor Create(AController: TDispenserController;
-      ARuntimeStates: TDispenserRuntimeStates);
+      ARuntimeStates: TDispenserRuntimeStates;
+      AClock: TAutomationClockFunc = nil);
     destructor Destroy; override;
     function Start(AProtocol: TAutomationProtocol;
       out ErrorText: string; ACommandReserved: Boolean = False): Boolean;
@@ -85,12 +94,20 @@ const
   VALVE_TIMEOUT_MS = 30000;
   OPERATION_TIMEOUT_MARGIN_MS = 30000;
 
+function SystemClock: QWord;
+begin
+  Result := GetTickCount64;
+end;
+
 constructor TAutomationProtocolRunner.Create(AController: TDispenserController;
-  ARuntimeStates: TDispenserRuntimeStates);
+  ARuntimeStates: TDispenserRuntimeStates; AClock: TAutomationClockFunc);
 begin
   inherited Create;
   FController := AController;
   FRuntimeStates := ARuntimeStates;
+  FClock := AClock;
+  if FClock = nil then
+    FClock := @SystemClock;
   FProtocol := nil;
   FIsRunning := False;
   FStagePhase := 0;
@@ -323,7 +340,10 @@ var
 begin
   if CurrentCommand = nil then
     Exit;
-  if CurrentCommand.BlockName <> '' then
+  if CurrentCommand.IsPause then
+    Log(Format('Команда %d: пауза %d с.',
+      [CurrentCommand.Number, CurrentCommand.PauseSeconds]))
+  else if CurrentCommand.BlockName <> '' then
     Log(Format('Команда %d: блок "%s", строка %d протокола.',
       [CurrentCommand.Number, CurrentCommand.BlockName,
       CurrentCommand.LineNumber]));
@@ -359,20 +379,18 @@ begin
     Exit;
   end;
 
+  if CurrentCommand.IsPause then
+  begin
+    BeginPause;
+    Exit;
+  end;
+
   I := 0;
   while (I < Length(FRemainingSteps)) and (FRemainingSteps[I] <= 0) do
     Inc(I);
   if I >= Length(FRemainingSteps) then
   begin
-    Log(Format('Команда %d завершена.', [CurrentCommand.Number]));
-    Inc(FCommandIndex);
-    if FCommandIndex >= FProtocol.Count then
-    begin
-      Finish('Протокол завершён.', False);
-      Exit;
-    end;
-    LoadCurrentCommand;
-    BeginNextAction;
+    CompleteCommand;
     Exit;
   end;
 
@@ -450,6 +468,34 @@ begin
     end;
 
   StartStage(NeededIndexes, NeededSteps, False);
+end;
+
+procedure TAutomationProtocolRunner.CompleteCommand;
+// Текущая команда выполнена: берём следующую или заканчиваем протокол.
+begin
+  Log(Format('Команда %d завершена.', [CurrentCommand.Number]));
+  Inc(FCommandIndex);
+  if FCommandIndex >= FProtocol.Count then
+  begin
+    Finish('Протокол завершён.', False);
+    Exit;
+  end;
+  LoadCurrentCommand;
+  BeginNextAction;
+end;
+
+procedure TAutomationProtocolRunner.BeginPause;
+begin
+  FPauseActive := True;
+  FPauseStartedAt := FClock();
+end;
+
+procedure TAutomationProtocolRunner.PollPause;
+begin
+  if FClock() - FPauseStartedAt < QWord(CurrentCommand.PauseSeconds) * 1000 then
+    Exit;
+  FPauseActive := False;
+  CompleteCommand;
 end;
 
 procedure TAutomationProtocolRunner.StartStage(
@@ -834,7 +880,10 @@ begin
     FailAndStop('Устройство отключено во время выполнения протокола.');
     Exit;
   end;
-  PollStage;
+  if FPauseActive then
+    PollPause
+  else
+    PollStage;
 end;
 
 procedure TAutomationProtocolRunner.FailAndStop(const MessageText: string);
@@ -912,6 +961,7 @@ procedure TAutomationProtocolRunner.Finish(const MessageText: string;
   Failed: Boolean);
 begin
   FIsRunning := False;
+  FPauseActive := False;
   FStagePhase := 0;
   SetLength(FStageTargetIndexes, 0);
   SetLength(FStageSteps, 0);
