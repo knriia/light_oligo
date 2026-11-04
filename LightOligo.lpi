@@ -473,6 +473,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\synthesis\SynthesisWorkspace.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\synthesis\LaserMarking.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

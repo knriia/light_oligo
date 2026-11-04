@@ -43,6 +43,9 @@ type
     function AddProtocolFile(const AFileName: string; out ALetter: string;
       out AErrorText: string): Boolean;
 
+    // Убирает протокол буквы; False - такого не было.
+    function RemoveProtocol(const ALetter: string): Boolean;
+
     // Буквы слоёв, для которых нет протокола (без повторов, в порядке слоёв).
     function MissingLetters: TStringArray;
     // Можно ли запускать синтез; иначе текст, чего не хватает.
@@ -165,6 +168,21 @@ begin
   FProtocols[High(FProtocols)] := Model;
   FLetters.Add(ALetter);
   Result := True;
+end;
+
+function TSynthesisSession.RemoveProtocol(const ALetter: string): Boolean;
+var
+  Index, I: Integer;
+begin
+  Index := IndexOfLetter(ALetter);
+  Result := Index >= 0;
+  if not Result then
+    Exit;
+  FProtocols[Index].Free;
+  for I := Index to High(FProtocols) - 1 do
+    FProtocols[I] := FProtocols[I + 1];
+  SetLength(FProtocols, Length(FProtocols) - 1);
+  FLetters.Delete(Index);
 end;
 
 function TSynthesisSession.MissingLetters: TStringArray;

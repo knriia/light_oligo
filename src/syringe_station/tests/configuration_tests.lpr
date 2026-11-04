@@ -12,6 +12,7 @@ uses
   SynthesisSessionTests,
   SynthesisRunnerTests,
   SynthesisFolderTests,
+  SynthesisWorkspaceTests,
   LaserMarkingTests;
 
 var
