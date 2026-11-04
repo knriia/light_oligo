@@ -8,7 +8,8 @@ uses
   WorkDispatcherTests, AppPathsTests,
   ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests, ScenarioTests,
   ScenarioRunTests, ProtocolModelTests,
-  ProtocolEditingTests;
+  ProtocolEditingTests,
+  SynthesisSessionTests;
 
 var
   Application: TTestRunner;

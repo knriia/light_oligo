@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Graphics, Buttons,
   UProtocolForm, UDispenserStationHost, DispenserLayout,
-  AppState, CommonUtils, OligoSlices, SynthesisProtocol, ProtocolFormat,
+  CommonUtils, OligoSlices, SynthesisSession,
   AppPaths, IniFiles, SynthesisThread,
   USequencesForm, UManualForm, EzCadApp;
 
@@ -49,8 +49,13 @@ type
     FDispenserStation: TDispenserStationForm;
     FSequencesForm: TSequencesForm;
     FProtocolForm: TProtocolForm;
+    FSession: TSynthesisSession;          // слои и протоколы для синтеза
+    FSynthesisThread: TSynthesisThread;   // nil, пока синтез не идёт
     FManualForm: TManualForm;
     FEzCadWatcher: TEzCadDialogWatcher;
+    function SynthesisRunning: Boolean;
+    procedure SynthesisFinished(Sender: TObject);
+    procedure SequencesLayersChanged(const ALayers: TSliceLayers);
     procedure SequencesLog(const AMsg: string);
     procedure UpdateManualControlsWidth;
     procedure UpdateMinimumWindowWidth;
@@ -116,6 +121,7 @@ begin
   FManualForm.LoadSettings;
   FManualForm.OnLog := @SequencesLog;
   FManualForm.Show;
+  FSession := TSynthesisSession.Create;
   FProtocolForm := TProtocolForm.Create(Self);
   FProtocolForm.BorderStyle := bsNone;
   FProtocolForm.Parent := TS_Protocol;
@@ -134,6 +140,7 @@ begin
   FSequencesForm.Align := alClient;
   FSequencesForm.ApplyCaptions(MyInterface);
   FSequencesForm.OnLog := @SequencesLog;
+  FSequencesForm.OnLayersChanged := @SequencesLayersChanged;
   FSequencesForm.Show;
   Randomize();
   UpdateMinimumWindowWidth();
@@ -258,6 +265,11 @@ begin
     Exit;
   end;
 
+  // идущий синтез останавливаем; сессию он ещё читает, поэтому не освобождаем
+  if FSynthesisThread <> nil then
+    FSynthesisThread.Terminate
+  else
+    FreeAndNil(FSession);
   MyInterface.Free;
   MyIni.Free;
   FreeAndNil(FEzCadWatcher);
@@ -278,49 +290,50 @@ end;
 
 {ВКЛАДКА Synthesis}
 
+function TMainForm.SynthesisRunning: Boolean;
+begin
+  Result:=FSynthesisThread<>nil;
+end;
+
+procedure TMainForm.SynthesisFinished(Sender: TObject);
+// Поток закончил работу (сам освободится): синтез можно запускать снова
+begin
+  FSynthesisThread:=nil;
+end;
+
+procedure TMainForm.SequencesLayersChanged(const ALayers: TSliceLayers);
+begin
+  FSession.SetLayers(ALayers);
+end;
+
 procedure TMainForm.B_LoadProtToSynthClick(Sender: TObject);
 // Загрузить файлы протоколов
 var
-  TmpLet: String;
-  TmpLayProt: TLayerProt;
-  rez: Integer;
-  i: integer;
+  Letter, ErrorText: String;
 begin
+  if SynthesisRunning then
+  begin
+    ShowMessage('Синтез идёт. Остановите его, чтобы менять протоколы.');
+    Exit;
+  end;
   OD_File.Filter:='Протокол|*.pro';
   OD_File.InitialDir:=ProtocolsDir;
   OD_File.FileName:='';
-  if OD_File.Execute then
+  if not OD_File.Execute then
+    Exit;
+  if FSession.AddProtocolFile(OD_File.FileName, Letter, ErrorText) then
   begin
-    TmpLet:=RemoveFileExt(ExtractFileName(OD_File.FileName));
-
-    //Проверяем, что для этой буквы протокола еще нет
-    for i:=0 to High(Alphabet) do
-    if TmpLet=Alphabet[i]
-    then
-      begin
-        ShowMessage('Протокол для '+TmpLet+ ' уже существует! Загрузка прервана');
-        Exit;
-    end;
-
-    rez:=ParceProtocolFile(TmpLayProt,OD_File.FileName,Memo1.Lines);
-      if rez=0 then
-        begin
-          SetLength(MySynthProt,Length(MySynthProt)+1); // увеличиваем массив на 1 протокол буквы
-          SetLength(MySynthProt[High(MySynthProt)],Length(TmpLayProt)); // задаем размер как у TmpLayProt
-          SetLength(Alphabet, Length(Alphabet)+1); // увеличили на 1 массив с названиями протоколов
-          for i:=0 to Length(TmpLayProt)-1 do
-            MySynthProt[High(MySynthProt),i]:=TmpLayProt[i]; // копируем
-          Alphabet[High(Alphabet)]:=TmpLet;
-          LoadFileIntoTreeView(OD_File.FileName, TV_Synthesis);
-        end
-      else ShowMessage('Ошибка! Протокол не добавлен');
-  end;
+    Memo1.Lines.Add('Протокол для буквы '+Letter+' загружен: '+OD_File.FileName);
+    LoadFileIntoTreeView(OD_File.FileName, TV_Synthesis);
+  end
+  else
+    ShowMessage(ErrorText);
 end;
 
- procedure TMainForm.B_LoadLayersClick(Sender: TObject);
+procedure TMainForm.B_LoadLayersClick(Sender: TObject);
 // Загрузить файлы слоев
 var
-  rez: integer;
+  ErrorText: String;
   Node: TTreeNode;
 begin
   Node := TV_Synthesis.Items.GetFirstNode; // Получаем первый корневой узел
@@ -334,110 +347,68 @@ begin
       end;
     Node := Node.GetNext; // Переходим к следующему корневому узлу
   end;
-  {TODO:
-  if noda
-  then
-    begin
-      ShowMessage(Слои уже добавлены!);
-      Exit;
-    end;  }
 
-  SetLength(SliceTable,0);
   OD_File.Filter:='Слои|*.lays';
   OD_File.InitialDir:=SlicesDir;
   OD_File.FileName:='';
-  if OD_File.Execute then
-  begin
-    rez:=LoadSliceFile(SliceTable, OD_File.FileName);
-    if rez=0 then
-      LoadFileIntoTreeView(OD_File.FileName, TV_Synthesis)
-    else
-      ShowMessage('Ошибка! Файл слоев не добавлен');
-  end;
+  if not OD_File.Execute then
+    Exit;
+  if FSession.LoadLayersFile(OD_File.FileName, ErrorText) then
+    LoadFileIntoTreeView(OD_File.FileName, TV_Synthesis)
+  else
+    ShowMessage(ErrorText);
 end;
 
 procedure TMainForm.B_ClearAllClick(Sender: TObject);
 // Очистить протоколы и файлы
-var
-  i: integer;
 begin
-  //Очищаем протокол
-  for i:=0 to High(MySynthProt) do
-      SetLength(MySynthProt[i],0);
-  SetLength(MySynthProt,0);
-  //очищаем массив букв
-  SetLength(Alphabet,0);
-  //очищаем массив слоев
-  SetLength(SliceTable,0);
-  //ошичаем дерево
+  if SynthesisRunning then
+  begin
+    ShowMessage('Синтез идёт. Остановите его, чтобы очистить загруженное.');
+    Exit;
+  end;
+  FSession.Clear;
   TV_Synthesis.Items.Clear;
 end;
 
 procedure TMainForm.B_StartClick(Sender: TObject);
 //запуск синтеза
 var
-  MyThread: TSynthesisThread; // Поток, в котором будет проходить весь синтез
   i: integer;
-  s: String;
-  arrWrongLet: array of String;
-  IsCorrect: boolean;
-  NumOfL: integer;
+  ErrorText: String;
 begin
+  if SynthesisRunning then
+  begin
+    ShowMessage('Синтез уже идёт.');
+    Exit;
+  end;
   Memo1.Clear;
 
-  IsCorrect:=false;
-  SetLength(arrWrongLet,0);
-  if Length(SliceTable)=0 then
+  // Перед запуском проверяем, что есть слои и протоколы на все буквы
+  if not FSession.CheckReady(ErrorText) then
   begin
-     ShowMessage('Отсутствуют слои!');
-     Exit;
-  end;
-
-  for i:=0 to High(Alphabet) do
-  begin
-    Memo1.Lines.Add(Alphabet[i]);
-  end;
-
-  // Перед запуском проверяем, что имеются протоколы на все буквы
-  NumOfL:=0;
-  for i:=0 to High(SliceTable) do
-    begin
-      if AlphabetNum(SliceTable[i].Letter)=-1 then
-      begin
-        SetLength(arrWrongLet,Length(arrWrongLet)+1);
-        arrWrongLet[High(arrWrongLet)]:=SliceTable[i].Letter;
-      end;
-      NumOfL:=NumOfL+1;
-    end;
-  Memo1.Lines.Add('Число слоев='+IntToStr(NumOfL));
-  Memo1.Lines.Add('Первыйслой='+IntToStr(SliceTable[0].LayerNumber)+' '+SliceTable[0].EZDFile);
-  Memo1.Lines.Add('Последний слой='+IntToStr(SliceTable[High(SliceTable)].LayerNumber)+' '
-                                   +SliceTable[High(SliceTable)].EZDFile);
-
-  if Length(arrWrongLet)=0 then
-     IsCorrect:=true
-  else
-  begin
-    s:='';
-    for i:=0 to High(arrWrongLet) do
-      s:=s+' '+arrWrongLet[i];
-    ShowMessage('Отсутствуют протоколы для: '+s);
+    ShowMessage(ErrorText);
     Exit;
   end;
 
-  if IsCorrect then
-  begin
-    IsStarted:=true;
-    MyThread:=TSynthesisThread.Create(false);
-  end
-  else ShowMessage('');
+  for i:=0 to FSession.ProtocolCount-1 do
+    Memo1.Lines.Add(FSession.ProtocolLetters[i]);
+  Memo1.Lines.Add('Число слоев='+IntToStr(FSession.LayerCount));
+  Memo1.Lines.Add('Первыйслой='+IntToStr(FSession.Layers[0].LayerNumber)+' '+
+                  FSession.Layers[0].EZDFile);
+  Memo1.Lines.Add('Последний слой='+
+                  IntToStr(FSession.Layers[FSession.LayerCount-1].LayerNumber)+' '+
+                  FSession.Layers[FSession.LayerCount-1].EZDFile);
 
-
+  FSynthesisThread:=TSynthesisThread.Create(FSession);
+  FSynthesisThread.OnTerminate:=@SynthesisFinished;
+  FSynthesisThread.Start;
 end;
 
 procedure TMainForm.B_PauseClick(Sender: TObject);
 begin
-  IsStarted:=false;
+  if FSynthesisThread<>nil then
+    FSynthesisThread.Terminate;
   Memo1.Lines.Add('Synthesis aborted');
 end;
 

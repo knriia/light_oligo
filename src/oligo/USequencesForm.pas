@@ -14,6 +14,9 @@ uses
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
+  // Таблица слоёв массива изменилась (слайсинг, EZD-файлы) или сброшена
+  // (пустая): синтез берёт слои отсюда.
+  TSequencesLayersEvent = procedure(const ALayers: TSliceLayers) of object;
   TListLayerFilesFunc = function(const aDir: String): TStringArray;
   TDeleteLayerFilesFunc = function(const aDir: String;
     out aErrorText: String): Boolean;
@@ -56,6 +59,8 @@ type
     FDocument: TOligoArrayDocument;
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
+    FOnLayersChanged: TSequencesLayersEvent;
+    procedure LayersChanged(const ALayers: TSliceLayers);
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
     procedure ApplyWidthMode;
@@ -77,12 +82,14 @@ type
     // False - пользователь отменил закрытие.
     function CanCloseFromHost: Boolean;
     property OnLog: TSequencesLogEvent read FOnLog write FOnLog;
+    property OnLayersChanged: TSequencesLayersEvent read FOnLayersChanged
+      write FOnLayersChanged;
   end;
 
 implementation
 
 uses
-  LCLType, Clipbrd, AppState, AppPaths, CommonUtils, OligoArray, OligoSlicing,
+  LCLType, Clipbrd, AppPaths, CommonUtils, OligoArray, OligoSlicing,
   LayerEzd, MarkEzdWriter, OligoPaste, UOligoArrayForm, UArraySaveForm,
   UFolderForm, ULayerChartForm, UMarkGeometryForm, LaserPen, ULaserPenForm;
 
@@ -158,6 +165,12 @@ begin
   end;
   // группа по высоте ровно под один ряд кнопок, остальное место - таблице
   GB_OligControl.ClientHeight:=ROW_TOP+B_CreateOligoArr.Height+ROW_BOTTOM;
+end;
+
+procedure TSequencesForm.LayersChanged(const ALayers: TSliceLayers);
+begin
+  if Assigned(FOnLayersChanged) then
+    FOnLayersChanged(ALayers);
 end;
 
 procedure TSequencesForm.Log(const AMsg: string);
@@ -392,7 +405,7 @@ begin
     Exit;
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
-  SetLength(SliceTable,0); // слайс-таблица старого массива больше не нужна
+  LayersChanged(nil); // слайс-таблица старого массива больше не нужна
   FDocument.NewArray(CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq));
   DisplayOligoArray;
 end;
@@ -440,7 +453,7 @@ begin
     Exit;
   end;
   FDocument.SetSlicing(Table, FDocument.ArrayDir);
-  SliceTable:=Copy(Table); // общая таблица слоёв (её использует синтез)
+  LayersChanged(Table); // общая таблица слоёв (её использует синтез)
 
   LayerChartForm.LS_CharsInLayers.Clear;
   for i:=0 to High(Layers) do
@@ -528,7 +541,7 @@ begin
     Exit;
   end;
   FDocument.SetSlicing(Table, FDocument.SliceDir);
-  SliceTable:=Copy(Table); // синтез можно запускать сразу
+  LayersChanged(Table); // синтез можно запускать сразу
 end;
 
 end.

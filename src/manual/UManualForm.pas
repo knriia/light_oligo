@@ -95,7 +95,7 @@ type
 implementation
 
 uses
-  AppState, AppPaths,
+  AppPaths,
   UMatrixForm, UPreviewForm, ULaserPenForm, LaserPen, MarkEzdWriter,
   MatrixTypes, ManualSettings,
   Lmc1Results;

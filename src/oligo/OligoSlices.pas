@@ -31,6 +31,10 @@ function SaveSliceStatistics(const aDir: String;
 // трёх полей, номер слоя не число, нет ни одного слоя). При ошибке
 // таблица пустая - наполовину прочитанной она не бывает.
 Function LoadSliceFile(var aSliceTable: TSliceLayers; aSliceFile: String): integer;
+// То же с причиной ошибки: нет файла, не читается, строка не из трёх полей,
+// номер слоя не число, нет ни одного слоя. Номер строки считается с 1.
+function LoadSliceLayers(const aSliceFile: String; out aLayers: TSliceLayers;
+  out aErrorText: String): Boolean;
 
 // Файлы слоёв в папке (Layer*.txt и Layer*.ezd), полные пути по алфавиту.
 // Для несуществующей папки - пустой список.
@@ -85,22 +89,42 @@ end;
 function LoadSliceFile(var aSliceTable: TSliceLayers;
   aSliceFile: String): integer;
 var
+  ErrorText: String;
+begin
+  if LoadSliceLayers(aSliceFile, aSliceTable, ErrorText) then
+    Result:=0
+  else
+    Result:=-1;
+end;
+
+function LoadSliceLayers(const aSliceFile: String; out aLayers: TSliceLayers;
+  out aErrorText: String): Boolean;
+var
   Lines: TStringList;
   Parts: TStringArray;
   Table: TSliceLayers;
   i, n: integer;
 begin
-  Result:=-1;
-  aSliceTable:=nil;
+  Result:=False;
+  aLayers:=nil;
+  aErrorText:='';
   if not FileExists(aSliceFile) then
+  begin
+    aErrorText:='Файл слоёв не найден:'+LineEnding+aSliceFile;
     Exit;
+  end;
   Table:=nil;
   Lines:=TStringList.Create;
   try
     try
       Lines.LoadFromFile(aSliceFile);
     except
-      Exit; // файл не читается (занят, нет доступа)
+      on E: Exception do
+      begin
+        aErrorText:='Не удалось прочитать файл слоёв (занят или нет доступа):'+
+                    LineEnding+aSliceFile+LineEnding+E.Message;
+        Exit;
+      end;
     end;
     // строка 0 - заголовки; пустые строки пропускаем
     for i:=1 to Lines.Count-1 do
@@ -109,12 +133,22 @@ begin
         Continue;
       Parts:=Lines[i].Split(#9);
       if Length(Parts)<>3 then
+      begin
+        aErrorText:='Файл слоёв '+ExtractFileName(aSliceFile)+', строка '+
+                    IntToStr(i+1)+': ожидалось три поля через табуляцию '+
+                    '(номер слоя, буква, файл EZD).';
         Exit;
+      end;
       n:=Length(Table);
       SetLength(Table, n+1);
       Table[n]:=Default(TSliceLayer);
       if not TryStrToInt(Trim(Parts[0]), Table[n].LayerNumber) then
+      begin
+        aErrorText:='Файл слоёв '+ExtractFileName(aSliceFile)+', строка '+
+                    IntToStr(i+1)+': номер слоя "'+Trim(Parts[0])+
+                    '" не число.';
         Exit;
+      end;
       Table[n].Letter:=Trim(Parts[1]);
       // Имя файла ищем рядом с файлом слоёв; старые файлы с полными
       // путями читаются как раньше.
@@ -124,9 +158,12 @@ begin
     Lines.Free;
   end;
   if Length(Table)=0 then
+  begin
+    aErrorText:='В файле слоёв нет ни одного слоя:'+LineEnding+aSliceFile;
     Exit;
-  aSliceTable:=Table;
-  Result:=0;
+  end;
+  aLayers:=Table;
+  Result:=True;
 end;
 
 function ListFilesByMasks(const aDir: String;
