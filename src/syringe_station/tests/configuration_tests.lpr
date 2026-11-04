@@ -9,7 +9,8 @@ uses
   ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests, ScenarioTests,
   ScenarioRunTests, ProtocolModelTests,
   ProtocolEditingTests,
-  SynthesisSessionTests;
+  SynthesisSessionTests,
+  SynthesisRunnerTests;
 
 var
   Application: TTestRunner;

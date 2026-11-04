@@ -1,17 +1,34 @@
 unit SynthesisThread;
-// Поток синтеза: проходит слои по порядку, для каждого берёт протокол его
-// буквы и выполняет операции. Данные - в сессии (SynthesisSession); остановка
-// синтеза - Terminate потока.
+// Поток синтеза: исполняет ход синтеза (SynthesisRunner) на настоящем
+// оборудовании. Здесь только действия: шаг станции, пауза, вакуум, маркировка
+// через EzCAD и журнал в окно и в файл. Остановка - Terminate потока.
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, Windows, WinProcessUtils, ProtocolFormat, ProtocolModel,
-  OligoSlices, SynthesisSession, UDispenserStationHost;
+  Classes, SysUtils, Windows, WinProcessUtils, ProtocolFormat, OligoSlices,
+  SynthesisSession, SynthesisRunner, UDispenserStationHost;
 
 type
+  TSynthesisThread = class;
+
+  // Действия синтеза, выполняемые потоком (главное окно - через Synchronize).
+  TSynthesisThreadActions = class(TSynthesisActions)
+  private
+    FThread: TSynthesisThread;
+  public
+    constructor Create(AThread: TSynthesisThread);
+    procedure Log(const AText: string); override;
+    function StopRequested: Boolean; override;
+    function RunSyringe(const AStep: TSyringeStep;
+      out AErrorText: string): Boolean; override;
+    procedure Pause(ASeconds: Integer); override;
+    procedure Vacuum(AOn: Boolean); override;
+    procedure Laser(ARepeats: Integer; ATimeSeconds: Double;
+      const AEzdFile: string); override;
+  end;
 
   { TSynthesisThread }
 
@@ -19,6 +36,7 @@ type
   private
     FSession: TSynthesisSession;
     FLayers: TSliceLayers;       // слои на момент запуска
+    FActions: TSynthesisThreadActions;
     FLogText: String;            // строка для OutLog
     FLogFile: TextFile;
     // Шаг SyrSt: данные для вызовов станции через Synchronize
@@ -28,22 +46,108 @@ type
     procedure StartSyringeStep;
     procedure CheckSyringeStep;
     procedure StopSyringeStep;
-    procedure RunSyringeStep;
-    procedure RunLaser(const AStep: TProtocolStep; const AEzdFile: String);
-    procedure RunStep(const AStep: TProtocolStep; const AEzdFile: String);
-    procedure Log(const AText: String);
-  protected
     procedure OutLog;
     procedure TrigTimer;
+  protected
     procedure Execute; override;
   public
     // Поток освобождается сам; пока он работает, сессию менять нельзя.
     constructor Create(ASession: TSynthesisSession);
+    destructor Destroy; override;
   end;
 
 
 implementation
 uses UMainForm;
+
+{ TSynthesisThreadActions }
+
+constructor TSynthesisThreadActions.Create(AThread: TSynthesisThread);
+begin
+  inherited Create;
+  FThread:=AThread;
+end;
+
+procedure TSynthesisThreadActions.Log(const AText: string);
+begin
+  FThread.FLogText:=AText;
+  FThread.Synchronize(@FThread.OutLog);
+end;
+
+function TSynthesisThreadActions.StopRequested: Boolean;
+begin
+  Result:=FThread.Terminated;
+end;
+
+function TSynthesisThreadActions.RunSyringe(const AStep: TSyringeStep;
+  out AErrorText: string): Boolean;
+// Запускает шаг на станции и ждёт его завершения.
+// При остановке синтеза останавливает дозаторы.
+var
+  StopSent: Boolean;
+begin
+  FThread.FSyringeStep:=AStep;
+  FThread.Synchronize(@FThread.StartSyringeStep);
+  StopSent:=false;
+  while FThread.FSyringeStatus=sssRunning do
+  begin
+    if FThread.Terminated and not StopSent then
+    begin
+      FThread.Synchronize(@FThread.StopSyringeStep);
+      StopSent:=true;
+    end;
+    Sleep(100);
+    FThread.Synchronize(@FThread.CheckSyringeStep);
+  end;
+  Result:=FThread.FSyringeStatus=sssSucceeded;
+  if Result then
+    AErrorText:=''
+  else
+    AErrorText:=FThread.FSyringeError;
+end;
+
+procedure TSynthesisThreadActions.Pause(ASeconds: Integer);
+begin
+  Sleep(ASeconds*100);  {TODO: Временно поставил 100мс, потом заменить на 1000}
+end;
+
+procedure TSynthesisThreadActions.Vacuum(AOn: Boolean);
+begin
+  Sleep(100); {TODO: заменить на функцию вкл/выкл вакуума}
+end;
+
+procedure TSynthesisThreadActions.Laser(ARepeats: Integer;
+  ATimeSeconds: Double; const AEzdFile: string);
+var
+  ProcH: THandle;
+  j: Integer;
+begin
+  // открываем EzCAD
+  if GetProcessHandle('EzCad2.exe')=0 then
+  begin
+    FThread.Synchronize(@FThread.TrigTimer);
+    Log('EzCAD opening');
+    ShellExecute(0, 'open', PChar(ExtractFilePath(ParamStr(0))+'EzCAD2.exe'),
+    PChar(AEzdFile), nil, SW_SHOWMINIMIZED);   // Открываем EzCAD2
+    Sleep(MyIni.ReadInteger('Laser','EzCAD2OpenTime',1000)); // задержка перед маркировкой на время открытия EzCAD. Читаем из ini
+    for j:=0 to ARepeats-1 do
+    begin
+      SendMsgToProc('EzCAD2.exe',VK_F2); // команда на маркировку
+      Sleep(Round(ATimeSeconds)*1000); // задержка после маркировки (из протокола)
+      Log('Laser----F2--->');
+      if FThread.Terminated then Break; // Потом убрать
+    end;
+  end;
+  ProcH:=GetProcessHandle('EzCad2.exe');
+  if ProcH<>0 then
+  begin
+    SendMsgToProcWithMod('EzCAD2.exe',VK_F4, VK_MENU); // Alt+F4. закрываем
+    PostMessage(ProcH, WM_CLOSE, 0, 0);
+    Log('EzCAD closed');
+  end;
+end;
+
+{ TSynthesisThread }
 
 constructor TSynthesisThread.Create(ASession: TSynthesisSession);
 begin
@@ -51,6 +155,13 @@ begin
   FreeOnTerminate:=True;
   FSession:=ASession;
   FLayers:=Copy(ASession.Layers);
+  FActions:=TSynthesisThreadActions.Create(Self);
+end;
+
+destructor TSynthesisThread.Destroy;
+begin
+  FActions.Free;
+  inherited Destroy;
 end;
 
 procedure TSynthesisThread.OutLog;
@@ -58,12 +169,6 @@ begin
   FLogText:=TimeToStr(Time())+': '+FLogText;
   MainForm.Memo1.Lines.Add(FLogText);
   WriteLN(FLogFile, FLogText);
-end;
-
-procedure TSynthesisThread.Log(const AText: String);
-begin
-  FLogText:=AText;
-  Synchronize(@OutLog);
 end;
 
 procedure TSynthesisThread.TrigTimer;
@@ -95,131 +200,22 @@ begin
   MainForm.DispenserStation.StopSyringeStep;
 end;
 
-procedure TSynthesisThread.RunSyringeStep;
-// Запускает шаг на станции и ждёт его завершения.
-// При ошибке синтез останавливается; при остановке синтеза останавливает дозаторы.
-var
-  StopSent: Boolean;
-begin
-  Synchronize(@StartSyringeStep);
-  StopSent:=false;
-  while FSyringeStatus=sssRunning do
-  begin
-    if Terminated and not StopSent then
-    begin
-      Synchronize(@StopSyringeStep);
-      StopSent:=true;
-    end;
-    Sleep(100);
-    Synchronize(@CheckSyringeStep);
-  end;
-
-  if FSyringeStatus=sssSucceeded then
-    Log('SyrSt done')
-  else
-  begin
-    FLogText:='SyrSt ERROR: '+FSyringeError;
-    Terminate;
-    Synchronize(@OutLog);
-  end;
-end;
-
-procedure TSynthesisThread.RunLaser(const AStep: TProtocolStep;
-  const AEzdFile: String);
-var
-  ProcH: THandle;
-  j: Integer;
-begin
-  Log('Laser='+IntToStr(AStep.IntValue));
-  Log('File='+AEzdFile);
-  // открываем EzCAD
-  if GetProcessHandle('EzCad2.exe')=0 then
-  begin
-    Synchronize(@TrigTimer);
-    Log('EzCAD opening');
-    ShellExecute(0, 'open', PChar(ExtractFilePath(ParamStr(0))+'EzCAD2.exe'),
-    PChar(AEzdFile), nil, SW_SHOWMINIMIZED);   // Открываем EzCAD2
-    Sleep(MyIni.ReadInteger('Laser','EzCAD2OpenTime',1000)); // задержка перед маркировкой на время открытия EzCAD. Читаем из ini
-    for j:=0 to AStep.IntValue-1 do
-    begin
-      SendMsgToProc('EzCAD2.exe',VK_F2); // команда на маркировку
-      FLogText:='Laser----F2--->';
-      Sleep(Round(AStep.FloatValue)*1000); // задержка после маркировки (из протокола)
-      Synchronize(@OutLog);
-      if Terminated then Break; // Потом убрать
-    end;
-  end;
-  ProcH:=GetProcessHandle('EzCad2.exe');
-  if ProcH<>0 then
-  begin
-    SendMsgToProcWithMod('EzCAD2.exe',VK_F4, VK_MENU); // Alt+F4. закрываем
-    PostMessage(ProcH, WM_CLOSE, 0, 0);
-    Log('EzCAD closed');
-  end;
-end;
-
-procedure TSynthesisThread.RunStep(const AStep: TProtocolStep;
-  const AEzdFile: String);
-begin
-  case AStep.Kind of
-    pskComment:
-      Log('Name='+AStep.Text);
-    pskPause:
-      begin
-        Sleep(AStep.IntValue*100);  {TODO: Временно поставил 100мс, потом заменить на 1000}
-        Log('Pause='+IntToStr(AStep.IntValue));
-      end;
-    pskVacuum:
-      begin
-        Sleep(100); {TODO: заменить на функцию вкл/выкл вакуума}
-        Log('Vac='+BoolToStr(AStep.BoolValue));
-      end;
-    pskSyringe:
-      begin
-        FSyringeStep:=AStep.Syringe;
-        Log(SyringeStepSummary(FSyringeStep));
-        RunSyringeStep;
-      end;
-    pskLaser:
-      RunLaser(AStep, AEzdFile);
-  end;
-end;
-
 procedure TSynthesisThread.Execute;
 var
-  sl, b, i: Integer;
-  Protocol: TProtocolModel;
+  Runner: TSynthesisRunner;
 begin
+  if Length(FLayers)=0 then
+    Exit;
   AssignFile(FLogFile, ExtractFilePath(FLayers[0].EZDFile)+'\log.txt');
   {$I-}
   Rewrite(FLogFile);
   {$I+}
-  Log('Synthesis started');
-
-  for sl:=0 to High(FLayers) do
-  begin
-    if Terminated then Break;
-    // протокол буквы текущего слоя (сессия проверила, что он есть для всех букв)
-    Protocol:=FSession.ProtocolOf(FLayers[sl].Letter);
-    if Protocol=nil then
-    begin
-      Log('ERROR: no protocol for letter '+FLayers[sl].Letter);
-      Break;
-    end;
-    Log('CICLE='+IntToStr(sl)+';    PROTOCOL LETTER='+FLayers[sl].Letter+'; '+
-        'LAYER NUMBER='+IntToStr(FLayers[sl].LayerNumber));
-    for b:=0 to Protocol.BlockCount-1 do
-    begin
-      Log('Name='+Protocol.BlockNames[b]);
-      for i:=0 to Protocol.StepCount(b)-1 do
-      begin
-        if Terminated then Break;
-        RunStep(Protocol.Steps[b,i], FLayers[sl].EZDFile);
-      end;
-      if Terminated then Break;
-    end;
+  Runner:=TSynthesisRunner.Create(FLayers, @FSession.ProtocolOf, FActions);
+  try
+    Runner.Run;
+  finally
+    Runner.Free;
   end;
-  Log('Synthesis completed!');
   CloseFile(FLogFile);
 end;
 

@@ -165,6 +165,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\synthesis\SynthesisRunner.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\laser\EzCadApi.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
