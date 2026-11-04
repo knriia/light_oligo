@@ -472,6 +472,10 @@
         <Filename Value="src\synthesis\SynthesisFolder.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\LaserMarking.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

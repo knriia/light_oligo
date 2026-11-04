@@ -26,9 +26,10 @@ type
     procedure Pause(ASeconds: Integer); virtual; abstract;
     procedure Vacuum(AOn: Boolean); virtual; abstract;
     // Маркировка слоя: файл EZD текущего слоя, число повторов и время
-    // ожидания после каждой маркировки.
-    procedure Laser(ARepeats: Integer; ATimeSeconds: Double;
-      const AEzdFile: string); virtual; abstract;
+    // ожидания после каждой маркировки. False - маркировка не выполнена,
+    // AErrorText объясняет; синтез останавливается.
+    function Laser(ARepeats: Integer; ATimeSeconds: Double;
+      const AEzdFile: string; out AErrorText: string): Boolean; virtual; abstract;
   end;
 
   // Протокол буквы; nil, если для буквы протокола нет.
@@ -102,7 +103,12 @@ begin
       begin
         FActions.Log('Laser=' + IntToStr(AStep.IntValue));
         FActions.Log('File=' + AEzdFile);
-        FActions.Laser(AStep.IntValue, AStep.FloatValue, AEzdFile);
+        if not FActions.Laser(AStep.IntValue, AStep.FloatValue, AEzdFile,
+          ErrorText) then
+        begin
+          FActions.Log('Laser ERROR: ' + ErrorText);
+          FFailed := True;
+        end;
       end;
   end;
 end;

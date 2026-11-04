@@ -11,7 +11,8 @@ uses
   ProtocolEditingTests,
   SynthesisSessionTests,
   SynthesisRunnerTests,
-  SynthesisFolderTests;
+  SynthesisFolderTests,
+  LaserMarkingTests;
 
 var
   Application: TTestRunner;
