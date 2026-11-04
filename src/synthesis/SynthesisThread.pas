@@ -89,6 +89,8 @@ type
     procedure StopSyringeStep;
     procedure OutLog;
     procedure TrigTimer;
+    // Ждёт кусками по 100 мс, чтобы остановка синтеза не ждала конца паузы
+    procedure WaitUnlessStopped(AMilliseconds: Int64);
   protected
     procedure Execute; override;
   public
@@ -149,12 +151,16 @@ end;
 
 procedure TSynthesisThreadActions.Pause(ASeconds: Integer);
 begin
-  Sleep(ASeconds*100);  {TODO: Временно поставил 100мс, потом заменить на 1000}
+  // пауза протокола - в секундах; остановка синтеза прерывает ожидание
+  FThread.WaitUnlessStopped(Int64(ASeconds)*1000);
 end;
 
 procedure TSynthesisThreadActions.Vacuum(AOn: Boolean);
 begin
-  Sleep(100); {TODO: заменить на функцию вкл/выкл вакуума}
+  // Управления вакуумом в программе нет: операция только записывается в
+  // журнал, а оператор предупреждается, что вакуум не включался
+  Log('WARNING: управление вакуумом не реализовано, операция пропущена');
+  Sleep(100);
 end;
 
 function TSynthesisThreadActions.Laser(ARepeats: Integer;
@@ -205,19 +211,8 @@ begin
 end;
 
 procedure TThreadEzCadDriver.Wait(AMilliseconds: Integer);
-// Ждёт кусками по 100 мс, чтобы остановка синтеза не ждала конца паузы
-var
-  Left: Integer;
 begin
-  Left:=AMilliseconds;
-  while (Left>0) and not FThread.Terminated do
-  begin
-    if Left<100 then
-      Sleep(Left)
-    else
-      Sleep(100);
-    Dec(Left, 100);
-  end;
+  FThread.WaitUnlessStopped(AMilliseconds);
 end;
 
 procedure TThreadEzCadDriver.Poll(AMilliseconds: Integer);
@@ -258,6 +253,21 @@ destructor TSynthesisThread.Destroy;
 begin
   FActions.Free;
   inherited Destroy;
+end;
+
+procedure TSynthesisThread.WaitUnlessStopped(AMilliseconds: Int64);
+var
+  Left: Int64;
+begin
+  Left:=AMilliseconds;
+  while (Left>0) and not Terminated do
+  begin
+    if Left<100 then
+      Sleep(Left)
+    else
+      Sleep(100);
+    Dec(Left, 100);
+  end;
 end;
 
 procedure TSynthesisThread.OutLog;
