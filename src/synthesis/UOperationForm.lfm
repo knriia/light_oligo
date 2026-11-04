@@ -1,11 +1,11 @@
-object ScenarioOperationForm: TScenarioOperationForm
+object OperationForm: TOperationForm
   Left = 0
   Height = 188
   Top = 0
-  Width = 480
+  Width = 500
   Caption = 'Добавление операции'
   ClientHeight = 188
-  ClientWidth = 480
+  ClientWidth = 500
   Position = poMainFormCenter
   LCLVersion = '4.4.0.0'
   OnCreate = FormCreate
@@ -13,7 +13,7 @@ object ScenarioOperationForm: TScenarioOperationForm
     Left = 0
     Height = 138
     Top = 0
-    Width = 136
+    Width = 150
     Align = alLeft
     AutoFill = True
     Caption = 'Тип операции'
@@ -26,11 +26,6 @@ object ScenarioOperationForm: TScenarioOperationForm
     ChildSizing.ControlsPerLine = 1
     ClientHeight = 118
     ClientWidth = 132
-    ItemIndex = 0
-    Items.Strings = (
-      'Шприцевая станция'
-      'Пауза'
-    )
     TabOrder = 0
     OnClick = RG_OperatorClick
   end
@@ -38,10 +33,10 @@ object ScenarioOperationForm: TScenarioOperationForm
     Left = 0
     Height = 50
     Top = 138
-    Width = 480
+    Width = 500
     Align = alBottom
     ClientHeight = 50
-    ClientWidth = 480
+    ClientWidth = 500
     TabOrder = 1
     object BB_Ok: TBitBtn
       Left = 196
@@ -68,14 +63,57 @@ object ScenarioOperationForm: TScenarioOperationForm
     end
   end
   object Panel2: TPanel
-    Left = 136
+    Left = 150
     Height = 138
     Top = 0
-    Width = 344
+    Width = 350
     Align = alClient
     ClientHeight = 138
-    ClientWidth = 344
+    ClientWidth = 350
     TabOrder = 2
+    object GB_Vac: TGroupBox
+      Left = 1
+      Height = 136
+      Top = 1
+      Width = 222
+      Align = alClient
+      Caption = 'Вакуум'
+      ClientHeight = 116
+      ClientWidth = 218
+      TabOrder = 0
+      object ChB_Vac: TCheckBox
+        Left = 64
+        Height = 19
+        Top = 32
+        Width = 64
+        Alignment = taLeftJustify
+        Caption = 'Вкл/Выкл'
+        Checked = True
+        State = cbChecked
+        TabOrder = 0
+      end
+    end
+    object GB_Comment: TGroupBox
+      Left = 1
+      Height = 136
+      Top = 1
+      Width = 222
+      Align = alClient
+      Caption = 'Комментарий'
+      ClientHeight = 116
+      ClientWidth = 218
+      TabOrder = 1
+      object LE_Comment: TLabeledEdit
+        Left = 8
+        Height = 23
+        Top = 48
+        Width = 300
+        EditLabel.Height = 15
+        EditLabel.Width = 300
+        EditLabel.Caption = 'Введите комментарий'
+        TabOrder = 0
+      end
+    end
     object GB_Pause: TGroupBox
       Left = 1
       Height = 136
@@ -85,7 +123,7 @@ object ScenarioOperationForm: TScenarioOperationForm
       Caption = 'Задержка'
       ClientHeight = 116
       ClientWidth = 218
-      TabOrder = 0
+      TabOrder = 2
       object SE_Pause: TSpinEdit
         Left = 84
         Height = 23
@@ -113,7 +151,7 @@ object ScenarioOperationForm: TScenarioOperationForm
       Caption = 'Шприцевая станция'
       ClientHeight = 116
       ClientWidth = 218
-      TabOrder = 1
+      TabOrder = 3
       object LE_SyrNames: TLabeledEdit
         Left = 104
         Height = 23
@@ -187,6 +225,51 @@ object ScenarioOperationForm: TScenarioOperationForm
         ItemHeight = 15
         Style = csDropDownList
         TabOrder = 5
+      end
+    end
+    object GB_Laser: TGroupBox
+      Left = 1
+      Height = 136
+      Top = 1
+      Width = 222
+      Align = alClient
+      Caption = 'Лазер'
+      ClientHeight = 116
+      ClientWidth = 218
+      TabOrder = 4
+      object SE_LasRepeats: TSpinEdit
+        Left = 130
+        Height = 23
+        Top = 32
+        Width = 50
+        MaxValue = 100
+        MinValue = 1
+        TabOrder = 0
+        Value = 1
+      end
+      object L_LasRepeats: TLabel
+        Left = 8
+        Height = 15
+        Top = 36
+        Width = 69
+        Caption = 'Повторы'
+      end
+      object SE_LasTime: TSpinEdit
+        Left = 130
+        Height = 23
+        Top = 64
+        Width = 50
+        MaxValue = 100
+        MinValue = 1
+        TabOrder = 1
+        Value = 10
+      end
+      object L_LasTime: TLabel
+        Left = 8
+        Height = 15
+        Top = 68
+        Width = 54
+        Caption = 'Время лазера, с'
       end
     end
   end

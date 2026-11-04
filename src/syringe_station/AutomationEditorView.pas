@@ -87,7 +87,11 @@ type
 implementation
 
 uses
-  AppPaths, UScenarioOperationForm;
+  AppPaths, UOperationForm;
+
+const
+  // В сценарии станции бывают только эти операции.
+  SCENARIO_KINDS = [pskSyringe, pskPause];
 
 function ToStoredPath(const AFileName: string): string;
 // Файл из папки сценариев запоминаем относительным путём,
@@ -465,29 +469,29 @@ end;
 
 procedure TAutomationEditorView.AddButtonClick(Sender: TObject);
 var
-  Item: TScenarioItem;
+  Step: TProtocolStep;
   Position: Integer;
 begin
-  Item := DefaultScenarioOperation;
-  if not EditScenarioOperation('Добавление операции', Item) then
+  Step := DefaultOperation(pskSyringe);
+  if not EditOperation('Добавление операции', SCENARIO_KINDS, Step) then
     Exit;
   Position := InsertPosition;
-  FScenarios.Insert(Position, Item);
+  FScenarios.Insert(Position, ScenarioItemFromStep(Step));
   ListChanged(Position);
 end;
 
 procedure TAutomationEditorView.EditButtonClick(Sender: TObject);
 var
   Selected: Integer;
-  Item: TScenarioItem;
+  Step: TProtocolStep;
 begin
   Selected := SelectedItemIndex;
   if Selected < 0 then
     Exit;
-  Item := FScenarios[Selected];
-  if not EditScenarioOperation('Изменение операции', Item) then
+  Step := ScenarioItemToStep(FScenarios[Selected]);
+  if not EditOperation('Изменение операции', SCENARIO_KINDS, Step) then
     Exit;
-  FScenarios.Replace(Selected, Item);
+  FScenarios.Replace(Selected, ScenarioItemFromStep(Step));
   ListChanged(Selected);
 end;
 

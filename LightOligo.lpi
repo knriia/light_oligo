@@ -212,16 +212,16 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\UProtocolBlockForm.pas"/>
+        <Filename Value="src\synthesis\UBlockNameForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="ProtocolBlockForm"/>
+        <ComponentName Value="BlockNameForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\UProtocolOperationForm.pas"/>
+        <Filename Value="src\synthesis\UOperationForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="ProtocolOperationForm"/>
+        <ComponentName Value="OperationForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
@@ -445,13 +445,6 @@
       <Unit>
         <Filename Value="src\syringe_station\ScenarioList.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="src\syringe_station\UScenarioOperationForm.pas"/>
-        <IsPartOfProject Value="True"/>
-        <ComponentName Value="ScenarioOperationForm"/>
-        <HasResources Value="True"/>
-        <ResourceBaseClass Value="Form"/>
       </Unit>
     </Units>
   </ProjectOptions>
