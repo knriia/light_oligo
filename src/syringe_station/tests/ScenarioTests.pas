@@ -52,6 +52,8 @@ type
     procedure LoadReportsBrokenFileAndKeepsList;
     procedure SaveReportsUnwritablePlace;
     procedure LoadsFileWithUtf8Bom;
+    procedure ConvertsItemToProtocolStepAndBack;
+    procedure OtherProtocolOperationsBecomeSyringe;
   end;
 
 implementation
@@ -591,6 +593,40 @@ begin
   finally
     L.Free;
   end;
+end;
+
+procedure TScenarioFormatTests.ConvertsItemToProtocolStepAndBack;
+var
+  Step: TProtocolStep;
+  Item: TScenarioItem;
+begin
+  Step := ScenarioItemToStep(MakePause(12));
+  AssertTrue(Step.Kind = pskPause);
+  AssertEquals(12, Step.IntValue);
+  Item := ScenarioItemFromStep(Step);
+  AssertTrue(Item.Kind = sikPause);
+  AssertEquals(12, Item.PauseSeconds);
+
+  Step := ScenarioItemToStep(Block('A/B', '1/2', '10', '5'));
+  AssertTrue(Step.Kind = pskSyringe);
+  AssertEquals('A/B', Step.Syringe.Dispensers);
+  Item := ScenarioItemFromStep(Step);
+  AssertTrue(Item.Kind = sikSyringe);
+  AssertEquals('1/2', Item.Syringe.Valves);
+  AssertEquals('5', Item.Syringe.Speeds);
+end;
+
+procedure TScenarioFormatTests.OtherProtocolOperationsBecomeSyringe;
+var
+  Step: TProtocolStep;
+begin
+  // в сценарии нет вакуума, лазера и комментариев
+  Step := Default(TProtocolStep);
+  Step.Kind := pskVacuum;
+  Step.BoolValue := True;
+  AssertTrue(ScenarioItemFromStep(Step).Kind = sikSyringe);
+  Step.Kind := pskLaser;
+  AssertTrue(ScenarioItemFromStep(Step).Kind = sikSyringe);
 end;
 
 procedure TScenarioFormatTests.LoadsFileWithUtf8Bom;

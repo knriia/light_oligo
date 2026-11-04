@@ -11,8 +11,7 @@ uses
   {$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms, tachartlazaruspkg, lazcontrols, UMainForm, EzCadApi, UMatrixForm,
-  UOligoArrayForm, AppState, ULayerChartForm, ULaserPenForm, UProtocolBlockForm,
-  UProtocolOperationForm, SynthesisThread
+  UOligoArrayForm, AppState, ULayerChartForm, ULaserPenForm, SynthesisThread
   { you can add units after this };
 
 {$R *.res}
@@ -28,8 +27,6 @@ begin
   Application.CreateForm(TMatrixForm, MatrixForm);
   Application.CreateForm(TOligoArrayForm, OligoArrayForm);
   Application.CreateForm(TLayerChartForm, LayerChartForm);
-  Application.CreateForm(TProtocolBlockForm, ProtocolBlockForm);
-  Application.CreateForm(TProtocolOperationForm, ProtocolOperationForm);
   Application.Run;
 end.
 

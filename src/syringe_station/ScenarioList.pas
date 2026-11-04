@@ -62,6 +62,12 @@ type
 function MakeSyringe(const ASyringe: TSyringeStep): TScenarioItem;
 function MakePause(ASeconds: Integer): TScenarioItem;
 
+// Связь с операцией протокола (общее окно операции и запись в файл).
+// В сценарии бывают только шприцевая станция и пауза: любая другая операция
+// превращается в шприцевую станцию с пустыми полями.
+function ScenarioItemToStep(const AItem: TScenarioItem): TProtocolStep;
+function ScenarioItemFromStep(const AStep: TProtocolStep): TScenarioItem;
+
 // Проверка операции: шприцевая станция - как SyrSt, пауза - целое число секунд
 // не меньше нуля. При ошибке текст объясняет, что не так.
 function CheckScenarioItem(const AItem: TScenarioItem;
@@ -190,6 +196,29 @@ begin
   Result.PauseSeconds := ASeconds;
 end;
 
+function ScenarioItemToStep(const AItem: TScenarioItem): TProtocolStep;
+begin
+  Result := Default(TProtocolStep);
+  if AItem.Kind = sikPause then
+  begin
+    Result.Kind := pskPause;
+    Result.IntValue := AItem.PauseSeconds;
+  end
+  else
+  begin
+    Result.Kind := pskSyringe;
+    Result.Syringe := AItem.Syringe;
+  end;
+end;
+
+function ScenarioItemFromStep(const AStep: TProtocolStep): TScenarioItem;
+begin
+  if AStep.Kind = pskPause then
+    Result := MakePause(AStep.IntValue)
+  else
+    Result := MakeSyringe(AStep.Syringe);
+end;
+
 function CheckScenarioItem(const AItem: TScenarioItem;
   out AErrorText: string): Boolean;
 begin
@@ -219,25 +248,11 @@ end;
 function ScenarioListToText(AList: TScenarioList): string;
 var
   I: Integer;
-  Step: TProtocolStep;
 begin
   Result := '';
   for I := 0 to AList.Count - 1 do
-  begin
-    Step := Default(TProtocolStep);
-    if AList[I].Kind = sikPause then
-    begin
-      Step.Kind := pskPause;
-      Step.IntValue := AList[I].PauseSeconds;
-    end
-    else
-    begin
-      Step.Kind := pskSyringe;
-      Step.Syringe := AList[I].Syringe;
-    end;
     // в сценарии нет блоков: операции без отступа
-    Result := Result + ProtocolStepToText(Step, 0);
-  end;
+    Result := Result + ProtocolStepToText(ScenarioItemToStep(AList[I]), 0);
 end;
 
 function StepKey(AKind: TProtocolStepKind): string;

@@ -1,21 +1,20 @@
-object ProtocolBlockForm: TProtocolBlockForm
-  Left = -647
+object BlockNameForm: TBlockNameForm
+  Left = 0
   Height = 131
-  Top = 992
+  Top = 0
   Width = 274
-  Caption = 'ProtocolBlockForm'
+  Caption = 'Добавление блока'
   ClientHeight = 131
   ClientWidth = 274
   Position = poMainFormCenter
   LCLVersion = '4.4.0.0'
-  OnCreate = FormCreate
   object BB_Ok: TBitBtn
     Left = 152
     Height = 30
     Top = 80
     Width = 75
+    Caption = 'OK'
     Default = True
-    DefaultCaption = True
     Kind = bkOK
     ModalResult = 1
     TabOrder = 0
@@ -28,7 +27,7 @@ object ProtocolBlockForm: TProtocolBlockForm
     Width = 152
     EditLabel.Height = 15
     EditLabel.Width = 152
-    EditLabel.Caption = 'LE_String'
+    EditLabel.Caption = 'Имя блока'
     TabOrder = 1
   end
   object BB_Cancel: TBitBtn
@@ -37,7 +36,7 @@ object ProtocolBlockForm: TProtocolBlockForm
     Top = 80
     Width = 75
     Cancel = True
-    Caption = 'Cancel'
+    Caption = 'Отмена'
     Kind = bkCancel
     ModalResult = 2
     TabOrder = 2

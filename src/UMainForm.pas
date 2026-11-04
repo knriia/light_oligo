@@ -7,9 +7,9 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Graphics, Buttons,
-  UProtocolOperationForm, UDispenserStationHost, DispenserLayout,
+  UOperationForm, UDispenserStationHost, DispenserLayout,
   AppState, CommonUtils, OligoSlices, SynthesisProtocol, ProtocolFormat,
-  AppPaths, IniFiles, UProtocolBlockForm, SynthesisThread,
+  AppPaths, IniFiles, UBlockNameForm, SynthesisThread,
   USequencesForm, UManualForm, EzCadApp;
 
 
@@ -50,6 +50,7 @@ type
     TS_Sequences: TTabSheet;
     procedure B_AddBlockInProtocolClick(Sender: TObject);
     procedure B_AddOperInProtocolClick(Sender: TObject);
+    procedure AddStepToTree(AParent: TTreeNode; const AStep: TProtocolStep);
     procedure B_ClearAllClick(Sender: TObject);
     procedure B_LoadLayersClick(Sender: TObject);
     procedure B_LoadProtocolLayerClick(Sender: TObject);
@@ -304,17 +305,36 @@ end;
 
 procedure TMainForm.B_AddBlockInProtocolClick(Sender: TObject);
 // Добавляем корневой блок в протокол
+var
+  BlockName: string;
 begin
-  ProtocolBlockForm.ShowModal;
-  if ProtocolBlockForm.ModalResult=mrOK then
-    TV_ProtocolLayer.Items.Add(nil,'Block='+MyBlockName+';');
+  BlockName:='BlockName';
+  if EditBlockName('', BlockName, MyInterface) then
+    TV_ProtocolLayer.Items.Add(nil, KEY_BLOCK+'='+BlockName+';');
+end;
+
+procedure TMainForm.AddStepToTree(AParent: TTreeNode; const AStep: TProtocolStep);
+// Узел операции под блоком: первая строка записи - узел, остальные (параметры
+// SyrSt) - вложенные в него строки. Записью занимается ProtocolFormat.
+var
+  Lines: TStringArray;
+  Node: TTreeNode;
+  I: Integer;
+begin
+  Lines:=Trim(ProtocolStepToText(AStep, 0)).Split(LineEnding);
+  Node:=TV_ProtocolLayer.Items.AddChild(AParent, Trim(Lines[0]));
+  for I:=1 to High(Lines) do
+    TV_ProtocolLayer.Items.AddChild(Node, Trim(Lines[I]));
+  if Length(Lines)>1 then
+    Node.Expand(False);
 end;
 
 procedure TMainForm.B_AddOperInProtocolClick(Sender: TObject);
-// Добавляем оператор в протокол. В форме формируем функцию в записи, а здесь из нее создаем ноду
+// Добавляем операцию в протокол: окно возвращает операцию, а здесь из неё
+// создаётся узел дерева
 var
   tmpNode: TTreeNode;
-  ParamLine: String;
+  Step: TProtocolStep;
 begin
   if TV_ProtocolLayer.Selected= nil
   then
@@ -323,31 +343,17 @@ begin
     Exit;
   end;
 
-  ProtocolOperationForm.ShowModal;
-    if ProtocolOperationForm.ModalResult=mrOk then
-    begin
-      case TV_ProtocolLayer.Selected.Level of   // задаем ноду 0 уровня независимо от глубины вложения
-        0 :tmpNode:=TV_ProtocolLayer.Selected;
-        1 :tmpNode:=TV_ProtocolLayer.Selected.Parent;
-        2 :tmpNode:=TV_ProtocolLayer.Selected.Parent.Parent;
-      end;
+  Step:=DefaultOperation(pskSyringe);
+  if not EditOperation('', ALL_OPERATION_KINDS, Step, MyInterface) then
+    Exit;
 
-      case MyOper.Func of
-           dSyrSt: begin
-                     // операция SyrSt, её параметры - вложенными строками
-                     tmpNode:=TV_ProtocolLayer.Items.AddChild(tmpNode, KEY_SYRINGE+';');
-                     for ParamLine in SyringeStepParamLines(MyOper.Syringe) do
-                       TV_ProtocolLayer.Items.AddChild(tmpNode, ParamLine);
-                     tmpNode.Expand(False);
-                   end;
-             dVac: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+BoolToStr(MyOper.BoolParam)+'; ');
-
-             dLaser: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+IntToStr(MyOper.IntParam)+'; '
-                                                     +'Time='+FloatToStr(MyOper.FloatParam)+';');
-             dPause: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+IntToStr(MyOper.IntParam)+';');
-             dName: TV_ProtocolLayer.Items.AddChild(tmpNode, MyOper.StrParam+';');
-      end;
-    end;
+  tmpNode:=nil;
+  case TV_ProtocolLayer.Selected.Level of   // задаем ноду 0 уровня независимо от глубины вложения
+    0 :tmpNode:=TV_ProtocolLayer.Selected;
+    1 :tmpNode:=TV_ProtocolLayer.Selected.Parent;
+    2 :tmpNode:=TV_ProtocolLayer.Selected.Parent.Parent;
+  end;
+  AddStepToTree(tmpNode, Step);
 end;
 
 procedure TMainForm.B_RemoveNodeClick(Sender: TObject);
