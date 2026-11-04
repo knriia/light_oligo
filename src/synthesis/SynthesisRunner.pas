@@ -140,6 +140,7 @@ end;
 function TSynthesisRunner.Run: Boolean;
 var
   I: Integer;
+  Stopped: Boolean;
 begin
   FFailed := False;
   FActions.Log('Synthesis started');
@@ -149,8 +150,15 @@ begin
       Break;
     RunLayer(I);
   end;
-  Result := not Aborted;
-  FActions.Log('Synthesis completed!');
+  Stopped := Aborted;
+  Result := not Stopped;
+  // итог в журнале называет, чем закончился синтез
+  if FFailed then
+    FActions.Log('Synthesis stopped by error')
+  else if Stopped then
+    FActions.Log('Synthesis stopped by user')
+  else
+    FActions.Log('Synthesis completed!');
 end;
 
 end.

@@ -289,7 +289,7 @@ begin
   finally
     Runner.Free;
   end;
-  AssertEquals('log Synthesis started|log Synthesis completed!', Joined);
+  AssertEquals('log Synthesis started|log Synthesis stopped by user', Joined);
 end;
 
 procedure TSynthesisRunnerTests.StopBetweenStepsSkipsRestOfProtocol;
@@ -310,7 +310,9 @@ begin
   AssertTrue(Joined, Pos('pause 1|log Pause=1', Joined) > 0);
   AssertEquals(0, Pos('pause 2', Joined));
   AssertEquals('второй слой не начат', 0, Pos('CICLE=1', Joined));
-  AssertTrue(Joined, Pos('log Synthesis completed!', Joined) > 0);
+  AssertTrue(Joined, Pos('log Synthesis stopped by user', Joined) > 0);
+  AssertEquals('остановка не называется завершением', 0,
+    Pos('Synthesis completed', Joined));
 end;
 
 procedure TSynthesisRunnerTests.StopDoesNotStartNextBlock;
@@ -349,6 +351,11 @@ begin
   AssertTrue(Joined, Pos('log SyrSt ERROR: device offline', Joined) > 0);
   AssertEquals('после ошибки операции не идут', 0, Pos('pause 5', Joined));
   AssertEquals('второй слой не начат', 0, Pos('CICLE=1', Joined));
+  AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
+  AssertEquals('ошибка не называется завершением', 0,
+    Pos('Synthesis completed', Joined));
+  AssertEquals('и не остановкой пользователем', 0,
+    Pos('stopped by user', Joined));
 end;
 
 procedure TSynthesisRunnerTests.MissingProtocolStopsWithError;
@@ -366,6 +373,7 @@ begin
   end;
   AssertTrue(Joined, Pos('log ERROR: no protocol for letter G', Joined) > 0);
   AssertEquals('слой после ошибки не выполнен', 0, Pos('CICLE=2', Joined));
+  AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
 end;
 
 procedure TSynthesisRunnerTests.NoLayersStartsAndCompletes;
