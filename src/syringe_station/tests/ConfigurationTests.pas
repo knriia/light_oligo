@@ -153,17 +153,14 @@ type
   private
     FDirectory: string;
     FExecutableFileName: string;
-    FProtocolsDirectory: string;
-    procedure EnsureTestProtocolsDirectory;
+    FAutomationDirectory: string;
+    procedure EnsureTestAutomationDirectory;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure ProtocolsDirectoryIsInDataFolder;
-    procedure CreatesProtocolsDirectoryWhenMissing;
-    procedure RoundTripPreservesUtf8Scenario;
-    procedure ReadsUtf8Bom;
-    procedure MissingScenarioFileReturnsError;
+    procedure AutomationDirectoryIsInDataFolder;
+    procedure CreatesAutomationDirectoryWhenMissing;
   end;
 
   TDispenserCapacityValidatorTests = class(TTestCase)
@@ -2121,101 +2118,39 @@ begin
   AssertTrue(ForceDirectories(FDirectory));
   FExecutableFileName := IncludeTrailingPathDelimiter(FDirectory) +
     'syringe_pump.exe';
-  FProtocolsDirectory := IncludeTrailingPathDelimiter(FDirectory) +
-    'data' + PathDelim + 'protocols';
+  FAutomationDirectory := IncludeTrailingPathDelimiter(FDirectory) +
+    'data' + PathDelim + 'automation';
 end;
 
 procedure TAutomationDocumentStorageTests.TearDown;
 begin
-  DeleteFile(IncludeTrailingPathDelimiter(FProtocolsDirectory) +
-    'scenario.txt');
-  DeleteFile(IncludeTrailingPathDelimiter(FProtocolsDirectory) +
-    'bom.txt');
-  RemoveDir(FProtocolsDirectory);
+  RemoveDir(FAutomationDirectory);
   RemoveDir(IncludeTrailingPathDelimiter(FDirectory) + 'data');
   RemoveDir(FDirectory);
   inherited TearDown;
 end;
 
-procedure TAutomationDocumentStorageTests.EnsureTestProtocolsDirectory;
+procedure TAutomationDocumentStorageTests.EnsureTestAutomationDirectory;
 var
   Directory: string;
   ErrorText: string;
 begin
-  AssertTrue(EnsureProtocolsDirectory(FExecutableFileName, Directory,
+  AssertTrue(EnsureAutomationDirectory(FExecutableFileName, Directory,
     ErrorText));
-  AssertEquals(FProtocolsDirectory, Directory);
+  AssertEquals(FAutomationDirectory, Directory);
 end;
 
-procedure TAutomationDocumentStorageTests.ProtocolsDirectoryIsInDataFolder;
+procedure TAutomationDocumentStorageTests.AutomationDirectoryIsInDataFolder;
 begin
-  AssertEquals(FProtocolsDirectory,
-    GetProtocolsDirectory(FExecutableFileName));
+  AssertEquals(FAutomationDirectory,
+    GetAutomationDirectory(FExecutableFileName));
 end;
 
-procedure TAutomationDocumentStorageTests.CreatesProtocolsDirectoryWhenMissing;
+procedure TAutomationDocumentStorageTests.CreatesAutomationDirectoryWhenMissing;
 begin
-  AssertFalse(DirectoryExists(FProtocolsDirectory));
-  EnsureTestProtocolsDirectory;
-  AssertTrue(DirectoryExists(FProtocolsDirectory));
-end;
-
-procedure TAutomationDocumentStorageTests.RoundTripPreservesUtf8Scenario;
-var
-  FileName: string;
-  Content: UTF8String;
-  LoadedContent: UTF8String;
-  ErrorText: string;
-begin
-  EnsureTestProtocolsDirectory;
-  FileName := IncludeTrailingPathDelimiter(FProtocolsDirectory) +
-    'scenario.txt';
-  Content := 'command_1: {' + LineEnding +
-    '  dispenser_names: "Д1";' + LineEnding + '}';
-  AssertTrue(WriteAutomationTextFile(FileName, Content, ErrorText));
-  AssertTrue(ReadAutomationTextFile(FileName, LoadedContent, ErrorText));
-  AssertEquals(Content, LoadedContent);
-end;
-
-procedure TAutomationDocumentStorageTests.ReadsUtf8Bom;
-var
-  FileName: string;
-  Stream: TFileStream;
-  Payload: UTF8String;
-  LoadedContent: UTF8String;
-  ExpectedContent: UTF8String;
-  ErrorText: string;
-  Bom: array[0..2] of Byte;
-begin
-  EnsureTestProtocolsDirectory;
-  FileName := IncludeTrailingPathDelimiter(FProtocolsDirectory) + 'bom.txt';
-  Bom[0] := $EF;
-  Bom[1] := $BB;
-  Bom[2] := $BF;
-  Payload := 'Протокол';
-  Stream := TFileStream.Create(FileName, fmCreate);
-  try
-    Stream.WriteBuffer(Bom, SizeOf(Bom));
-    Stream.WriteBuffer(Payload[1], Length(Payload));
-  finally
-    Stream.Free;
-  end;
-
-  AssertTrue(ReadAutomationTextFile(FileName, LoadedContent, ErrorText));
-  ExpectedContent := 'Протокол';
-  AssertEquals(ExpectedContent, LoadedContent);
-end;
-
-procedure TAutomationDocumentStorageTests.MissingScenarioFileReturnsError;
-var
-  Content: UTF8String;
-  ErrorText: string;
-begin
-  EnsureTestProtocolsDirectory;
-  AssertFalse(ReadAutomationTextFile(
-    IncludeTrailingPathDelimiter(FProtocolsDirectory) + 'missing.txt',
-    Content, ErrorText));
-  AssertTrue(ErrorText <> '');
+  AssertFalse(DirectoryExists(FAutomationDirectory));
+  EnsureTestAutomationDirectory;
+  AssertTrue(DirectoryExists(FAutomationDirectory));
 end;
 
 procedure TDispenserCapacityValidatorTests.RejectsMissingNewListAndVolumeProvider;

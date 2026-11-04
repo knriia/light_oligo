@@ -6,7 +6,8 @@ uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
   WorkDispatcherTests, AppPathsTests,
-  ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests, ScenarioTests;
+  ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests, ScenarioTests,
+  ScenarioRunTests;
 
 var
   Application: TTestRunner;

@@ -12,7 +12,7 @@ uses
 type
   TScenarioListTests = class(TTestCase)
   private
-    function Delay(ASeconds: Integer): TScenarioItem;
+    function Pause(ASeconds: Integer): TScenarioItem;
     function Names(AList: TScenarioList): string;
   published
     procedure NewListIsEmpty;
@@ -22,7 +22,7 @@ type
     procedure DeleteShiftsFollowingItems;
     procedure MoveForwardAndBack;
     procedure ClearAndAssignCopyItems;
-    procedure ScenarioCountSkipsDelays;
+    procedure ScenarioCountSkipsPauses;
     procedure IndexOutsideListRaises;
   end;
 
@@ -37,13 +37,13 @@ type
   published
     procedure AcceptsValidItems;
     procedure ChecksScenarioLikeSyrStInProtocol;
-    procedure RejectsNegativeDelay;
+    procedure RejectsNegativePause;
     procedure SummaryShowsEachKind;
-    procedure TextIsProtocolWithOneBlock;
+    procedure TextIsSyrStAndPauseLinesWithoutBlockHeader;
     procedure TextRoundTrip;
     procedure EmptyTextGivesEmptyList;
     procedure ProtocolParserAcceptsScenarioText;
-    procedure RejectsSeveralBlocks;
+    procedure RejectsBlockHeaderLine;
     procedure RejectsOperationsOtherThanSyrStAndPause;
     procedure FailedParseKeepsList;
     procedure SaveAndLoadFile;
@@ -51,24 +51,25 @@ type
     procedure LoadReportsMissingFile;
     procedure LoadReportsBrokenFileAndKeepsList;
     procedure SaveReportsUnwritablePlace;
+    procedure LoadsFileWithUtf8Bom;
   end;
 
 implementation
 
-function Scenario(const ANames, AValves, AVolumes, ASpeeds: string): TScenarioItem;
+function Block(const ANames, AValves, AVolumes, ASpeeds: string): TScenarioItem;
 begin
-  Result := MakeScenario(MakeStep(ANames, AValves, AVolumes, ASpeeds));
+  Result := MakeSyringe(MakeStep(ANames, AValves, AVolumes, ASpeeds));
 end;
 
 { TScenarioListTests }
 
-function TScenarioListTests.Delay(ASeconds: Integer): TScenarioItem;
+function TScenarioListTests.Pause(ASeconds: Integer): TScenarioItem;
 begin
-  Result := MakeDelay(ASeconds);
+  Result := MakePause(ASeconds);
 end;
 
 function TScenarioListTests.Names(AList: TScenarioList): string;
-// delay 5 -> "d5", сценарий -> его дозаторы
+// пауза 5 -> "d5", блок -> его дозаторы
 var
   I: Integer;
 begin
@@ -77,8 +78,8 @@ begin
   begin
     if Result <> '' then
       Result := Result + ',';
-    if AList[I].Kind = sikDelay then
-      Result := Result + 'd' + IntToStr(AList[I].DelaySeconds)
+    if AList[I].Kind = sikPause then
+      Result := Result + 'd' + IntToStr(AList[I].PauseSeconds)
     else
       Result := Result + AList[I].Syringe.Dispensers;
   end;
@@ -91,7 +92,7 @@ begin
   L := TScenarioList.Create;
   try
     AssertEquals(0, L.Count);
-    AssertEquals(0, L.ScenarioCount);
+    AssertEquals(0, L.SyringeCount);
   finally
     L.Free;
   end;
@@ -103,8 +104,8 @@ var
 begin
   L := TScenarioList.Create;
   try
-    AssertEquals(0, L.Add(Scenario('A', '1', '10', '5')));
-    AssertEquals(1, L.Add(Delay(3)));
+    AssertEquals(0, L.Add(Block('A', '1', '10', '5')));
+    AssertEquals(1, L.Add(Pause(3)));
     AssertEquals('A,d3', Names(L));
   finally
     L.Free;
@@ -117,13 +118,13 @@ var
 begin
   L := TScenarioList.Create;
   try
-    L.Add(Scenario('A', '1', '10', '5'));
-    L.Add(Scenario('B', '1', '10', '5'));
-    L.Insert(1, Delay(7));
+    L.Add(Block('A', '1', '10', '5'));
+    L.Add(Block('B', '1', '10', '5'));
+    L.Insert(1, Pause(7));
     AssertEquals('A,d7,B', Names(L));
-    L.Insert(0, Delay(1));
+    L.Insert(0, Pause(1));
     AssertEquals('d1,A,d7,B', Names(L));
-    L.Insert(L.Count, Delay(2));
+    L.Insert(L.Count, Pause(2));
     AssertEquals('d1,A,d7,B,d2', Names(L));
   finally
     L.Free;
@@ -136,12 +137,12 @@ var
 begin
   L := TScenarioList.Create;
   try
-    L.Add(Scenario('A', '1', '10', '5'));
-    L.Add(Delay(3));
-    L.Add(Scenario('B', '1', '10', '5'));
-    L.Replace(1, Delay(9));
+    L.Add(Block('A', '1', '10', '5'));
+    L.Add(Pause(3));
+    L.Add(Block('B', '1', '10', '5'));
+    L.Replace(1, Pause(9));
     AssertEquals('A,d9,B', Names(L));
-    L.Replace(0, Scenario('C', '2', '20', '6'));
+    L.Replace(0, Block('C', '2', '20', '6'));
     AssertEquals('C,d9,B', Names(L));
     AssertEquals('2', L[0].Syringe.Valves);
   finally
@@ -155,9 +156,9 @@ var
 begin
   L := TScenarioList.Create;
   try
-    L.Add(Scenario('A', '1', '10', '5'));
-    L.Add(Delay(3));
-    L.Add(Scenario('B', '1', '10', '5'));
+    L.Add(Block('A', '1', '10', '5'));
+    L.Add(Pause(3));
+    L.Add(Block('B', '1', '10', '5'));
     L.Delete(1);
     AssertEquals('A,B', Names(L));
     L.Delete(1);
@@ -175,10 +176,10 @@ var
 begin
   L := TScenarioList.Create;
   try
-    L.Add(Scenario('A', '1', '10', '5'));
-    L.Add(Delay(1));
-    L.Add(Scenario('B', '1', '10', '5'));
-    L.Add(Delay(2));
+    L.Add(Block('A', '1', '10', '5'));
+    L.Add(Pause(1));
+    L.Add(Block('B', '1', '10', '5'));
+    L.Add(Pause(2));
     L.Move(0, 2);
     AssertEquals('d1,B,A,d2', Names(L));
     L.Move(3, 0);
@@ -197,9 +198,9 @@ begin
   A := TScenarioList.Create;
   B := TScenarioList.Create;
   try
-    A.Add(Scenario('A', '1', '10', '5'));
-    A.Add(Delay(4));
-    B.Add(Delay(99));
+    A.Add(Block('A', '1', '10', '5'));
+    A.Add(Pause(4));
+    B.Add(Pause(99));
     B.Assign(A);
     AssertEquals('A,d4', Names(B));
     A.Delete(0);
@@ -213,18 +214,18 @@ begin
   end;
 end;
 
-procedure TScenarioListTests.ScenarioCountSkipsDelays;
+procedure TScenarioListTests.ScenarioCountSkipsPauses;
 var
   L: TScenarioList;
 begin
   L := TScenarioList.Create;
   try
-    L.Add(Delay(1));
-    L.Add(Scenario('A', '1', '10', '5'));
-    L.Add(Delay(2));
-    L.Add(Scenario('B', '1', '10', '5'));
+    L.Add(Pause(1));
+    L.Add(Block('A', '1', '10', '5'));
+    L.Add(Pause(2));
+    L.Add(Block('B', '1', '10', '5'));
     AssertEquals(4, L.Count);
-    AssertEquals(2, L.ScenarioCount);
+    AssertEquals(2, L.SyringeCount);
   finally
     L.Free;
   end;
@@ -241,11 +242,11 @@ var
     try
       case AAction of
         0: L.Delete(5);
-        1: L.Replace(-1, Delay(1));
-        2: L.Insert(3, Delay(1));
+        1: L.Replace(-1, Pause(1));
+        2: L.Insert(3, Pause(1));
         3: L.Move(0, 2);
         4: L.Move(2, 0);
-        5: if L[2].DelaySeconds = 0 then ;
+        5: if L[2].PauseSeconds = 0 then ;
       end;
     except
       on EListError do
@@ -257,8 +258,8 @@ var
 begin
   L := TScenarioList.Create;
   try
-    L.Add(Delay(1));
-    L.Add(Delay(2));
+    L.Add(Pause(1));
+    L.Add(Pause(2));
     Expect('Delete', 0);
     Expect('Replace', 1);
     Expect('Insert за концом', 2);
@@ -280,9 +281,9 @@ end;
 function TScenarioFormatTests.Sample: TScenarioList;
 begin
   Result := TScenarioList.Create;
-  Result.Add(Scenario('A/Act', '2/3', '100/50', '10'));
-  Result.Add(MakeDelay(30));
-  Result.Add(Scenario('B', '1', '5', '2'));
+  Result.Add(Block('A/Act', '2/3', '100/50', '10'));
+  Result.Add(MakePause(30));
+  Result.Add(Block('B', '1', '5', '2'));
 end;
 
 procedure TScenarioFormatTests.SetUp;
@@ -313,9 +314,9 @@ procedure TScenarioFormatTests.AcceptsValidItems;
 var
   ErrorText: string;
 begin
-  AssertTrue(ErrorText, CheckScenarioItem(Scenario('A/B', '1/2', '10', '5'), ErrorText));
-  AssertTrue(ErrorText, CheckScenarioItem(MakeDelay(0), ErrorText));
-  AssertTrue(ErrorText, CheckScenarioItem(MakeDelay(3600), ErrorText));
+  AssertTrue(ErrorText, CheckScenarioItem(Block('A/B', '1/2', '10', '5'), ErrorText));
+  AssertTrue(ErrorText, CheckScenarioItem(MakePause(0), ErrorText));
+  AssertTrue(ErrorText, CheckScenarioItem(MakePause(3600), ErrorText));
   AssertEquals('', ErrorText);
 end;
 
@@ -325,18 +326,18 @@ var
   ErrorText, ProtocolError: string;
 begin
   // два дозатора, а объёмов три - как и в протоколе
-  Item := Scenario('A/B', '1/2', '10/20/30', '5');
+  Item := Block('A/B', '1/2', '10/20/30', '5');
   AssertFalse(CheckScenarioItem(Item, ErrorText));
   AssertFalse(CheckSyringeStep(Item.Syringe, ProtocolError));
   AssertTrue(ErrorText <> '');
   AssertEquals(ProtocolError, ErrorText);
 end;
 
-procedure TScenarioFormatTests.RejectsNegativeDelay;
+procedure TScenarioFormatTests.RejectsNegativePause;
 var
   ErrorText: string;
 begin
-  AssertFalse(CheckScenarioItem(MakeDelay(-1), ErrorText));
+  AssertFalse(CheckScenarioItem(MakePause(-1), ErrorText));
   AssertTrue(ErrorText <> '');
 end;
 
@@ -344,14 +345,14 @@ procedure TScenarioFormatTests.SummaryShowsEachKind;
 var
   Text: string;
 begin
-  Text := ScenarioItemSummary(Scenario('A/B', '1/2', '10', '5'));
+  Text := ScenarioItemSummary(Block('A/B', '1/2', '10', '5'));
   AssertTrue(Text, Pos('SyrSt', Text) > 0);
   AssertTrue(Text, Pos('A/B', Text) > 0);
-  Text := ScenarioItemSummary(MakeDelay(45));
+  Text := ScenarioItemSummary(MakePause(45));
   AssertTrue(Text, Pos('45', Text) > 0);
 end;
 
-procedure TScenarioFormatTests.TextIsProtocolWithOneBlock;
+procedure TScenarioFormatTests.TextIsSyrStAndPauseLinesWithoutBlockHeader;
 var
   L: TScenarioList;
   Expected: string;
@@ -359,22 +360,21 @@ begin
   L := Sample;
   try
     Expected :=
-      'Block=Scenario;' + LineEnding +
-      #9'SyrSt;' + LineEnding +
-      #9#9'Dispensers=A/Act;' + LineEnding +
-      #9#9'Valves=2/3;' + LineEnding +
-      #9#9'Volumes=100/50;' + LineEnding +
-      #9#9'VolumeUnit=мкл;' + LineEnding +
-      #9#9'Speeds=10;' + LineEnding +
-      #9#9'SpeedUnit=мкл/с;' + LineEnding +
-      #9'Pause=30;' + LineEnding +
-      #9'SyrSt;' + LineEnding +
-      #9#9'Dispensers=B;' + LineEnding +
-      #9#9'Valves=1;' + LineEnding +
-      #9#9'Volumes=5;' + LineEnding +
-      #9#9'VolumeUnit=мкл;' + LineEnding +
-      #9#9'Speeds=2;' + LineEnding +
-      #9#9'SpeedUnit=мкл/с;' + LineEnding;
+      'SyrSt;' + LineEnding +
+      #9'Dispensers=A/Act;' + LineEnding +
+      #9'Valves=2/3;' + LineEnding +
+      #9'Volumes=100/50;' + LineEnding +
+      #9'VolumeUnit=мкл;' + LineEnding +
+      #9'Speeds=10;' + LineEnding +
+      #9'SpeedUnit=мкл/с;' + LineEnding +
+      'Pause=30;' + LineEnding +
+      'SyrSt;' + LineEnding +
+      #9'Dispensers=B;' + LineEnding +
+      #9'Valves=1;' + LineEnding +
+      #9'Volumes=5;' + LineEnding +
+      #9'VolumeUnit=мкл;' + LineEnding +
+      #9'Speeds=2;' + LineEnding +
+      #9'SpeedUnit=мкл/с;' + LineEnding;
     AssertEquals(Expected, ScenarioListToText(L));
   finally
     L.Free;
@@ -396,7 +396,7 @@ begin
     for I := 0 to Source.Count - 1 do
     begin
       AssertTrue(Source[I].Kind = Loaded[I].Kind);
-      AssertEquals(Source[I].DelaySeconds, Loaded[I].DelaySeconds);
+      AssertEquals(Source[I].PauseSeconds, Loaded[I].PauseSeconds);
       AssertEquals(Source[I].Syringe.Dispensers, Loaded[I].Syringe.Dispensers);
       AssertEquals(Source[I].Syringe.Valves, Loaded[I].Syringe.Valves);
       AssertEquals(Source[I].Syringe.Volumes, Loaded[I].Syringe.Volumes);
@@ -419,10 +419,10 @@ begin
   try
     AssertTrue(ErrorText, ParseScenarioText('', L, ErrorText));
     AssertEquals(0, L.Count);
-    L.Add(MakeDelay(1));
-    AssertTrue(ErrorText, ParseScenarioText('Block=Scenario;' + LineEnding, L,
+    L.Add(MakePause(1));
+    AssertTrue(ErrorText, ParseScenarioText(LineEnding + LineEnding, L,
       ErrorText));
-    AssertEquals('блок без элементов', 0, L.Count);
+    AssertEquals('только пустые строки', 0, L.Count);
   finally
     L.Free;
   end;
@@ -437,7 +437,7 @@ begin
   L := Sample;
   try
     AssertTrue(ErrorText, ParseProtocolText(ScenarioListToText(L), Document,
-      ErrorText));
+      ErrorText, True));
     AssertEquals(1, Length(Document));
     AssertEquals(3, Length(Document[0].Steps));
     AssertTrue(Document[0].Steps[0].Kind = pskSyringe);
@@ -448,17 +448,17 @@ begin
   end;
 end;
 
-procedure TScenarioFormatTests.RejectsSeveralBlocks;
+procedure TScenarioFormatTests.RejectsBlockHeaderLine;
 var
   L: TScenarioList;
   ErrorText: string;
 begin
   L := TScenarioList.Create;
   try
-    AssertFalse(ParseScenarioText('Block=One;' + LineEnding + #9'Pause=1;' +
-      LineEnding + 'Block=Two;' + LineEnding, L, ErrorText));
-    AssertTrue(ErrorText, Pos('3', ErrorText) > 0); // строка второго блока
-    AssertTrue(ErrorText, Pos('2', ErrorText) > 0); // число блоков
+    AssertFalse(ParseScenarioText('Pause=1;' + LineEnding + 'Block=Two;' +
+      LineEnding, L, ErrorText));
+    AssertTrue(ErrorText, Pos('2', ErrorText) > 0); // строка с Block
+    AssertTrue(ErrorText, Pos('Block', ErrorText) > 0);
   finally
     L.Free;
   end;
@@ -471,15 +471,13 @@ var
 begin
   L := TScenarioList.Create;
   try
-    AssertFalse(ParseScenarioText('Block=Scenario;' + LineEnding +
-      #9'Pause=1;' + LineEnding + #9'Vacuum=1;' + LineEnding, L, ErrorText));
-    AssertTrue(ErrorText, Pos('3', ErrorText) > 0);
+    AssertFalse(ParseScenarioText('Pause=1;' + LineEnding + 'Vacuum=1;' +
+      LineEnding, L, ErrorText));
+    AssertTrue(ErrorText, Pos('2', ErrorText) > 0);
     AssertTrue(ErrorText, Pos('Vacuum', ErrorText) > 0);
-    AssertFalse(ParseScenarioText('Block=Scenario;' + LineEnding +
-      #9'Laser=2; Time=1;' + LineEnding, L, ErrorText));
+    AssertFalse(ParseScenarioText('Laser=2; Time=1;' + LineEnding, L, ErrorText));
     AssertTrue(ErrorText, Pos('Laser', ErrorText) > 0);
-    AssertFalse(ParseScenarioText('Block=Scenario;' + LineEnding +
-      #9'Comment=text;' + LineEnding, L, ErrorText));
+    AssertFalse(ParseScenarioText('Comment=text;' + LineEnding, L, ErrorText));
     AssertTrue(ErrorText, Pos('Comment', ErrorText) > 0);
   finally
     L.Free;
@@ -493,11 +491,10 @@ var
 begin
   L := Sample;
   try
-    AssertFalse(ParseScenarioText('Block=Scenario;' + LineEnding +
-      #9'Pause=abc;' + LineEnding, L, ErrorText));
+    AssertFalse(ParseScenarioText('Pause=abc;' + LineEnding, L, ErrorText));
     AssertEquals(3, L.Count);
-    AssertFalse(ParseScenarioText('Block=Scenario;' + LineEnding +
-      #9'Pause=1;' + LineEnding + #9'Vacuum=1;' + LineEnding, L, ErrorText));
+    AssertFalse(ParseScenarioText('Pause=1;' + LineEnding + 'Vacuum=1;' +
+      LineEnding, L, ErrorText));
     AssertEquals('частично разобранное не попадает в список', 3, L.Count);
   finally
     L.Free;
@@ -518,7 +515,7 @@ begin
     AssertTrue(ErrorText, LoadScenarioFile(FilePath('a' + SCENARIO_FILE_EXT),
       Loaded, ErrorText));
     AssertEquals(ScenarioListToText(Source), ScenarioListToText(Loaded));
-    AssertEquals(2, Loaded.ScenarioCount);
+    AssertEquals(2, Loaded.SyringeCount);
   finally
     Loaded.Free;
     Source.Free;
@@ -532,7 +529,7 @@ var
 begin
   L := Sample;
   try
-    L.Add(Scenario('', '1', '5', '2'));  // четвёртый элемент без дозаторов
+    L.Add(Block('', '1', '5', '2'));  // четвёртый элемент без дозаторов
     AssertFalse(SaveScenarioFile(FilePath('bad.scn'), L, ErrorText));
     AssertTrue(ErrorText, Pos('4', ErrorText) > 0);
     AssertFalse('файл не создан', FileExists(FilePath('bad.scn')));
@@ -564,8 +561,8 @@ var
 begin
   F := TStringList.Create;
   try
-    F.Add('Block=Scenario;');
-    F.Add(#9'Pause=oops;');
+    F.Add('Pause=1;');
+    F.Add('Pause=oops;');
     F.SaveToFile(FilePath('broken.scn'));
   finally
     F.Free;
@@ -593,6 +590,37 @@ begin
     AssertTrue(ErrorText <> '');
   finally
     L.Free;
+  end;
+end;
+
+procedure TScenarioFormatTests.LoadsFileWithUtf8Bom;
+var
+  Source, Loaded: TScenarioList;
+  Stream: TFileStream;
+  Body: UTF8String;
+  Bom: array[0..2] of Byte;
+  ErrorText: string;
+begin
+  Source := Sample;
+  Loaded := TScenarioList.Create;
+  try
+    Body := ScenarioListToText(Source);
+    Bom[0] := $EF;
+    Bom[1] := $BB;
+    Bom[2] := $BF;
+    Stream := TFileStream.Create(FilePath('bom.scn'), fmCreate);
+    try
+      Stream.WriteBuffer(Bom, SizeOf(Bom));
+      Stream.WriteBuffer(Body[1], Length(Body));
+    finally
+      Stream.Free;
+    end;
+    AssertTrue(ErrorText, LoadScenarioFile(FilePath('bom.scn'), Loaded,
+      ErrorText));
+    AssertEquals(Body, ScenarioListToText(Loaded));
+  finally
+    Loaded.Free;
+    Source.Free;
   end;
 end;
 

@@ -1,22 +1,22 @@
 unit ScenarioList;
-// Сценарии шприцевой станции: список из сценариев (команда подачи SyrSt)
-// и задержек (Pause) между ними.
+// Сценарий шприцевой станции - список операций. Он хранится в файле.
+// Операция "шприцевая станция" (SyrSt) - подача из дозаторов, из
+// нескольких одновременно или из одного. Пауза - ожидание в секундах.
 //
-// Поля сценария и их проверка те же, что у операции SyrSt в протоколе
-// синтеза (ProtocolFormat). Файл сценариев - это протокол из одного блока,
-// в котором есть только SyrSt и Pause:
+// Поля операции и их проверка те же, что у операции SyrSt в протоколе синтеза
+// (ProtocolFormat). Файл - это записи SyrSt и Pause подряд, без строки
+// Block=...:
 //
-//   Block=Scenario;
-//   	SyrSt;
-//   		Dispensers=A/Act;
-//   		Valves=2/2;
-//   		Volumes=100/100;
-//   		VolumeUnit=мкл;
-//   		Speeds=10/10;
-//   		SpeedUnit=мкл/с;
-//   	Pause=30;
-//
-// Поэтому такой файл читает и станция, и протокол синтеза.
+//   SyrSt;
+//   	Dispensers=A/Act;
+//   	Valves=2/2;
+//   	Volumes=100/100;
+//   	VolumeUnit=мкл;
+//   	Speeds=10/10;
+//   	SpeedUnit=мкл/с;
+//   Pause=30;
+//   SyrSt;
+//   	...
 
 {$mode ObjFPC}{$H+}
 
@@ -26,16 +26,15 @@ uses
   Classes, SysUtils, ProtocolFormat;
 
 const
-  SCENARIO_BLOCK_NAME = 'Scenario'; // имя единственного блока в файле
   SCENARIO_FILE_EXT = '.scn';
 
 type
-  TScenarioItemKind = (sikScenario, sikDelay);
+  TScenarioItemKind = (sikSyringe, sikPause);
 
   TScenarioItem = record
     Kind: TScenarioItemKind;
-    Syringe: TSyringeStep;  // параметры подачи (для сценария)
-    DelaySeconds: Integer;  // пауза, с (для задержки)
+    Syringe: TSyringeStep;  // параметры подачи (шприцевая станция)
+    PauseSeconds: Integer;  // пауза, с (для паузы)
   end;
 
   TScenarioList = class
@@ -54,25 +53,25 @@ type
     procedure Move(AFromIndex, AToIndex: Integer);
     procedure Clear;
     procedure Assign(AOther: TScenarioList);
-    // Сколько в списке сценариев (задержки не считаются).
-    function ScenarioCount: Integer;
+    // Сколько в списке операций шприцевой станции (паузы не считаются).
+    function SyringeCount: Integer;
     property Count: Integer read GetCount;
     property Items[AIndex: Integer]: TScenarioItem read GetItem; default;
   end;
 
-function MakeScenario(const ASyringe: TSyringeStep): TScenarioItem;
-function MakeDelay(ASeconds: Integer): TScenarioItem;
+function MakeSyringe(const ASyringe: TSyringeStep): TScenarioItem;
+function MakePause(ASeconds: Integer): TScenarioItem;
 
-// Проверка элемента: сценарий - как операция SyrSt, задержка - целое число
-// секунд не меньше нуля. При ошибке текст объясняет, что не так.
+// Проверка операции: шприцевая станция - как SyrSt, пауза - целое число секунд
+// не меньше нуля. При ошибке текст объясняет, что не так.
 function CheckScenarioItem(const AItem: TScenarioItem;
   out AErrorText: string): Boolean;
 // Короткое описание для списка на экране и журнала.
 function ScenarioItemSummary(const AItem: TScenarioItem): string;
 
-// Текст файла сценариев (формат выше).
+// Текст файла сценария (формат выше).
 function ScenarioListToText(AList: TScenarioList): string;
-// Разбор текста. Пустой текст - пустой список. При ошибке список не
+// Разбор текста. Пустой текст - пустой сценарий. При ошибке список не
 // меняется, а текст ошибки начинается с номера строки.
 function ParseScenarioText(const AText: string; AList: TScenarioList;
   out AErrorText: string): Boolean;
@@ -167,28 +166,28 @@ begin
   FItems := Copy(AOther.FItems);
 end;
 
-function TScenarioList.ScenarioCount: Integer;
+function TScenarioList.SyringeCount: Integer;
 var
   I: Integer;
 begin
   Result := 0;
   for I := 0 to High(FItems) do
-    if FItems[I].Kind = sikScenario then
+    if FItems[I].Kind = sikSyringe then
       Inc(Result);
 end;
 
-function MakeScenario(const ASyringe: TSyringeStep): TScenarioItem;
+function MakeSyringe(const ASyringe: TSyringeStep): TScenarioItem;
 begin
   Result := Default(TScenarioItem);
-  Result.Kind := sikScenario;
+  Result.Kind := sikSyringe;
   Result.Syringe := ASyringe;
 end;
 
-function MakeDelay(ASeconds: Integer): TScenarioItem;
+function MakePause(ASeconds: Integer): TScenarioItem;
 begin
   Result := Default(TScenarioItem);
-  Result.Kind := sikDelay;
-  Result.DelaySeconds := ASeconds;
+  Result.Kind := sikPause;
+  Result.PauseSeconds := ASeconds;
 end;
 
 function CheckScenarioItem(const AItem: TScenarioItem;
@@ -196,13 +195,13 @@ function CheckScenarioItem(const AItem: TScenarioItem;
 begin
   AErrorText := '';
   case AItem.Kind of
-    sikScenario:
+    sikSyringe:
       Result := CheckSyringeStep(AItem.Syringe, AErrorText);
   else
     begin
-      Result := AItem.DelaySeconds >= 0;
+      Result := AItem.PauseSeconds >= 0;
       if not Result then
-        AErrorText := 'Задержка должна быть целым числом секунд не меньше нуля.';
+        AErrorText := 'Пауза должна быть целым числом секунд не меньше нуля.';
     end;
   end;
 end;
@@ -210,10 +209,10 @@ end;
 function ScenarioItemSummary(const AItem: TScenarioItem): string;
 begin
   case AItem.Kind of
-    sikScenario:
+    sikSyringe:
       Result := SyringeStepSummary(AItem.Syringe);
   else
-    Result := 'Задержка: ' + IntToStr(AItem.DelaySeconds) + ' с';
+    Result := 'Пауза: ' + IntToStr(AItem.PauseSeconds) + ' с';
   end;
 end;
 
@@ -222,19 +221,19 @@ var
   I, J: Integer;
   Lines: TStringArray;
 begin
-  Result := KEY_BLOCK + '=' + SCENARIO_BLOCK_NAME + ';' + LineEnding;
+  Result := '';
   for I := 0 to AList.Count - 1 do
     case AList[I].Kind of
-      sikScenario:
+      sikSyringe:
         begin
-          Result := Result + #9 + KEY_SYRINGE + ';' + LineEnding;
+          Result := Result + KEY_SYRINGE + ';' + LineEnding;
           Lines := SyringeStepParamLines(AList[I].Syringe);
           for J := 0 to High(Lines) do
-            Result := Result + #9#9 + Lines[J] + LineEnding;
+            Result := Result + #9 + Lines[J] + LineEnding;
         end;
-      sikDelay:
-        Result := Result + #9 + KEY_PAUSE + '=' +
-          IntToStr(AList[I].DelaySeconds) + ';' + LineEnding;
+      sikPause:
+        Result := Result + KEY_PAUSE + '=' +
+          IntToStr(AList[I].PauseSeconds) + ';' + LineEnding;
     end;
 end;
 
@@ -259,33 +258,31 @@ var
   I: Integer;
 begin
   Result := False;
-  if not ParseProtocolText(AText, Document, AErrorText) then
+  if not ParseProtocolText(AText, Document, AErrorText, True) then
     Exit;
   if Length(Document) > 1 then
   begin
     AErrorText := 'Строка ' + IntToStr(Document[1].LineNumber) +
-      ': в файле сценариев должен быть один список (Block=...), найдено ' +
-      'блоков: ' + IntToStr(Length(Document)) + '.';
+      ': в сценарии не должно быть строк Block=..., только SyrSt и Pause.';
     Exit;
   end;
   Parsed := TScenarioList.Create;
   try
-    if Length(Document) = 1 then
-      for I := 0 to High(Document[0].Steps) do
-      begin
-        Step := Document[0].Steps[I];
-        case Step.Kind of
-          pskSyringe: Parsed.Add(MakeScenario(Step.Syringe));
-          pskPause: Parsed.Add(MakeDelay(Step.IntValue));
-        else
-          begin
-            AErrorText := 'Строка ' + IntToStr(Step.LineNumber) +
-              ': в сценариях допускаются только SyrSt и Pause, а здесь ' +
-              StepKey(Step.Kind) + '.';
-            Exit;
-          end;
+    for I := 0 to High(Document[0].Steps) do
+    begin
+      Step := Document[0].Steps[I];
+      case Step.Kind of
+        pskSyringe: Parsed.Add(MakeSyringe(Step.Syringe));
+        pskPause: Parsed.Add(MakePause(Step.IntValue));
+      else
+        begin
+          AErrorText := 'Строка ' + IntToStr(Step.LineNumber) +
+            ': в сценарии допускаются только SyrSt и Pause, а здесь ' +
+            StepKey(Step.Kind) + '.';
+          Exit;
         end;
       end;
+    end;
     AList.Assign(Parsed);
     AErrorText := '';
     Result := True;
@@ -303,13 +300,13 @@ begin
   Result := False;
   if not ReadUtf8TextFile(AFileName, Content, ReadError) then
   begin
-    AErrorText := 'Не удалось прочитать файл сценариев:' + LineEnding +
+    AErrorText := 'Не удалось прочитать файл сценария:' + LineEnding +
       AFileName + LineEnding + ReadError;
     Exit;
   end;
   if not ParseScenarioText(Content, AList, ReadError) then
   begin
-    AErrorText := 'Файл сценариев не загружен, ' + ExtractFileName(AFileName) +
+    AErrorText := 'Сценарий не загружен, ' + ExtractFileName(AFileName) +
       ':' + LineEnding + ReadError;
     Exit;
   end;
@@ -327,13 +324,13 @@ begin
   for I := 0 to AList.Count - 1 do
     if not CheckScenarioItem(AList[I], ItemError) then
     begin
-      AErrorText := 'Файл не сохранён: элемент ' + IntToStr(I + 1) +
-        ' заполнен неверно.' + LineEnding + ItemError;
+      AErrorText := 'Файл не сохранён: операция ' + IntToStr(I + 1) +
+        ' заполнена неверно.' + LineEnding + ItemError;
       Exit;
     end;
   if not WriteUtf8TextFile(AFileName, ScenarioListToText(AList), WriteError) then
   begin
-    AErrorText := 'Не удалось сохранить файл сценариев:' + LineEnding +
+    AErrorText := 'Не удалось сохранить файл сценария:' + LineEnding +
       AFileName + LineEnding + WriteError;
     Exit;
   end;
