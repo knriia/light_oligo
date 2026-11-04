@@ -7,7 +7,8 @@ uses
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
   WorkDispatcherTests, AppPathsTests,
   ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests, ScenarioTests,
-  ScenarioRunTests, ProtocolModelTests;
+  ScenarioRunTests, ProtocolModelTests,
+  ProtocolEditingTests;
 
 var
   Application: TTestRunner;

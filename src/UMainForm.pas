@@ -7,9 +7,9 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Graphics, Buttons,
-  UOperationForm, UDispenserStationHost, DispenserLayout,
+  UProtocolForm, UDispenserStationHost, DispenserLayout,
   AppState, CommonUtils, OligoSlices, SynthesisProtocol, ProtocolFormat,
-  AppPaths, IniFiles, UBlockNameForm, SynthesisThread,
+  AppPaths, IniFiles, SynthesisThread,
   USequencesForm, UManualForm, EzCadApp;
 
 
@@ -23,51 +23,32 @@ type
     B_Start: TButton;
     B_LoadLayers: TButton;
     B_LoadProtToSynth: TButton;
-    B_RemoveNode: TButton;
-    B_AddOperInProtocol: TButton;
-    B_AddBlockInProtocol: TButton;
-    B_SaveProtocolLayer: TButton;
-    B_LoadProtocolLayer: TButton;
-    GB_EditProtocolTree: TGroupBox;
     GB_Files: TGroupBox;
     GB_SynthControl: TGroupBox;
-    L_MoveArrows: TLabel;
     OD_File: TOpenDialog;
     Memo1: TMemo;
     PageControl1: TPageControl;
     Panel1: TPanel;
-    SD_File: TSaveDialog;
-    SB_UpNode: TSpeedButton;
-    SB_DownNode: TSpeedButton;
-    Splitter2: TSplitter;
     TV_Synthesis: TTreeView;
     TS_Synthesis: TTabSheet;
     Tmr_EzCADer: TTimer;
-    TV_ProtocolLayer: TTreeView;
     TS_Protocol: TTabSheet;
     TS_Manual: TTabSheet;
     TS_Log: TTabSheet;
     TS_Sequences: TTabSheet;
-    procedure B_AddBlockInProtocolClick(Sender: TObject);
-    procedure B_AddOperInProtocolClick(Sender: TObject);
-    procedure AddStepToTree(AParent: TTreeNode; const AStep: TProtocolStep);
     procedure B_ClearAllClick(Sender: TObject);
     procedure B_LoadLayersClick(Sender: TObject);
-    procedure B_LoadProtocolLayerClick(Sender: TObject);
     procedure B_LoadProtToSynthClick(Sender: TObject);
     procedure B_PauseClick(Sender: TObject);
-    procedure B_RemoveNodeClick(Sender: TObject);
-    procedure B_SaveProtocolLayerClick(Sender: TObject);
     procedure B_StartClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
-    procedure SB_DownNodeClick(Sender: TObject);
-    procedure SB_UpNodeClick(Sender: TObject);
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
     FDispenserStation: TDispenserStationForm;
     FSequencesForm: TSequencesForm;
+    FProtocolForm: TProtocolForm;
     FManualForm: TManualForm;
     FEzCadWatcher: TEzCadDialogWatcher;
     procedure SequencesLog(const AMsg: string);
@@ -114,14 +95,6 @@ begin
   TS_Log.Caption:=MyInterface.ReadString('Main','TS_Log','Лог');
 
 
-  GB_EditProtocolTree.Caption:=MyInterface.ReadString('Protocol','GB_EditProtocolTree','Protocol');
-  B_LoadProtocolLayer.Caption:=MyInterface.ReadString('Protocol','B_LoadProtocolLayer','Load Protocol');
-  L_MoveArrows.Caption:=MyInterface.ReadString('Protocol','L_Arrows','Move Node');
-  B_AddBlockInProtocol.Caption:=MyInterface.ReadString('Protocol','B_AddBlockInProtocol','Add Block');
-  B_AddOperInProtocol.Caption:=MyInterface.ReadString('Protocol','B_AddOperInProtocol','Add Operator');
-  B_RemoveNode.Caption:=MyInterface.ReadString('Protocol','B_RemoveNode','Remove Node');
-  B_SaveProtocolLayer.Caption:=MyInterface.ReadString('Protocol','B_SaveProtocolLayer','Save Protocol');
-
   GB_SynthControl.Caption:=MyInterface.ReadString('Synthesis','GB_SynthControl','Synthesis Control');
   GB_Files.Caption:=MyInterface.ReadString('Synthesis','GB_Files','Files');
   B_LoadProtToSynth.Caption:=MyInterface.ReadString('Synthesis','B_LoadProtToSynth','Load Protocol');
@@ -143,6 +116,12 @@ begin
   FManualForm.LoadSettings;
   FManualForm.OnLog := @SequencesLog;
   FManualForm.Show;
+  FProtocolForm := TProtocolForm.Create(Self);
+  FProtocolForm.BorderStyle := bsNone;
+  FProtocolForm.Parent := TS_Protocol;
+  FProtocolForm.Align := alClient;
+  FProtocolForm.ApplyCaptions(MyInterface);
+  FProtocolForm.Show;
   FDispenserStation := TDispenserStationForm.Create(Self);
   FDispenserStation.BorderStyle := bsNone;
   FDispenserStation.Parent := FManualForm.GB_PumpStation;
@@ -256,7 +235,15 @@ end;
 
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
-  // сначала массив: вопрос о сохранении ничего не меняет в оборудовании
+  // сначала массив и протокол: вопрос о сохранении ничего не меняет в
+  // оборудовании
+  if Assigned(FProtocolForm) and
+     not FProtocolForm.CanCloseFromHost then
+  begin
+    CloseAction := caNone;
+    Exit;
+  end;
+
   if Assigned(FSequencesForm) and
      not FSequencesForm.CanCloseFromHost then
   begin
@@ -288,146 +275,6 @@ end;
 {ВКЛАДКА Sequence}
  
 {ВКЛАДКА Protocol}
-
-procedure TMainForm.B_LoadProtocolLayerClick(Sender: TObject);
-// Загрузка протокола из файла
-begin
-  OD_File.Filter:='Протокол|*.pro';
-  OD_File.InitialDir:=ProtocolsDir;
-  OD_File.FilterIndex:=1;
-  OD_File.FileName:='';
-  If OD_File.Execute then
-  try
-    TV_ProtocolLayer.LoadFromFile(OD_File.FileName);
-  except
-  end;
-end;
-
-procedure TMainForm.B_AddBlockInProtocolClick(Sender: TObject);
-// Добавляем корневой блок в протокол
-var
-  BlockName: string;
-begin
-  BlockName:='BlockName';
-  if EditBlockName('', BlockName, MyInterface) then
-    TV_ProtocolLayer.Items.Add(nil, KEY_BLOCK+'='+BlockName+';');
-end;
-
-procedure TMainForm.AddStepToTree(AParent: TTreeNode; const AStep: TProtocolStep);
-// Узел операции под блоком: первая строка записи - узел, остальные (параметры
-// SyrSt) - вложенные в него строки. Записью занимается ProtocolFormat.
-var
-  Lines: TStringArray;
-  Node: TTreeNode;
-  I: Integer;
-begin
-  Lines:=Trim(ProtocolStepToText(AStep, 0)).Split(LineEnding);
-  Node:=TV_ProtocolLayer.Items.AddChild(AParent, Trim(Lines[0]));
-  for I:=1 to High(Lines) do
-    TV_ProtocolLayer.Items.AddChild(Node, Trim(Lines[I]));
-  if Length(Lines)>1 then
-    Node.Expand(False);
-end;
-
-procedure TMainForm.B_AddOperInProtocolClick(Sender: TObject);
-// Добавляем операцию в протокол: окно возвращает операцию, а здесь из неё
-// создаётся узел дерева
-var
-  tmpNode: TTreeNode;
-  Step: TProtocolStep;
-begin
-  if TV_ProtocolLayer.Selected= nil
-  then
-  begin
-    ShowMessage('Сначала выделите узел');
-    Exit;
-  end;
-
-  Step:=DefaultOperation(pskSyringe);
-  if not EditOperation('', ALL_OPERATION_KINDS, Step, MyInterface) then
-    Exit;
-
-  tmpNode:=nil;
-  case TV_ProtocolLayer.Selected.Level of   // задаем ноду 0 уровня независимо от глубины вложения
-    0 :tmpNode:=TV_ProtocolLayer.Selected;
-    1 :tmpNode:=TV_ProtocolLayer.Selected.Parent;
-    2 :tmpNode:=TV_ProtocolLayer.Selected.Parent.Parent;
-  end;
-  AddStepToTree(tmpNode, Step);
-end;
-
-procedure TMainForm.B_RemoveNodeClick(Sender: TObject);
-begin
-   if(TV_ProtocolLayer.Selected = nil) then
-   begin
-      ShowMessage('Выделите узел!');
-      Exit;
-   end;
-   // удаляем
-   TV_ProtocolLayer.Selected.Delete;
-end;
-
-procedure TMainForm.B_SaveProtocolLayerClick(Sender: TObject);
-// Сохраняем протокол в файл
-begin
-  SD_File.Filter:='Протокол|*.pro';
-  SD_File.InitialDir:=ProtocolsDir;
-  SD_File.FilterIndex:=1;
-  SD_File.FileName:='';
-  if SD_File.Execute then
-  try
-    TV_ProtocolLayer.SaveToFile(SD_File.FileName);
-  except
-    ShowMessage('Ошибка сохранения файла протокола');
-  end;
-end;
-
-procedure TMainForm.SB_UpNodeClick(Sender: TObject);
-// перемещение ноды вверх по дереву
-var
-  SelectedNode, PrevNode: TTreeNode;
-begin
-   if(TV_ProtocolLayer.Selected = nil) then
-   begin
-      ShowMessage('Выделите узел!');
-      Exit;
-   end;
-
-   SelectedNode := TV_ProtocolLayer.Selected;
-  if Assigned(SelectedNode) then
-  begin
-    PrevNode := SelectedNode.GetPrevSibling;
-    if Assigned(PrevNode) then
-    begin
-      // Перемещаем выбранный узел вверх на том же уровне
-      SelectedNode.MoveTo(PrevNode, naInsert);
-    end;
-  end;
-end;
-
-procedure TMainForm.SB_DownNodeClick(Sender: TObject);
-// Перемещение ноды вниз по дереву
-var
-  SelectedNode, NextNode: TTreeNode;
-begin
-   if(TV_ProtocolLayer.Selected = nil) then
-   begin
-      ShowMessage('Выделите узел!');
-      Exit;
-   end;
-
-  SelectedNode := TV_ProtocolLayer.Selected;
-  if Assigned(SelectedNode) then
-  begin
-    NextNode := SelectedNode.GetNextSibling;
-    if Assigned(NextNode) then
-    begin
-      // Перемещаем выбранный узел вниз на том же уровне
-      NextNode.MoveTo(SelectedNode, naInsert);
-    end;
-  end;
-end;
-
 
 {ВКЛАДКА Synthesis}
 

@@ -1,0 +1,138 @@
+object ProtocolForm: TProtocolForm
+  Left = 0
+  Height = 493
+  Top = 0
+  Width = 840
+  Caption = 'ProtocolForm'
+  ClientHeight = 493
+  ClientWidth = 840
+  LCLVersion = '4.4.0.0'
+  object P_Buttons: TPanel
+    Left = 0
+    Height = 37
+    Top = 0
+    Width = 840
+    Align = alTop
+    AutoSize = True
+    BevelOuter = bvNone
+    BorderSpacing.Around = 4
+    ChildSizing.HorizontalSpacing = 6
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 8
+    ClientHeight = 37
+    ClientWidth = 840
+    TabOrder = 0
+    object B_New: TButton
+      Left = 4
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_New'
+      TabOrder = 0
+      OnClick = B_NewClick
+    end
+    object B_Open: TButton
+      Left = 85
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_Open'
+      TabOrder = 1
+      OnClick = B_OpenClick
+    end
+    object B_Save: TButton
+      Left = 166
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_Save'
+      TabOrder = 2
+      OnClick = B_SaveClick
+    end
+    object B_AddBlock: TButton
+      Left = 247
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_AddBlock'
+      TabOrder = 3
+      OnClick = B_AddBlockClick
+    end
+    object B_AddOperation: TButton
+      Left = 328
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_AddOperation'
+      TabOrder = 4
+      OnClick = B_AddOperationClick
+    end
+    object B_Delete: TButton
+      Left = 409
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_Delete'
+      TabOrder = 5
+      OnClick = B_DeleteClick
+    end
+    object B_MoveUp: TButton
+      Left = 490
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_MoveUp'
+      TabOrder = 6
+      OnClick = B_MoveUpClick
+    end
+    object B_MoveDown: TButton
+      Left = 571
+      Height = 29
+      Top = 4
+      Width = 75
+      AutoSize = True
+      Caption = 'B_MoveDown'
+      TabOrder = 7
+      OnClick = B_MoveDownClick
+    end
+  end
+  object L_File: TLabel
+    Left = 8
+    Height = 15
+    Top = 45
+    Width = 824
+    Align = alTop
+    BorderSpacing.Left = 8
+    BorderSpacing.Right = 8
+    BorderSpacing.Bottom = 4
+    Caption = 'L_File'
+    ParentColor = False
+  end
+  object TV_Protocol: TTreeView
+    Left = 0
+    Height = 429
+    Top = 64
+    Width = 840
+    Align = alClient
+    HideSelection = False
+    ReadOnly = True
+    TabOrder = 1
+    OnDblClick = TV_ProtocolDblClick
+    OnSelectionChanged = TV_ProtocolSelectionChanged
+  end
+  object OD_File: TOpenDialog
+    Left = 600
+    Top = 100
+  end
+  object SD_File: TSaveDialog
+    Left = 660
+    Top = 100
+  end
+end
