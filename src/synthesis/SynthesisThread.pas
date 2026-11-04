@@ -11,8 +11,9 @@ unit SynthesisThread;
 interface
 
 uses
-  Classes, SysUtils, Windows, WinProcessUtils, ProtocolFormat, OligoSlices,
-  SynthesisSession, SynthesisRunner, SynthesisFolder, UDispenserStationHost;
+  Classes, SysUtils, ProtocolFormat, OligoSlices, SynthesisSession,
+  SynthesisRunner, SynthesisFolder, LaserMarking, EzCadApp,
+  UDispenserStationHost;
 
 type
   // Что поток берёт у окон. Все вызовы идут в главном потоке (Synchronize),
@@ -30,6 +31,27 @@ type
 
   TSynthesisThread = class;
 
+  TSynthesisThreadActions = class;
+
+  // Настоящий EzCAD для LaserMarking: действия через EzCadApp.
+  TThreadEzCadDriver = class(TEzCadDriver)
+  private
+    FThread: TSynthesisThread;
+    FActions: TSynthesisThreadActions;
+  public
+    constructor Create(AThread: TSynthesisThread;
+      AActions: TSynthesisThreadActions);
+    function IsRunning: Boolean; override;
+    function Launch(const AEzdFile: string): Boolean; override;
+    function SendMark: Boolean; override;
+    procedure Close; override;
+    procedure Wait(AMilliseconds: Integer); override;
+    procedure Poll(AMilliseconds: Integer); override;
+    function StopRequested: Boolean; override;
+    procedure Log(const AText: string); override;
+    procedure Opening; override;
+  end;
+
   // Действия синтеза, выполняемые потоком (главное окно - через Synchronize).
   TSynthesisThreadActions = class(TSynthesisActions)
   private
@@ -42,8 +64,8 @@ type
       out AErrorText: string): Boolean; override;
     procedure Pause(ASeconds: Integer); override;
     procedure Vacuum(AOn: Boolean); override;
-    procedure Laser(ARepeats: Integer; ATimeSeconds: Double;
-      const AEzdFile: string); override;
+    function Laser(ARepeats: Integer; ATimeSeconds: Double;
+      const AEzdFile: string; out AErrorText: string): Boolean; override;
   end;
 
   { TSynthesisThread }
@@ -135,35 +157,87 @@ begin
   Sleep(100); {TODO: заменить на функцию вкл/выкл вакуума}
 end;
 
-procedure TSynthesisThreadActions.Laser(ARepeats: Integer;
-  ATimeSeconds: Double; const AEzdFile: string);
+function TSynthesisThreadActions.Laser(ARepeats: Integer;
+  ATimeSeconds: Double; const AEzdFile: string;
+  out AErrorText: string): Boolean;
+// Порядок маркировки - в LaserMarking, здесь только настоящий EzCAD
 var
-  ProcH: THandle;
-  j: Integer;
+  Driver: TThreadEzCadDriver;
 begin
-  // открываем EzCAD
-  if GetProcessHandle('EzCad2.exe')=0 then
-  begin
-    FThread.Synchronize(@FThread.TrigTimer);
-    Log('EzCAD opening');
-    ShellExecute(0, 'open', PChar(ExtractFilePath(ParamStr(0))+'EzCAD2.exe'),
-    PChar(AEzdFile), nil, SW_SHOWMINIMIZED);   // Открываем EzCAD2
-    Sleep(FThread.FHost.EzCadOpenDelayMs); // задержка перед маркировкой на время открытия EzCAD
-    for j:=0 to ARepeats-1 do
-    begin
-      SendMsgToProc('EzCAD2.exe',VK_F2); // команда на маркировку
-      Sleep(Round(ATimeSeconds)*1000); // задержка после маркировки (из протокола)
-      Log('Laser----F2--->');
-      if FThread.Terminated then Break; // Потом убрать
-    end;
+  Driver:=TThreadEzCadDriver.Create(FThread, Self);
+  try
+    Result:=MarkLayerWithEzCad(Driver, AEzdFile, ARepeats, ATimeSeconds,
+                               FThread.FHost.EzCadOpenDelayMs, AErrorText);
+  finally
+    Driver.Free;
   end;
-  ProcH:=GetProcessHandle('EzCad2.exe');
-  if ProcH<>0 then
+end;
+
+{ TThreadEzCadDriver }
+
+constructor TThreadEzCadDriver.Create(AThread: TSynthesisThread;
+  AActions: TSynthesisThreadActions);
+begin
+  inherited Create;
+  FThread:=AThread;
+  FActions:=AActions;
+end;
+
+function TThreadEzCadDriver.IsRunning: Boolean;
+begin
+  Result:=EzCadRunning;
+end;
+
+function TThreadEzCadDriver.Launch(const AEzdFile: string): Boolean;
+begin
+  // путь к файлу берётся в кавычки: в нём могут быть пробелы и кириллица
+  Result:=LaunchEzCad(ExtractFilePath(ParamStr(0)), AEzdFile);
+end;
+
+function TThreadEzCadDriver.SendMark: Boolean;
+begin
+  Result:=SendEzCadMark;
+end;
+
+procedure TThreadEzCadDriver.Close;
+begin
+  CloseEzCad;
+end;
+
+procedure TThreadEzCadDriver.Wait(AMilliseconds: Integer);
+// Ждёт кусками по 100 мс, чтобы остановка синтеза не ждала конца паузы
+var
+  Left: Integer;
+begin
+  Left:=AMilliseconds;
+  while (Left>0) and not FThread.Terminated do
   begin
-    SendMsgToProcWithMod('EzCAD2.exe',VK_F4, VK_MENU); // Alt+F4. закрываем
-    PostMessage(ProcH, WM_CLOSE, 0, 0);
-    Log('EzCAD closed');
+    if Left<100 then
+      Sleep(Left)
+    else
+      Sleep(100);
+    Dec(Left, 100);
   end;
+end;
+
+procedure TThreadEzCadDriver.Poll(AMilliseconds: Integer);
+begin
+  Sleep(AMilliseconds);
+end;
+
+function TThreadEzCadDriver.StopRequested: Boolean;
+begin
+  Result:=FThread.Terminated;
+end;
+
+procedure TThreadEzCadDriver.Log(const AText: string);
+begin
+  FActions.Log(AText);
+end;
+
+procedure TThreadEzCadDriver.Opening;
+begin
+  FThread.Synchronize(@FThread.TrigTimer);
 end;
 
 { TSynthesisThread }

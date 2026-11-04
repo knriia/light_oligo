@@ -16,6 +16,7 @@ type
     Journal: TStringList;       // журнал синтеза и вызовы действий
     StopAfterCalls: Integer;    // после стольких действий просим остановку (0 - не просим)
     FailSyringe: Boolean;
+    FailLaser: Boolean;
     Calls: Integer;
     constructor Create;
     destructor Destroy; override;
@@ -25,8 +26,8 @@ type
       out AErrorText: string): Boolean; override;
     procedure Pause(ASeconds: Integer); override;
     procedure Vacuum(AOn: Boolean); override;
-    procedure Laser(ARepeats: Integer; ATimeSeconds: Double;
-      const AEzdFile: string); override;
+    function Laser(ARepeats: Integer; ATimeSeconds: Double;
+      const AEzdFile: string; out AErrorText: string): Boolean; override;
   end;
 
   TSynthesisRunnerTests = class(TTestCase)
@@ -50,6 +51,7 @@ type
     procedure StopDoesNotStartNextBlock;
     procedure SyringeFailureStopsSynthesisAndLogsError;
     procedure MissingProtocolStopsWithError;
+    procedure LaserFailureStopsSynthesisAndLogsError;
     procedure NoLayersStartsAndCompletes;
     procedure ReturnsTrueOnlyWhenAllLayersRun;
   end;
@@ -104,12 +106,17 @@ begin
   Journal.Add('vacuum ' + IntToStr(Ord(AOn)));
 end;
 
-procedure TRecordingActions.Laser(ARepeats: Integer; ATimeSeconds: Double;
-  const AEzdFile: string);
+function TRecordingActions.Laser(ARepeats: Integer; ATimeSeconds: Double;
+  const AEzdFile: string; out AErrorText: string): Boolean;
 begin
   Inc(Calls);
   Journal.Add('laser ' + IntToStr(ARepeats) + ' ' +
     FloatToStr(ATimeSeconds) + ' ' + AEzdFile);
+  Result := not FailLaser;
+  if Result then
+    AErrorText := ''
+  else
+    AErrorText := 'ezcad busy';
 end;
 
 { TSynthesisRunnerTests }
@@ -373,6 +380,27 @@ begin
   end;
   AssertTrue(Joined, Pos('log ERROR: no protocol for letter G', Joined) > 0);
   AssertEquals('слой после ошибки не выполнен', 0, Pos('CICLE=2', Joined));
+  AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
+end;
+
+procedure TSynthesisRunnerTests.LaserFailureStopsSynthesisAndLogsError;
+var
+  Runner: TSynthesisRunner;
+begin
+  FProtocolA.AddBlock('B');
+  AddStep(FProtocolA, LaserOf(1, 1));
+  AddStep(FProtocolA, PauseOf(5));
+  FActions.FailLaser := True;
+  Runner := TSynthesisRunner.Create(Layers('AA'), @Lookup, FActions);
+  try
+    AssertFalse(Runner.Run);
+    AssertTrue(Runner.Failed);
+  finally
+    Runner.Free;
+  end;
+  AssertTrue(Joined, Pos('log Laser ERROR: ezcad busy', Joined) > 0);
+  AssertEquals('после ошибки лазера операции не идут', 0, Pos('pause 5', Joined));
+  AssertEquals('второй слой не начат', 0, Pos('CICLE=1', Joined));
   AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
 end;
 
