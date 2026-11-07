@@ -37,9 +37,12 @@
 
     "EzCadApi": "laser",
     "EzCadApp": "laser",
+    "LaserArrayFolder": "laser",
+    "LaserConfigMigration": "laser",
     "LaserPen": "laser",
     "Lmc1Results": "laser",
     "MarkEzdWriter": "laser",
+    "ULaserForm": "laser",
     "ULaserPenForm": "laser",
 
     "ManualSettings": "manual",

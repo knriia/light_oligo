@@ -23,7 +23,17 @@ type
     procedure SliceFileStoresOnlyFileNames;
     procedure SliceFileIsReadAfterFolderMove;
     procedure SliceFileWithAbsolutePathsStillLoads;
+    procedure SliceStatisticsRoundTrip;
+    procedure SliceStatisticsIsReadAfterFolderMove;
+    procedure SliceStatisticsMissingFileFails;
+    procedure SliceStatisticsRejectsBadLine;
+    procedure SliceStatisticsRejectsBadNumber;
+    procedure SliceStatisticsHeaderOnlyFails;
   end;
+
+const
+  STAT_HEADER = 'Layer'#9'Letter'#9'NumOfLetters'#9'Filepath' + LineEnding;
+  LAYS_HEADER = 'Layer'#9'Letter'#9'Filepath' + LineEnding;
 
 implementation
 
@@ -130,12 +140,131 @@ var
   Table: TSliceLayers;
 begin
   WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.lays',
-    'Layer'#9'Letter'#9'Filepath' + LineEnding +
+    LAYS_HEADER +
     '1'#9'C'#9'D:\Ruslan\arr\Layer1_C2565.ezd' + LineEnding);
 
   AssertEquals(0, LoadSliceFile(Table,
     IncludeTrailingPathDelimiter(FDirectory) + 'Slices.lays'));
   AssertEquals('D:\Ruslan\arr\Layer1_C2565.ezd', Table[0].EZDFile);
+end;
+
+function MakeTable(const ADir: string): TSliceLayers;
+// два слоя, матрицы лежат в папке ADir
+begin
+  SetLength(Result, 2);
+  Result[0].LayerNumber := 1;
+  Result[0].Letter := 'A';
+  Result[0].LetterCount := 10;
+  Result[0].MatrixFile := IncludeTrailingPathDelimiter(ADir) + 'Layer1_A10.txt';
+  Result[1].LayerNumber := 2;
+  Result[1].Letter := 'C';
+  Result[1].LetterCount := 7;
+  Result[1].MatrixFile := IncludeTrailingPathDelimiter(ADir) + 'Layer2_C7.txt';
+end;
+
+procedure TOligoSlicesFileTests.SliceStatisticsRoundTrip;
+var
+  Saved, Loaded: TSliceLayers;
+  ErrorText: string;
+  I: Integer;
+begin
+  Saved := MakeTable(FDirectory);
+  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Saved,
+    SLICES_STAT_FILE, ErrorText));
+  AssertTrue(ErrorText, LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt', Loaded, ErrorText));
+
+  AssertEquals(Length(Saved), Length(Loaded));
+  for I := 0 to High(Saved) do
+  begin
+    AssertEquals(Saved[I].LayerNumber, Loaded[I].LayerNumber);
+    AssertEquals(Saved[I].Letter, Loaded[I].Letter);
+    AssertEquals(Saved[I].LetterCount, Loaded[I].LetterCount);
+    AssertEquals(Saved[I].MatrixFile, Loaded[I].MatrixFile);
+    AssertEquals('', Loaded[I].EZDFile);
+  end;
+end;
+
+procedure TOligoSlicesFileTests.SliceStatisticsIsReadAfterFolderMove;
+var
+  MovedDir: string;
+  Loaded: TSliceLayers;
+  ErrorText: string;
+begin
+  MovedDir := IncludeTrailingPathDelimiter(FDirectory) + 'moved';
+  WriteTextFile(IncludeTrailingPathDelimiter(MovedDir) + 'Slices.txt',
+    STAT_HEADER +
+    '1'#9'A'#9'10'#9'Layer1_A10.txt' + LineEnding +
+    '2'#9'C'#9'7'#9'D:\Ruslan\arr\Layer2_C7.txt' + LineEnding);
+
+  AssertTrue(ErrorText, LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(MovedDir) + 'Slices.txt', Loaded, ErrorText));
+  AssertEquals(2, Length(Loaded));
+  AssertEquals(IncludeTrailingPathDelimiter(MovedDir) + 'Layer1_A10.txt',
+    Loaded[0].MatrixFile);
+  AssertEquals('D:\Ruslan\arr\Layer2_C7.txt', Loaded[1].MatrixFile);
+  AssertEquals(7, Loaded[1].LetterCount);
+end;
+
+procedure TOligoSlicesFileTests.SliceStatisticsMissingFileFails;
+var
+  Loaded: TSliceLayers;
+  ErrorText: string;
+begin
+  SetLength(Loaded, 1);
+  AssertFalse(LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt', Loaded, ErrorText));
+  AssertEquals('в пустой файл пустая таблица', 0, Length(Loaded));
+  AssertTrue('файл назван', Pos('Slices.txt', ErrorText) > 0);
+end;
+
+procedure TOligoSlicesFileTests.SliceStatisticsRejectsBadLine;
+var
+  Loaded: TSliceLayers;
+  ErrorText: string;
+begin
+  // первая строка хорошая, вторая - из трёх полей
+  WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt',
+    STAT_HEADER +
+    '1'#9'A'#9'10'#9'Layer1_A10.txt' + LineEnding +
+    '2'#9'C'#9'Layer2_C7.txt' + LineEnding);
+  AssertFalse(LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt', Loaded, ErrorText));
+  AssertEquals('наполовину прочитанной таблицы нет', 0, Length(Loaded));
+  AssertTrue('номер строки назван', Pos('3:', ErrorText) > 0);
+end;
+
+procedure TOligoSlicesFileTests.SliceStatisticsRejectsBadNumber;
+var
+  Loaded: TSliceLayers;
+  ErrorText: string;
+begin
+  WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt',
+    STAT_HEADER + '1'#9'A'#9'many'#9'Layer1_A10.txt' + LineEnding);
+  AssertFalse(LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt', Loaded, ErrorText));
+  AssertEquals(0, Length(Loaded));
+  AssertTrue('число букв названо', Pos('many', ErrorText) > 0);
+
+  WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt',
+    STAT_HEADER + 'one'#9'A'#9'10'#9'Layer1_A10.txt' + LineEnding);
+  AssertFalse(LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt', Loaded, ErrorText));
+  AssertEquals(0, Length(Loaded));
+  AssertTrue('номер слоя назван', Pos('one', ErrorText) > 0);
+end;
+
+procedure TOligoSlicesFileTests.SliceStatisticsHeaderOnlyFails;
+var
+  Loaded: TSliceLayers;
+  ErrorText: string;
+begin
+  WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt',
+    STAT_HEADER);
+  AssertFalse(LoadSliceStatistics(
+    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt', Loaded, ErrorText));
+  AssertEquals(0, Length(Loaded));
+  AssertTrue('файл назван', Pos('Slices.txt', ErrorText) > 0);
 end;
 
 initialization

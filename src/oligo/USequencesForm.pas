@@ -10,7 +10,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  Grids, IniFiles, MarkGeometry, OligoArrayDocument, OligoSlices, GridWidthMode;
+  Grids, IniFiles, OligoArrayDocument, OligoSlices, GridWidthMode;
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
@@ -26,12 +26,9 @@ type
   TSequencesForm = class(TForm)
     B_ClearOligoArr: TButton;
     B_CloseOligoArr: TButton;
-    B_CreateLayerEzd: TButton;
     B_CreateOligoArr: TButton;
     B_LoadOligoArr: TButton;
     B_SaveOligoArr: TButton;
-    B_GeometryParams: TButton;
-    B_LaserParams: TButton;
     B_SliceOligoArr: TButton;
     GB_OligControl: TGroupBox;
     OD_File: TOpenDialog;
@@ -39,12 +36,9 @@ type
     SG_OligoArr: TStringGrid;
     procedure B_ClearOligoArrClick(Sender: TObject);
     procedure B_CloseOligoArrClick(Sender: TObject);
-    procedure B_CreateLayerEzdClick(Sender: TObject);
     procedure B_CreateOligoArrClick(Sender: TObject);
     procedure B_LoadOligoArrClick(Sender: TObject);
     procedure B_SaveOligoArrClick(Sender: TObject);
-    procedure B_GeometryParamsClick(Sender: TObject);
-    procedure B_LaserParamsClick(Sender: TObject);
     procedure B_SliceOligoArrClick(Sender: TObject);
     procedure SG_OligoArrEditingDone(Sender: TObject);
     procedure SG_OligoArrHeaderClick(Sender: TObject; IsColumn: Boolean;
@@ -90,8 +84,7 @@ implementation
 
 uses
   LCLType, Clipbrd, AppPaths, CommonUtils, OligoArray, OligoSlicing,
-  LayerEzd, MarkEzdWriter, OligoPaste, UOligoArrayForm, UArraySaveForm,
-  UFolderForm, ULayerChartForm, UMarkGeometryForm, LaserPen, ULaserPenForm;
+  OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
 
 {$R *.lfm}
 
@@ -118,9 +111,6 @@ begin
   B_LoadOligoArr.Caption:=AIni.ReadString('Oligo','B_LoadOligoArr','Load array');
   B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save array');
   B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slicing');
-  B_LaserParams.Caption:=AIni.ReadString('Oligo','B_LaserParams','Laser parameters');
-  B_GeometryParams.Caption:=AIni.ReadString('Oligo','B_GeometryParams','Geometry parameters');
-  B_CreateLayerEzd.Caption:=AIni.ReadString('Oligo','B_CreateLayerEzd','EZD files');
   LayoutButtons;
 end;
 
@@ -154,8 +144,7 @@ var
 
 begin
   Buttons:=[B_CreateOligoArr, B_LoadOligoArr, B_SaveOligoArr, B_ClearOligoArr,
-            B_CloseOligoArr, B_SliceOligoArr, B_LaserParams, B_GeometryParams,
-            B_CreateLayerEzd];
+            B_CloseOligoArr, B_SliceOligoArr];
   X:=8;
   for i:=0 to High(Buttons) do
   begin
@@ -460,88 +449,6 @@ begin
     LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
                                           Layers[i].Letter);
   LayerChartForm.ShowModal;
-end;
-
-procedure TSequencesForm.B_LaserParamsClick(Sender: TObject);
-// перо лазера, с которым создаются EZD слоёв; хранится в configs\sequences.ini
-var
-  Pen: TLaserPen;
-  Reader: TMarkEzdWriter;
-  ErrorText: String;
-begin
-  Pen:=LoadLaserPen(SequencesConfigPath);
-  Reader:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
-  try
-    if not TLaserPenForm.Execute('Параметры лазера (последовательности)', Pen,
-         @Reader.ReadDefaultPen) then
-      Exit;
-  finally
-    Reader.Free;
-  end;
-  if not SaveLaserPen(SequencesConfigPath, Pen, ErrorText) then
-    ShowMessage(ErrorText);
-end;
-
-procedure TSequencesForm.B_GeometryParamsClick(Sender: TObject);
-// геометрия, с которой создаются EZD слоёв; хранится в configs\sequences.ini
-var
-  Geometry: TMarkGeometry;
-  ErrorText: String;
-begin
-  Geometry:=LoadMarkGeometry(SequencesConfigPath);
-  if not TMarkGeometryForm.Execute('Параметры геометрии', Geometry,
-       OccupiedCellsMatrix(FDocument.Arr)) then
-    Exit;
-  if not ForceDirectories(ConfigsDir) then
-  begin
-    ShowMessage('Не удалось создать папку:'+LineEnding+ConfigsDir);
-    Exit;
-  end;
-  if not SaveMarkGeometry(SequencesConfigPath, Geometry, ErrorText) then
-    ShowMessage(ErrorText);
-end;
-
-procedure TSequencesForm.B_CreateLayerEzdClick(Sender: TObject);
-// EZD-файл для каждого слоя (по умолчанию в папке ezd рядом с массивом, имя
-// как у файла матрицы слоя) и таблица Slices.lays для синтеза рядом с массивом.
-var
-  Path, ErrorText: String;
-  Geometry: TMarkGeometry;
-  Writer: TMarkEzdWriter;
-  Table: TSliceLayers;
-  Done: Boolean;
-begin
-  if not FDocument.HasSlicing then
-  begin
-    ShowMessage('Сначала выполните слайсинг массива.');
-    Exit;
-  end;
-  // геометрия вкладки (кнопка «Параметры геометрии»)
-  Geometry:=LoadMarkGeometry(SequencesConfigPath);
-
-  Path:=IncludeTrailingPathDelimiter(FDocument.SliceDir)+EZD_FOLDER;
-  if not ChooseLayerFolder('EZD-файлы слоёв', 'Папка для EZD-файлов слоёв:',
-       'EZD-файлы слоёв', @ListLayerEzdFiles, @DeleteLayerEzdFiles, Path) then
-    Exit;
-
-  // Сообщение MarkEzd.dll при подключении (например, что плата маркера
-  // не найдена) не закрываем: пользователь должен его увидеть.
-  Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
-  try
-    Done:=CreateSliceEzdFiles(Writer, FDocument.SliceTable, Path,
-      FDocument.SliceDir, Geometry, LoadLaserPen(SequencesConfigPath), Table,
-      ErrorText);
-  finally
-    Writer.Free;
-  end;
-  if not Done then
-  begin
-    Log(ErrorText);
-    ShowMessage(ErrorText);
-    Exit;
-  end;
-  FDocument.SetSlicing(Table, FDocument.SliceDir);
-  LayersChanged(Table); // синтез можно запускать сразу
 end;
 
 end.

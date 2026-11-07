@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils, Controls, OligoSlices,
   UProtocolForm, USynthesisForm, UDispenserStationHost, USequencesForm,
-  UManualForm, EzCadApp, AppSynthesisAdapters;
+  UManualForm, ULaserForm, EzCadApp, AppSynthesisAdapters;
 
 type
   { TAppComposition }
@@ -21,9 +21,11 @@ type
     FProtocolParent: TWinControl;
     FSynthesisParent: TWinControl;
     FSequencesParent: TWinControl;
+    FLaserParent: TWinControl;
     FManualLog: TManualLogEvent;
     FSynthesisLog: TSynthesisLogEvent;
     FSequencesLog: TSequencesLogEvent;
+    FLaserLog: TLaserLogEvent;
     FClearLog: TNotifyEvent;
     FStationLog: TDispenserStationLogEvent;
     FStartEzCadWatcher: TThreadMethod;
@@ -32,15 +34,18 @@ type
     FProtocolForm: TProtocolForm;
     FSynthesisForm: TSynthesisForm;
     FManualForm: TManualForm;
+    FLaserForm: TLaserForm;
     FEzCadWatcher: TEzCadDialogWatcher;
     FSynthesisStation: TStationSyringeAdapter;
     FSynthesisMarker: TEzCadLayerMarker;
     procedure LayersChanged(const ALayers: TSliceLayers);
   public
     constructor Create(AOwner: TComponent; AManualParent,
-      AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
+      AProtocolParent, ASynthesisParent, ASequencesParent,
+      ALaserParent: TWinControl;
       AManualLog: TManualLogEvent; ASynthesisLog: TSynthesisLogEvent;
-      ASequencesLog: TSequencesLogEvent; AClearLog: TNotifyEvent;
+      ASequencesLog: TSequencesLogEvent; ALaserLog: TLaserLogEvent;
+      AClearLog: TNotifyEvent;
       AStationLog: TDispenserStationLogEvent;
       AStartEzCadWatcher: TThreadMethod);
     destructor Destroy; override;
@@ -61,9 +66,11 @@ uses
 { TAppComposition }
 
 constructor TAppComposition.Create(AOwner: TComponent; AManualParent,
-  AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
+  AProtocolParent, ASynthesisParent, ASequencesParent,
+  ALaserParent: TWinControl;
   AManualLog: TManualLogEvent; ASynthesisLog: TSynthesisLogEvent;
-  ASequencesLog: TSequencesLogEvent; AClearLog: TNotifyEvent;
+  ASequencesLog: TSequencesLogEvent; ALaserLog: TLaserLogEvent;
+  AClearLog: TNotifyEvent;
   AStationLog: TDispenserStationLogEvent;
   AStartEzCadWatcher: TThreadMethod);
 begin
@@ -73,9 +80,11 @@ begin
   FProtocolParent := AProtocolParent;
   FSynthesisParent := ASynthesisParent;
   FSequencesParent := ASequencesParent;
+  FLaserParent := ALaserParent;
   FManualLog := AManualLog;
   FSynthesisLog := ASynthesisLog;
   FSequencesLog := ASequencesLog;
+  FLaserLog := ALaserLog;
   FClearLog := AClearLog;
   FStationLog := AStationLog;
   FStartEzCadWatcher := AStartEzCadWatcher;
@@ -157,6 +166,16 @@ begin
   FSequencesForm.OnLog := FSequencesLog;
   FSequencesForm.OnLayersChanged := @LayersChanged;
   FSequencesForm.Show;
+
+  FLaserForm := TLaserForm.Create(FOwner);
+  FLaserForm.BorderStyle := bsNone;
+  FLaserForm.Parent := FLaserParent;
+  FLaserForm.Align := alClient;
+  FLaserForm.ApplyCaptions(InterfaceIniFile);
+  FLaserForm.LoadSettings;
+  FLaserForm.OnLog := FLaserLog;
+  FLaserForm.OnLayersChanged := @LayersChanged;
+  FLaserForm.Show;
 end;
 
 procedure TAppComposition.LayersChanged(const ALayers: TSliceLayers);
