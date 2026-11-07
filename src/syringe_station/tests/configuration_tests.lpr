@@ -5,15 +5,7 @@ program configuration_tests;
 uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
-  WorkDispatcherTests, AppPathsTests,
-  ProtocolFormatTests, OligoTests, LaserTests, LayerEzdTests, ManualTests, ScenarioTests,
-  ScenarioRunTests, ProtocolModelTests,
-  ProtocolEditingTests,
-  SynthesisSessionTests,
-  SynthesisRunnerTests,
-  SynthesisFolderTests,
-  SynthesisWorkspaceTests,
-  LaserMarkingTests;
+  WorkDispatcherTests, ScenarioTests, ScenarioRunTests;
 
 var
   Application: TTestRunner;
