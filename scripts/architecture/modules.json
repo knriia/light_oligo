@@ -150,6 +150,19 @@
   "rule2_exceptions": [
     "UDispenserStationHost"
   ],
+  "rule3": {
+    "enabled": true,
+    "logic": [
+      "OligoSlices",
+      "AutomationDocumentStorage",
+      "DispenserConfigStorage",
+      "WindowSettingsStorage",
+      "AutomationEditorView"
+    ],
+    "exceptions": [
+      "AutomationEditorView"
+    ]
+  },
   "mapping_notes": [
     "LayerEzd и UMarkGeometryForm сейчас лежат в src/oligo, но по целевой карте относятся к laser.",
     "MatrixDocument сейчас лежит в src/manual, а GridWidthMode — в src/common; по целевой карте оба относятся к oligo.",

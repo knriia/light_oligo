@@ -96,12 +96,12 @@ function ToStoredPath(const AFileName: string): string;
 // Файл из папки сценариев запоминаем относительным путём,
 // чтобы программу можно было перенести в другую папку.
 begin
-  Result := MakePathRelative(GetAutomationDirectory(ParamStr(0)), AFileName);
+  Result := MakePathRelative(AutomationDir(ParamStr(0)), AFileName);
 end;
 
 function FromStoredPath(const AStoredName: string): string;
 begin
-  Result := ResolvePath(GetAutomationDirectory(ParamStr(0)), AStoredName);
+  Result := ResolvePath(AutomationDir(ParamStr(0)), AStoredName);
 end;
 
 constructor TAutomationEditorView.Create(AOwner: TComponent);
@@ -359,7 +359,8 @@ function TAutomationEditorView.PrepareAutomationFolder: Boolean;
 var
   Directory, ErrorText: string;
 begin
-  Result := EnsureAutomationDirectory(ParamStr(0), Directory, ErrorText);
+  Directory := AutomationDir(ParamStr(0));
+  Result := EnsureAutomationDirectory(Directory, ErrorText);
   if not Result then
     MessageDlg('Не удалось подготовить папку сценариев: ' + ErrorText,
       mtError, [mbOK], 0)

@@ -48,7 +48,35 @@ function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolea
 implementation
 
 uses
-  AppPaths, TextFileUtils;
+  TextFileUtils;
+
+function IsAbsolutePath(const AFileName: String): Boolean;
+begin
+  Result := (ExtractFileDrive(AFileName) <> '') or
+    ((AFileName <> '') and (AFileName[1] in ['\', '/']));
+end;
+
+function MakePathRelative(const ABaseDir, AFileName: String): String;
+var
+  BaseDir: String;
+  FullName: String;
+begin
+  Result := AFileName;
+  if (Trim(ABaseDir) = '') or (Trim(AFileName) = '') then
+    Exit;
+  BaseDir := IncludeTrailingPathDelimiter(ExpandFileName(ABaseDir));
+  FullName := ExpandFileName(AFileName);
+  if SameText(Copy(FullName, 1, Length(BaseDir)), BaseDir) then
+    Result := Copy(FullName, Length(BaseDir) + 1, MaxInt);
+end;
+
+function ResolvePath(const ABaseDir, AFileName: String): String;
+begin
+  if (Trim(AFileName) = '') or IsAbsolutePath(AFileName) then
+    Result := AFileName
+  else
+    Result := IncludeTrailingPathDelimiter(ABaseDir) + AFileName;
+end;
 
 function SaveSliceStatistics(const aDir: String;
   const aTable: array of TSliceLayer; aFileType: Word;
