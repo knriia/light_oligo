@@ -3,7 +3,8 @@ program oligo_tests;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, consoletestrunner, OligoTests, LayerEzdTests;
+  Classes, consoletestrunner, OligoTests, LayerEzdTests,
+  OligoSlicesFileTests;
 
 var
   Application: TTestRunner;

@@ -6,7 +6,7 @@ unit AppPathsTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, AppPaths, OligoSlices;
+  Classes, SysUtils, fpcunit, testregistry, AppPaths;
 
 type
   TAppPathsTests = class(TTestCase)
@@ -20,13 +20,6 @@ type
     procedure TearDown; override;
   published
     procedure DataFoldersAreNextToExecutable;
-    procedure MakePathRelativeStripsBaseDirectory;
-    procedure MakePathRelativeKeepsOutsidePath;
-    procedure ResolvePathAddsBaseToRelativeName;
-    procedure ResolvePathKeepsAbsolutePath;
-    procedure SliceFileStoresOnlyFileNames;
-    procedure SliceFileIsReadAfterFolderMove;
-    procedure SliceFileWithAbsolutePathsStillLoads;
     procedure MigrationMovesLegacyProtocolsFolder;
     procedure ConfigsAreNextToExecutable;
     procedure MigrationMovesConfigsIntoConfigsFolder;
@@ -95,92 +88,6 @@ begin
     'automation', AutomationDir(FExecutableFileName));
   AssertEquals(IncludeTrailingPathDelimiter(FDirectory) + 'data' + PathDelim +
     'syntheses', SynthesesDir(FExecutableFileName));
-end;
-
-procedure TAppPathsTests.MakePathRelativeStripsBaseDirectory;
-begin
-  AssertEquals('run1' + PathDelim + 'Layer1_A10.ezd',
-    MakePathRelative(FDirectory, IncludeTrailingPathDelimiter(FDirectory) +
-      'run1' + PathDelim + 'Layer1_A10.ezd'));
-end;
-
-procedure TAppPathsTests.MakePathRelativeKeepsOutsidePath;
-begin
-  AssertEquals('Z:\other\Layer1_A10.ezd',
-    MakePathRelative(FDirectory, 'Z:\other\Layer1_A10.ezd'));
-end;
-
-procedure TAppPathsTests.ResolvePathAddsBaseToRelativeName;
-begin
-  AssertEquals(IncludeTrailingPathDelimiter(FDirectory) + 'Layer1_A10.ezd',
-    ResolvePath(FDirectory, 'Layer1_A10.ezd'));
-end;
-
-procedure TAppPathsTests.ResolvePathKeepsAbsolutePath;
-begin
-  AssertEquals('Z:\other\Layer1_A10.ezd',
-    ResolvePath(FDirectory, 'Z:\other\Layer1_A10.ezd'));
-end;
-
-procedure TAppPathsTests.SliceFileStoresOnlyFileNames;
-var
-  Table: TSliceLayers;
-  Lines: TStringList;
-  ErrorText: string;
-begin
-  SetLength(Table, 1);
-  Table[0].LayerNumber := 1;
-  Table[0].Letter := 'A';
-  Table[0].LetterCount := 10;
-  Table[0].MatrixFile := IncludeTrailingPathDelimiter(FDirectory) +
-    'Layer1_A10.txt';
-  Table[0].EZDFile := IncludeTrailingPathDelimiter(FDirectory) +
-    'Layer1_A10.ezd';
-  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_STAT_FILE,
-    ErrorText));
-  AssertTrue(ErrorText, SaveSliceStatistics(FDirectory, Table, SLICES_EZD_FILE,
-    ErrorText));
-
-  Lines := TStringList.Create;
-  try
-    Lines.LoadFromFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.txt');
-    AssertEquals('1'#9'A'#9'10'#9'Layer1_A10.txt', Lines[1]);
-    Lines.LoadFromFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.lays');
-    AssertEquals('1'#9'A'#9'Layer1_A10.ezd', Lines[1]);
-  finally
-    Lines.Free;
-  end;
-end;
-
-procedure TAppPathsTests.SliceFileIsReadAfterFolderMove;
-var
-  Table: TSliceLayers;
-  MovedDir: string;
-begin
-  // Файл слоёв с одними именами: путь строится от его новой папки.
-  MovedDir := IncludeTrailingPathDelimiter(FDirectory) + 'moved';
-  WriteTextFile(IncludeTrailingPathDelimiter(MovedDir) + 'Slices.lays',
-    'Layer'#9'Letter'#9'Filepath' + LineEnding +
-    '1'#9'A'#9'Layer1_A10.ezd' + LineEnding);
-
-  AssertEquals(0, LoadSliceFile(Table,
-    IncludeTrailingPathDelimiter(MovedDir) + 'Slices.lays'));
-  AssertEquals(1, Length(Table));
-  AssertEquals(IncludeTrailingPathDelimiter(MovedDir) + 'Layer1_A10.ezd',
-    Table[0].EZDFile);
-end;
-
-procedure TAppPathsTests.SliceFileWithAbsolutePathsStillLoads;
-var
-  Table: TSliceLayers;
-begin
-  WriteTextFile(IncludeTrailingPathDelimiter(FDirectory) + 'Slices.lays',
-    'Layer'#9'Letter'#9'Filepath' + LineEnding +
-    '1'#9'C'#9'D:\Ruslan\arr\Layer1_C2565.ezd' + LineEnding);
-
-  AssertEquals(0, LoadSliceFile(Table,
-    IncludeTrailingPathDelimiter(FDirectory) + 'Slices.lays'));
-  AssertEquals('D:\Ruslan\arr\Layer1_C2565.ezd', Table[0].EZDFile);
 end;
 
 procedure TAppPathsTests.MigrationMovesLegacyProtocolsFolder;

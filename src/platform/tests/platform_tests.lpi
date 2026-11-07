@@ -5,18 +5,26 @@
     <PathDelim Value="\"/>
     <General>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="common_tests"/>
+      <Title Value="platform_tests"/>
     </General>
     <BuildModes>
       <Item Name="Default" Default="True"/>
     </BuildModes>
     <Units>
       <Unit>
-        <Filename Value="common_tests.lpr"/>
+        <Filename Value="platform_tests.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="AppPathsTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="PathUtilsTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="LocalizationTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
@@ -25,11 +33,11 @@
     <Version Value="11"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value=".;..;../../oligo;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
+      <OtherUnitFiles Value=".;..;../../shared;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Target>
-      <Filename Value="common_tests"/>
+      <Filename Value="platform_tests"/>
     </Target>
     <Linking>
       <Debugging>

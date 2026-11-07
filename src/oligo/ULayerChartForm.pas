@@ -26,7 +26,8 @@ var
   LayerChartForm: TLayerChartForm;
 
 implementation
-uses UMainForm;
+uses
+  Localization;
 
 {$R *.lfm}
 
@@ -35,9 +36,9 @@ uses UMainForm;
 
 procedure TLayerChartForm.FormCreate(Sender: TObject);
 begin
-  LayerChartForm.Caption:=MyInterface.ReadString('LayerChart','LayerChartForm','Number of spots in a layer');
-  ChNCharsInLayers.AxisList.LeftAxis.Title.Caption:=MyInterface.ReadString('LayerChart','ChNCharsInLayersLeftAxis','Number of spots');
-  ChNCharsInLayers.AxisList.BottomAxis.Title.Caption:=MyInterface.ReadString('LayerChart','ChNCharsInLayersBottomAxis','layer');
+  LayerChartForm.Caption:=ReadInterfaceString('LayerChart','LayerChartForm','Number of spots in a layer');
+  ChNCharsInLayers.AxisList.LeftAxis.Title.Caption:=ReadInterfaceString('LayerChart','ChNCharsInLayersLeftAxis','Number of spots');
+  ChNCharsInLayers.AxisList.BottomAxis.Title.Caption:=ReadInterfaceString('LayerChart','ChNCharsInLayersBottomAxis','layer');
 end;
 
 end.

@@ -26,7 +26,7 @@ if not defined LAZBUILD_CMD (
 echo Using lazbuild: %LAZBUILD_CMD%
 set "FAILED=0"
 
-call :build_and_run "src\common\tests\common_tests.lpi" "src\common\tests\common_tests.exe"
+call :build_and_run "src\platform\tests\platform_tests.lpi" "src\platform\tests\platform_tests.exe"
 call :build_and_run "src\laser\tests\laser_tests.lpi" "src\laser\tests\laser_tests.exe"
 call :build_and_run "src\manual\tests\manual_tests.lpi" "src\manual\tests\manual_tests.exe"
 call :build_and_run "src\oligo\tests\oligo_tests.lpi" "src\oligo\tests\oligo_tests.exe"

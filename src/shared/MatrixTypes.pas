@@ -8,8 +8,8 @@ interface
 
 type
   TMatrix = array of array of Byte; // [строка][столбец]: 0 - пусто, остальное - точка
-  TPoint = array [0..1] of Double;  // 0 - x, 1 - y
-  TArrOfTPoint = array of TPoint;
+  TMatrixPoint = array [0..1] of Double;  // 0 - x, 1 - y
+  TArrOfTPoint = array of TMatrixPoint;
 
 implementation
 

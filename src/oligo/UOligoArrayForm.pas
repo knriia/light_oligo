@@ -46,7 +46,7 @@ var
 
 implementation
 uses
-  UMainForm;
+  Localization;
 
 {$R *.lfm}
 
@@ -54,23 +54,23 @@ uses
 
 procedure TOligoArrayForm.FormCreate(Sender: TObject);
 begin
-  OligoArrayForm.Caption:=MyInterface.ReadString('OligoArray','OligoArrayForm','OligoArray');
-  L_SetOligoSize.Caption:=MyInterface.ReadString('OligoArray','L_SetOligoSize','Set OligoArray size');
-  L_ArrColumns.Caption:=MyInterface.ReadString('OligoArray','L_ArrColumns','Number of Columns');
-  L_ArrRows.Caption:=MyInterface.ReadString('OligoArray','L_ArrRows','Number of Rows');
-  RG_Fill.Caption:=MyInterface.ReadString('OligoArray','RG_Fill','Filling method');
-  RG_Fill.Items[0]:=MyInterface.ReadString('OligoArray','RG_Fill_Item0','Empty Array');
-  RG_Fill.Items[1]:=MyInterface.ReadString('OligoArray','RG_Fill_Item1','Random Filling');
-  RG_Fill.Items[2]:=MyInterface.ReadString('OligoArray','RG_Fill_Item2','Constant Sequence');
-  BB_CancelArr.Caption:=MyInterface.ReadString('OligoArray','BB_CancelArr','Cancel');
-  BB_CreateArr.Caption:=MyInterface.ReadString('OligoArray','BB_CreateArr','OK');
-  L_LenOfRNDSeq.Caption:=MyInterface.ReadString('OligoArray','L_LenOfRNDSeq','Length');
-  L_Seq.Caption:=MyInterface.ReadString('OligoArray','L_Seq','Sequence');
+  OligoArrayForm.Caption:=ReadInterfaceString('OligoArray','OligoArrayForm','OligoArray');
+  L_SetOligoSize.Caption:=ReadInterfaceString('OligoArray','L_SetOligoSize','Set OligoArray size');
+  L_ArrColumns.Caption:=ReadInterfaceString('OligoArray','L_ArrColumns','Number of Columns');
+  L_ArrRows.Caption:=ReadInterfaceString('OligoArray','L_ArrRows','Number of Rows');
+  RG_Fill.Caption:=ReadInterfaceString('OligoArray','RG_Fill','Filling method');
+  RG_Fill.Items[0]:=ReadInterfaceString('OligoArray','RG_Fill_Item0','Empty Array');
+  RG_Fill.Items[1]:=ReadInterfaceString('OligoArray','RG_Fill_Item1','Random Filling');
+  RG_Fill.Items[2]:=ReadInterfaceString('OligoArray','RG_Fill_Item2','Constant Sequence');
+  BB_CancelArr.Caption:=ReadInterfaceString('OligoArray','BB_CancelArr','Cancel');
+  BB_CreateArr.Caption:=ReadInterfaceString('OligoArray','BB_CreateArr','OK');
+  L_LenOfRNDSeq.Caption:=ReadInterfaceString('OligoArray','L_LenOfRNDSeq','Length');
+  L_Seq.Caption:=ReadInterfaceString('OligoArray','L_Seq','Sequence');
 
-  E_ConstSeq.Text:=MyIni.ReadString('OligoArray','E_ConstSeq','AAATTTGGGCCC');
-  SE_NOligoCol.Value:=MyIni.ReadInteger('OligoArray','SE_NOligoCol',10);
-  SE_NOligoRow.Value:=MyIni.ReadInteger('OligoArray','SE_NOligoRow',10);
-  SE_LenOfRNDSeq.Value:=MyIni.ReadInteger('OligoArray','SE_LenOfRNDSeq',10);
+  E_ConstSeq.Text:=ReadConfigString('OligoArray','E_ConstSeq','AAATTTGGGCCC');
+  SE_NOligoCol.Value:=ReadConfigInteger('OligoArray','SE_NOligoCol',10);
+  SE_NOligoRow.Value:=ReadConfigInteger('OligoArray','SE_NOligoRow',10);
+  SE_LenOfRNDSeq.Value:=ReadConfigInteger('OligoArray','SE_LenOfRNDSeq',10);
 end;
 
 procedure TOligoArrayForm.RG_FillClick(Sender: TObject);

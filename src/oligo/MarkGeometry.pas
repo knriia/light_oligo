@@ -42,10 +42,11 @@ function SaveMarkGeometry(const AFileName: string;
   const AGeometry: TMarkGeometry; out AErrorText: string): Boolean;
 
 // Смещение массива: автоцентр по матрице или ручное из геометрии.
-function MarkBias(const AMatrix: TMatrix; const AGeometry: TMarkGeometry): TPoint;
+function MarkBias(const AMatrix: TMatrix;
+  const AGeometry: TMarkGeometry): TMatrixPoint;
 
 // Добавить точку в линейный массив маркиратора
-function AddPointToLinearArray(const aPoint: TPoint;
+function AddPointToLinearArray(const aPoint: TMatrixPoint;
   var aLinearArray: TArrOfTPoint): Integer;
 
 // конвертировать матрицу точек в линейный массив маркиратора
@@ -182,7 +183,8 @@ begin
   end;
 end;
 
-function MarkBias(const AMatrix: TMatrix; const AGeometry: TMarkGeometry): TPoint;
+function MarkBias(const AMatrix: TMatrix;
+  const AGeometry: TMarkGeometry): TMatrixPoint;
 begin
   if AGeometry.AutoCenter then
     Result := AutoCenterBiasMatrix(AMatrix, AGeometry.Step, AGeometry.GroupStep,
@@ -195,7 +197,7 @@ begin
 end;
 
 //добавляем в конец массива точку
-function AddPointToLinearArray(const aPoint: TPoint;
+function AddPointToLinearArray(const aPoint: TMatrixPoint;
   var aLinearArray: TArrOfTPoint): Integer;
 begin
   try
@@ -218,7 +220,7 @@ function ConvertMatrixToLinearArray(const aMatrix: TMatrix; // конверти�
     const aBiasY: Double=0                                // смещение массива по Y
     ): Integer;                                           // 0, если получилось, иначе 1000
 var
-   p: TPoint;
+   p: TMatrixPoint;
    i,j: integer;
 begin
   try
@@ -255,7 +257,7 @@ end;
 function MatrixToMarkPoints(const AMatrix: TMatrix;
   const AGeometry: TMarkGeometry): TArrOfTPoint;
 var
-  Bias: TPoint;
+  Bias: TMatrixPoint;
 begin
   Result := nil;
   Bias := MarkBias(AMatrix, AGeometry);
