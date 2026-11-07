@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, ProtocolFormat, ProtocolModel,
-  ProtocolFormatTests;
+  ProtocolTestHelpers;
 
 type
   TProtocolModelTests = class(TTestCase)

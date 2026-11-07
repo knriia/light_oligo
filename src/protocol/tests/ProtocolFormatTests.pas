@@ -5,7 +5,7 @@ unit ProtocolFormatTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, ProtocolFormat;
+  Classes, SysUtils, fpcunit, testregistry, ProtocolFormat, ProtocolTestHelpers;
 
 type
   TProtocolFormatTests = class(TTestCase)
@@ -23,9 +23,6 @@ type
     procedure RejectsMismatchedCounts;
     procedure RejectsDuplicateNames;
   end;
-
-function MakeStep(const ANames, AValves, AVolumes, ASpeeds: string): TSyringeStep;
-function StepError(const AStep: TSyringeStep): string;
 
 implementation
 
@@ -152,23 +149,6 @@ begin
   AssertTrue(ErrorText, ParseProtocolText(Text, Document, ErrorText));
   AssertEquals('W', Document[0].Steps[0].Syringe.Dispensers);
   AssertEquals('мкл/с', Document[0].Steps[0].Syringe.SpeedUnit);
-end;
-
-function MakeStep(const ANames, AValves, AVolumes, ASpeeds: string): TSyringeStep;
-begin
-  Result.Dispensers := ANames;
-  Result.Valves := AValves;
-  Result.Volumes := AVolumes;
-  Result.VolumeUnit := 'мкл';
-  Result.Speeds := ASpeeds;
-  Result.SpeedUnit := 'мкл/с';
-end;
-
-// Текст ошибки проверки или '' если запись верна.
-function StepError(const AStep: TSyringeStep): string;
-begin
-  if CheckSyringeStep(AStep, Result) then
-    Result := '';
 end;
 
 procedure TProtocolFormatTests.AcceptsValidSyringeStep;

@@ -7,7 +7,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, OligoSlices, ProtocolFormat,
-  ProtocolModel, SynthesisRunner, ProtocolFormatTests;
+  ProtocolModel, SynthesisRunner, ProtocolTestHelpers;
 
 type
   // Подставной исполнитель: записывает, что его просили сделать.

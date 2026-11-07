@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils, fpcunit, testregistry, DispenserConfig,
   DispenserRuntimeState, AutomationProtocol, AutomationProtocolRunner,
-  ScenarioList, ProtocolFormatTests, AutomationProtocolRunnerTests;
+  ScenarioList, ProtocolTestHelpers, AutomationProtocolRunnerTests;
 
 type
   TScenarioProtocolTests = class(TTestCase)

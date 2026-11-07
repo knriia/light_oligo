@@ -3,8 +3,7 @@ program synthesis_tests;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, consoletestrunner, LaserMarkingTests, ProtocolEditingTests,
-  ProtocolFormatTests, ProtocolModelTests, SynthesisFolderTests,
+  Classes, consoletestrunner, LaserMarkingTests, SynthesisFolderTests,
   SynthesisRunnerTests, SynthesisSessionTests, SynthesisWorkspaceTests;
 
 var

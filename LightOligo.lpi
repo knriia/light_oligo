@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -157,7 +157,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\ProtocolFormat.pas"/>
+        <Filename Value="src\protocol\ProtocolFormat.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -212,14 +212,14 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\UBlockNameForm.pas"/>
+        <Filename Value="src\protocol\UBlockNameForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="BlockNameForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\UOperationForm.pas"/>
+        <Filename Value="src\protocol\UOperationForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="OperationForm"/>
         <HasResources Value="True"/>
@@ -447,18 +447,18 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\UProtocolForm.pas"/>
+        <Filename Value="src\protocol\UProtocolForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="ProtocolForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\ProtocolModel.pas"/>
+        <Filename Value="src\protocol\ProtocolModel.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\synthesis\ProtocolEditing.pas"/>
+        <Filename Value="src\protocol\ProtocolEditing.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -490,7 +490,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\synthesis;src\syringe_station"/>
+      <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>
