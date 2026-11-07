@@ -357,12 +357,19 @@ def main() -> int:
 
     visual_units = {name.lower() for name in config.get("visual_units", [])}
     exceptions = {name.lower() for name in config.get("rule2_exceptions", [])}
+    rule3_config = config.get("rule3", {})
+    rule3_enabled = bool(rule3_config.get("enabled", False))
+    rule3_logic = {name.lower() for name in rule3_config.get("logic", [])}
+    rule3_exceptions = {
+        name.lower() for name in rule3_config.get("exceptions", [])
+    }
     allowed_edges = {
         source: set(targets) for source, targets in config.get("allowed_edges", {}).items()
     }
 
     edge_violations: list[Violation] = []
     visual_violations: list[Violation] = []
+    app_paths_violations: list[Violation] = []
     module_graph = {module: set() for module in modules}
 
     for source in parsed_sources:
@@ -404,6 +411,24 @@ def main() -> int:
                     )
                 )
 
+            if (
+                rule3_enabled
+                and source.kind == "unit"
+                and not source.declared_name.lower().startswith("u")
+                and source.declared_name.lower() in rule3_logic
+                and source.declared_name.lower() not in rule3_exceptions
+                and reference.name.lower() == "apppaths"
+            ):
+                app_paths_violations.append(
+                    Violation(
+                        "правило 3",
+                        source.declared_name,
+                        source.path,
+                        reference.line,
+                        f"логический unit подключает AppPaths ({reference.section})",
+                    )
+                )
+
     cycles = find_cycles(module_graph)
     edge_groups: dict[str, list[Violation]] = defaultdict(list)
     for violation in edge_violations:
@@ -422,6 +447,11 @@ def main() -> int:
     print(f"- юнитов без модуля: {len(unmapped)}")
     print(f"- нарушений правила 1 (запрещённые рёбра): {len(edge_violations)}")
     print(f"- нарушений правила 2 (LCL в логике): {len(visual_violations)}")
+    if rule3_enabled:
+        print(
+            f"- нарушений правила 3 (AppPaths в логике): "
+            f"{len(app_paths_violations)}"
+        )
     print(f"- циклов модулей: {len(cycles)}")
     print(f"- ошибок конфигурации: {len(config_errors)}")
 
@@ -441,6 +471,14 @@ def main() -> int:
     else:
         for violation in visual_violations:
             print(format_violation(root, violation))
+
+    if rule3_enabled:
+        print("\nПравило 3 — AppPaths в логике")
+        if not app_paths_violations:
+            print("- нет")
+        else:
+            for violation in app_paths_violations:
+                print(format_violation(root, violation))
 
     print("\nЦиклы")
     if not cycles:
@@ -471,7 +509,14 @@ def main() -> int:
     for note in config.get("mapping_notes", []):
         print(f"- {note}")
 
-    has_violations = bool(unmapped or edge_violations or visual_violations or cycles or config_errors)
+    has_violations = bool(
+        unmapped
+        or edge_violations
+        or visual_violations
+        or app_paths_violations
+        or cycles
+        or config_errors
+    )
     if args.strict and has_violations:
         return 1
     return 0

@@ -13,7 +13,7 @@ type
   private
     FFileName: string;
   public
-    constructor Create(const AFileName: string = '');
+    constructor Create(const AFileName: string);
     function Load(out AConfigurations: TDispenserConfigList;
       out ErrorText: string): Boolean;
     function Save(AConfigurations: TDispenserConfigList;
@@ -22,9 +22,6 @@ type
   end;
 
 implementation
-
-uses
-  AppPaths;
 
 const
   CONFIG_SECTION = 'Configuration';
@@ -57,10 +54,7 @@ end;
 constructor TDispenserConfigStorage.Create(const AFileName: string);
 begin
   inherited Create;
-  if Trim(AFileName) = '' then
-    FFileName := SettingsFilePath
-  else
-    FFileName := AFileName;
+  FFileName := AFileName;
 end;
 
 function TDispenserConfigStorage.Load(

@@ -166,6 +166,9 @@ var
 
 implementation
 
+uses
+  AppPaths;
+
 type
   TFormWorkKind = (btkStartSingle, btkStartGroup, btkInitialize,
     btkPrepareProtocol, btkPoll, btkBypass, btkChangeSpeed, btkStopOne,
@@ -299,7 +302,8 @@ begin
     FInitializingAddresses[Address] := False;
   Constraints.MinWidth := 0;
   Constraints.MinHeight := 0;
-  FWindowSettings := TWindowSettingsStorage.Create('', 'MainWindow');
+  FWindowSettings := TWindowSettingsStorage.Create(SettingsFilePath,
+    'MainWindow');
   ConnectionPanel.TabStop := True;
   TablePanel.TabStop := True;
   BatchPanel.TabStop := True;
@@ -331,7 +335,7 @@ begin
   CreateMainPages;
   FAutomationPage.OnRun := @RunAutomationProtocol;
 
-  FStorage := TDispenserConfigStorage.Create;
+  FStorage := TDispenserConfigStorage.Create(SettingsFilePath);
   FConfigurations := nil;
   if not FStorage.Load(FConfigurations, LoadError) then
     FConfigurations := TDispenserConfigList.Create;

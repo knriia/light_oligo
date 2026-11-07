@@ -61,12 +61,15 @@ implementation
 
 {$R *.lfm}
 
+uses
+  AppPaths;
+
 { TConfigurationForm }
 
 procedure TConfigurationForm.FormCreate(Sender: TObject);
 begin
   FRows := TConfigurationRows.Create(ScrollBoxRows, @RowsChanged);
-  FWindowSettings := TWindowSettingsStorage.Create;
+  FWindowSettings := TWindowSettingsStorage.Create(SettingsFilePath);
   FInitialConfigurations := nil;
   ScrollBoxRows.TabStop := True;
   ButtonsPanel.TabStop := True;

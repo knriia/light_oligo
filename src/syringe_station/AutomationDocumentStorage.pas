@@ -9,26 +9,19 @@ interface
 uses
   SysUtils;
 
-function GetAutomationDirectory(const AExecutableFileName: string): string;
-function EnsureAutomationDirectory(const AExecutableFileName: string;
-  out ADirectory, AErrorText: string): Boolean;
+function EnsureAutomationDirectory(const ADirectory: string;
+  out AErrorText: string): Boolean;
 
 implementation
 
 uses
-  Classes, AppPaths;
+  Classes;
 
-function GetAutomationDirectory(const AExecutableFileName: string): string;
-begin
-  Result := AutomationDir(AExecutableFileName);
-end;
-
-function EnsureAutomationDirectory(const AExecutableFileName: string;
-  out ADirectory, AErrorText: string): Boolean;
+function EnsureAutomationDirectory(const ADirectory: string;
+  out AErrorText: string): Boolean;
 begin
   Result := False;
   AErrorText := '';
-  ADirectory := GetAutomationDirectory(AExecutableFileName);
   try
     if not DirectoryExists(ADirectory) and not ForceDirectories(ADirectory) then
       raise Exception.Create('Не удалось создать папку "' + ADirectory + '".');

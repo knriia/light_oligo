@@ -13,7 +13,7 @@ type
     FFileName: string;
     FSection: string;
   public
-    constructor Create(const AFileName: string = ''; const ASection: string = '');
+    constructor Create(const AFileName: string; const ASection: string = '');
     procedure Load(ADefaultWidth, ADefaultHeight: Integer;
       out AWidth, AHeight: Integer);
     function Save(AWidth, AHeight: Integer): Boolean;
@@ -26,9 +26,6 @@ type
 
 implementation
 
-uses
-  AppPaths;
-
 const
   WINDOW_SECTION = 'ConfigurationWindow';
 
@@ -36,10 +33,7 @@ constructor TWindowSettingsStorage.Create(const AFileName: string;
   const ASection: string);
 begin
   inherited Create;
-  if Trim(AFileName) = '' then
-    FFileName := SettingsFilePath
-  else
-    FFileName := AFileName;
+  FFileName := AFileName;
   if Trim(ASection) = '' then
     FSection := WINDOW_SECTION
   else

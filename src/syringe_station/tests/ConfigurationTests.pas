@@ -138,7 +138,7 @@ type
     procedure LastPortRoundTrip;
     procedure CustomSectionRoundTrip;
     procedure PreservesConfigurationSection;
-    procedure DefaultConstructorUsesApplicationConfigPath;
+    procedure ConstructorUsesProvidedPath;
     procedure MalformedDimensionsUseDefaults;
     procedure SaveErrorsAreReported;
     procedure LockedSettingsFileUsesDefaults;
@@ -151,14 +151,13 @@ type
   TAutomationDocumentStorageTests = class(TTestCase)
   private
     FDirectory: string;
-    FExecutableFileName: string;
     FAutomationDirectory: string;
     procedure EnsureTestAutomationDirectory;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure AutomationDirectoryIsInDataFolder;
+    procedure ExistingDirectoryIsKept;
     procedure CreatesAutomationDirectoryWhenMissing;
   end;
 
@@ -214,7 +213,7 @@ type
     procedure RejectsNonnumericHardwareFields;
     procedure RejectsNumericallyValidButInvalidConfiguration;
     procedure SaveFailureReturnsError;
-    procedure DefaultConstructorUsesApplicationConfigPath;
+    procedure ConstructorUsesProvidedPath;
   end;
 
 implementation
@@ -1966,14 +1965,13 @@ begin
   end;
 end;
 
-procedure TWindowSettingsStorageTests.DefaultConstructorUsesApplicationConfigPath;
+procedure TWindowSettingsStorageTests.ConstructorUsesProvidedPath;
 var
   Storage: TWindowSettingsStorage;
 begin
-  Storage := TWindowSettingsStorage.Create('', '');
+  Storage := TWindowSettingsStorage.Create(FFileName, '');
   try
-    AssertTrue(Storage.FileName <> '');
-    AssertTrue(Pos('syringe_pump.ini', Storage.FileName) > 0);
+    AssertEquals(FFileName, Storage.FileName);
   finally
     Storage.Free;
   end;
@@ -2071,8 +2069,6 @@ begin
   FDirectory := IncludeTrailingPathDelimiter(GetTempDir(False)) +
     'syringe_automation_storage_' + IntToStr(GetTickCount64);
   AssertTrue(ForceDirectories(FDirectory));
-  FExecutableFileName := IncludeTrailingPathDelimiter(FDirectory) +
-    'syringe_pump.exe';
   FAutomationDirectory := IncludeTrailingPathDelimiter(FDirectory) +
     'data' + PathDelim + 'automation';
 end;
@@ -2087,18 +2083,17 @@ end;
 
 procedure TAutomationDocumentStorageTests.EnsureTestAutomationDirectory;
 var
-  Directory: string;
   ErrorText: string;
 begin
-  AssertTrue(EnsureAutomationDirectory(FExecutableFileName, Directory,
-    ErrorText));
-  AssertEquals(FAutomationDirectory, Directory);
+  AssertTrue(EnsureAutomationDirectory(FAutomationDirectory, ErrorText));
+  AssertEquals('', ErrorText);
 end;
 
-procedure TAutomationDocumentStorageTests.AutomationDirectoryIsInDataFolder;
+procedure TAutomationDocumentStorageTests.ExistingDirectoryIsKept;
 begin
-  AssertEquals(FAutomationDirectory,
-    GetAutomationDirectory(FExecutableFileName));
+  AssertTrue(ForceDirectories(FAutomationDirectory));
+  EnsureTestAutomationDirectory;
+  AssertTrue(DirectoryExists(FAutomationDirectory));
 end;
 
 procedure TAutomationDocumentStorageTests.CreatesAutomationDirectoryWhenMissing;
@@ -2824,14 +2819,13 @@ begin
   end;
 end;
 
-procedure TDispenserConfigStorageTests.DefaultConstructorUsesApplicationConfigPath;
+procedure TDispenserConfigStorageTests.ConstructorUsesProvidedPath;
 var
   Storage: TDispenserConfigStorage;
 begin
-  Storage := TDispenserConfigStorage.Create('');
+  Storage := TDispenserConfigStorage.Create(FFileName);
   try
-    AssertTrue(Storage.FileName <> '');
-    AssertTrue(Pos('syringe_pump.ini', Storage.FileName) > 0);
+    AssertEquals(FFileName, Storage.FileName);
   finally
     Storage.Free;
   end;
