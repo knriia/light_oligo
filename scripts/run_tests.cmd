@@ -25,15 +25,14 @@ if not defined LAZBUILD_CMD (
 
 echo Using lazbuild: %LAZBUILD_CMD%
 set "FAILED=0"
-rem ProtocolFormatTests is linked by the scenario tests as a helper, but runs in synthesis_tests.
-set "STATION_SUITES=--suite=TAutomationProtocolRunnerTests,TDispenserCommandTests,TAutomationProtocolTests,TDispenserOperationRulesTests,TDispenserConfigModelTests,TDispenserLayoutTests,TDispenserConfigValidatorTests,TWindowSettingsStorageTests,TAutomationDocumentStorageTests,TDispenserCapacityValidatorTests,TDispenserConfigStorageTests,TDispenserRuntimeStateTests,TDispenserOperationCoordinatorTests,TDispenserConnectionCoordinatorTests,TDispenserControllerTests,TSerialPortFailureTests,TFormWorkDispatcherTests,TScenarioListTests,TScenarioFormatTests,TScenarioProtocolTests,TScenarioRunnerTests"
 
 call :build_and_run "src\common\tests\common_tests.lpi" "src\common\tests\common_tests.exe"
 call :build_and_run "src\laser\tests\laser_tests.lpi" "src\laser\tests\laser_tests.exe"
 call :build_and_run "src\manual\tests\manual_tests.lpi" "src\manual\tests\manual_tests.exe"
 call :build_and_run "src\oligo\tests\oligo_tests.lpi" "src\oligo\tests\oligo_tests.exe"
+call :build_and_run "src\protocol\tests\protocol_tests.lpi" "src\protocol\tests\protocol_tests.exe"
 call :build_and_run "src\synthesis\tests\synthesis_tests.lpi" "src\synthesis\tests\synthesis_tests.exe"
-call :build_and_run "src\syringe_station\tests\configuration_tests.lpi" "src\syringe_station\tests\configuration_tests.exe" "%STATION_SUITES%"
+call :build_and_run "src\syringe_station\tests\configuration_tests.lpi" "src\syringe_station\tests\configuration_tests.exe"
 call :build_and_run "src\laser\tests\markezd_tests.lpi" "bin\markezd_tests.exe"
 
 popd

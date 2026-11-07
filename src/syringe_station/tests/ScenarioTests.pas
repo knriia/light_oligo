@@ -7,7 +7,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, ProtocolFormat, ScenarioList,
-  ProtocolFormatTests;
+  ProtocolTestHelpers;
 
 type
   TScenarioListTests = class(TTestCase)
