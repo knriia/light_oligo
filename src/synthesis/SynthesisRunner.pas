@@ -11,27 +11,9 @@ unit SynthesisRunner;
 interface
 
 uses
-  SysUtils, OligoSlices, ProtocolFormat, ProtocolModel;
+  SysUtils, OligoSlices, ProtocolFormat, ProtocolModel, SynthesisPorts;
 
 type
-  TSynthesisActions = class
-  public
-    procedure Log(const AText: string); virtual; abstract;
-    // Попросили остановить синтез.
-    function StopRequested: Boolean; virtual; abstract;
-    // Выполняет шаг шприцевой станции и ждёт его конца. False - ошибка,
-    // AErrorText объясняет; синтез останавливается.
-    function RunSyringe(const AStep: TSyringeStep;
-      out AErrorText: string): Boolean; virtual; abstract;
-    procedure Pause(ASeconds: Integer); virtual; abstract;
-    procedure Vacuum(AOn: Boolean); virtual; abstract;
-    // Маркировка слоя: файл EZD текущего слоя, число повторов и время
-    // ожидания после каждой маркировки. False - маркировка не выполнена,
-    // AErrorText объясняет; синтез останавливается.
-    function Laser(ARepeats: Integer; ATimeSeconds: Double;
-      const AEzdFile: string; out AErrorText: string): Boolean; virtual; abstract;
-  end;
-
   // Протокол буквы; nil, если для буквы протокола нет.
   TProtocolLookup = function(const ALetter: string): TProtocolModel of object;
 
@@ -42,7 +24,8 @@ type
     FActions: TSynthesisActions;
     FFailed: Boolean;
     function Aborted: Boolean;
-    procedure RunStep(const AStep: TProtocolStep; const AEzdFile: string);
+    procedure RunStep(const AStep: TProtocolStep; const AEzdFile: string;
+      ALayerIndex, AOperationIndex: Integer);
     procedure RunLayer(AIndex: Integer);
   public
     constructor Create(const ALayers: TSliceLayers; ALookup: TProtocolLookup;
@@ -71,10 +54,16 @@ begin
 end;
 
 procedure TSynthesisRunner.RunStep(const AStep: TProtocolStep;
-  const AEzdFile: string);
+  const AEzdFile: string; ALayerIndex, AOperationIndex: Integer);
 var
   ErrorText: string;
+  ProgressEvent: TSynthesisProgress;
 begin
+  ProgressEvent.LayerIndex := ALayerIndex + 1;
+  ProgressEvent.LayerCount := Length(FLayers);
+  ProgressEvent.OperationIndex := AOperationIndex;
+  ProgressEvent.ErrorText := '';
+  FActions.Progress(ProgressEvent);
   case AStep.Kind of
     pskComment:
       FActions.Log('Name=' + AStep.Text);
@@ -91,23 +80,47 @@ begin
     pskSyringe:
       begin
         FActions.Log(SyringeStepSummary(AStep.Syringe));
-        if FActions.RunSyringe(AStep.Syringe, ErrorText) then
-          FActions.Log('SyrSt done')
-        else
-        begin
-          FActions.Log('SyrSt ERROR: ' + ErrorText);
-          FFailed := True;
+        case FActions.RunSyringe(AStep.Syringe, ErrorText) of
+          prSucceeded:
+            FActions.Log('SyrSt done');
+          prFailed:
+            begin
+              FActions.Log('SyrSt ERROR: ' + ErrorText);
+              ProgressEvent.ErrorText := ErrorText;
+              FActions.Progress(ProgressEvent);
+              FFailed := True;
+            end;
+          prUnknown:
+            begin
+              FActions.Log('SyrSt UNKNOWN: ' + ErrorText);
+              ProgressEvent.ErrorText := ErrorText;
+              FActions.Progress(ProgressEvent);
+              FFailed := True;
+            end;
         end;
       end;
     pskLaser:
       begin
         FActions.Log('Laser=' + IntToStr(AStep.IntValue));
         FActions.Log('File=' + AEzdFile);
-        if not FActions.Laser(AStep.IntValue, AStep.FloatValue, AEzdFile,
-          ErrorText) then
-        begin
-          FActions.Log('Laser ERROR: ' + ErrorText);
-          FFailed := True;
+        case FActions.Laser(AStep.IntValue, AStep.FloatValue, AEzdFile,
+          ErrorText) of
+          prSucceeded:
+            ;
+          prFailed:
+            begin
+              FActions.Log('Laser ERROR: ' + ErrorText);
+              ProgressEvent.ErrorText := ErrorText;
+              FActions.Progress(ProgressEvent);
+              FFailed := True;
+            end;
+          prUnknown:
+            begin
+              FActions.Log('Laser UNKNOWN: ' + ErrorText);
+              ProgressEvent.ErrorText := ErrorText;
+              FActions.Progress(ProgressEvent);
+              FFailed := True;
+            end;
         end;
       end;
   end;
@@ -116,19 +129,31 @@ end;
 procedure TSynthesisRunner.RunLayer(AIndex: Integer);
 var
   Protocol: TProtocolModel;
-  B, S: Integer;
+  B, S, OperationIndex: Integer;
+  ProgressEvent: TSynthesisProgress;
 begin
   // сессия проверила, что протоколы есть для всех букв; здесь защита
   Protocol := FLookup(FLayers[AIndex].Letter);
   if Protocol = nil then
   begin
+    ProgressEvent.LayerIndex := AIndex + 1;
+    ProgressEvent.LayerCount := Length(FLayers);
+    ProgressEvent.OperationIndex := 0;
+    ProgressEvent.ErrorText := 'no protocol for letter ' + FLayers[AIndex].Letter;
+    FActions.Progress(ProgressEvent);
     FActions.Log('ERROR: no protocol for letter ' + FLayers[AIndex].Letter);
     FFailed := True;
     Exit;
   end;
+  ProgressEvent.LayerIndex := AIndex + 1;
+  ProgressEvent.LayerCount := Length(FLayers);
+  ProgressEvent.OperationIndex := 0;
+  ProgressEvent.ErrorText := '';
+  FActions.Progress(ProgressEvent);
   FActions.Log('CICLE=' + IntToStr(AIndex) + ';    PROTOCOL LETTER=' +
     FLayers[AIndex].Letter + '; LAYER NUMBER=' +
     IntToStr(FLayers[AIndex].LayerNumber));
+  OperationIndex := 0;
   for B := 0 to Protocol.BlockCount - 1 do
   begin
     FActions.Log('Name=' + Protocol.BlockNames[B]);
@@ -136,7 +161,9 @@ begin
     begin
       if Aborted then
         Exit;
-      RunStep(Protocol.Steps[B, S], FLayers[AIndex].EZDFile);
+      Inc(OperationIndex);
+      RunStep(Protocol.Steps[B, S], FLayers[AIndex].EZDFile,
+        AIndex, OperationIndex);
     end;
     if Aborted then
       Exit;

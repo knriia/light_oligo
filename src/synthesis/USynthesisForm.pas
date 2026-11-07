@@ -14,8 +14,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, IniFiles,
   OligoSlices, SynthesisSession, SynthesisWorkspace, SynthesisThread,
-  SynthesisFolder,
-  UDispenserStationHost;
+  SynthesisFolder, SynthesisPorts;
 
 type
   TSynthesisLogEvent = procedure(const AMsg: string) of object;
@@ -45,11 +44,10 @@ type
     FWorkspace: TSynthesisWorkspace;      // слои и протоколы синтеза и его папка
     FThread: TSynthesisThread;            // nil, пока синтез не идёт
     FHost: TSynthesisHost;                // связь потока с окнами
-    FStation: TDispenserStationForm;
+    FStation: TSyringeStation;
+    FMarker: TLayerMarker;
     FOnLog: TSynthesisLogEvent;
-    FOnEzCadOpening: TNotifyEvent;
     FOnClearLog: TNotifyEvent;
-    FEzCadOpenDelayMs: Integer;
     function Running: Boolean;
     procedure ThreadFinished(Sender: TObject);
     procedure RebuildTree;
@@ -64,16 +62,11 @@ type
     procedure SetLayers(const ALayers: TSliceLayers);
     // Перед закрытием программы: идущий синтез останавливаем только с согласия.
     function CanCloseFromHost: Boolean;
-    property Station: TDispenserStationForm read FStation write FStation;
+    property Station: TSyringeStation read FStation write FStation;
+    property Marker: TLayerMarker read FMarker write FMarker;
     property OnLog: TSynthesisLogEvent read FOnLog write FOnLog;
     // Перед запуском синтеза владелец очищает журнал.
     property OnClearLog: TNotifyEvent read FOnClearLog write FOnClearLog;
-    // Синтез запускает EzCAD: владелец включает наблюдатель за его окнами.
-    property OnEzCadOpening: TNotifyEvent read FOnEzCadOpening
-      write FOnEzCadOpening;
-    // Сколько ждать после запуска EzCAD перед маркировкой, мс.
-    property EzCadOpenDelayMs: Integer read FEzCadOpenDelayMs
-      write FEzCadOpenDelayMs;
   end;
 
 implementation
@@ -84,16 +77,15 @@ uses
   AppPaths;
 
 type
-  // Передаёт потоку журнал, станцию и запуск наблюдателя из окна синтеза.
+  // Передаёт потоку журнал и порты из окна синтеза.
   TFormHost = class(TSynthesisHost)
   private
     FForm: TSynthesisForm;
   public
     constructor Create(AForm: TSynthesisForm);
     procedure WriteLog(const AText: string); override;
-    function Station: TDispenserStationForm; override;
-    procedure EzCadOpening; override;
-    function EzCadOpenDelayMs: Integer; override;
+    function Station: TSyringeStation; override;
+    function Marker: TLayerMarker; override;
   end;
 
 constructor TFormHost.Create(AForm: TSynthesisForm);
@@ -107,20 +99,14 @@ begin
   FForm.Log(AText);
 end;
 
-function TFormHost.Station: TDispenserStationForm;
+function TFormHost.Station: TSyringeStation;
 begin
   Result := FForm.FStation;
 end;
 
-procedure TFormHost.EzCadOpening;
+function TFormHost.Marker: TLayerMarker;
 begin
-  if Assigned(FForm.FOnEzCadOpening) then
-    FForm.FOnEzCadOpening(FForm);
-end;
-
-function TFormHost.EzCadOpenDelayMs: Integer;
-begin
-  Result := FForm.FEzCadOpenDelayMs;
+  Result := FForm.FMarker;
 end;
 
 { TSynthesisForm }
@@ -130,16 +116,19 @@ begin
   inherited Create(TheOwner);
   FWorkspace := TSynthesisWorkspace.Create;
   FHost := TFormHost.Create(Self);
-  FEzCadOpenDelayMs := 1000;
 end;
 
 destructor TSynthesisForm.Destroy;
 begin
-  // идущий синтез останавливаем; сессию он ещё читает, поэтому не освобождаем
+  // идущий синтез останавливаем и дожидаемся завершения: адаптеры оборудования
+  // принадлежат главному окну и не должны освобождаться раньше потока.
   if FThread <> nil then
-    FThread.Terminate
-  else
-    FreeAndNil(FWorkspace);
+  begin
+    FThread.Terminate;
+    FThread.WaitFor;
+    FThread := nil;
+  end;
+  FreeAndNil(FWorkspace);
   inherited Destroy;
 end;
 

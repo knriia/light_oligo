@@ -60,6 +60,9 @@ type
     SpeedUnit: string;  // нл/с, мкл/с, мл/с
   end;
 
+  // Состояние шага SyrSt, запущенного из синтеза.
+  TSyringeStepStatus = (sssIdle, sssRunning, sssSucceeded, sssFailed);
+
   TProtocolStepKind = (pskComment, pskSyringe, pskVacuum, pskLaser, pskPause);
 
   TProtocolStep = record

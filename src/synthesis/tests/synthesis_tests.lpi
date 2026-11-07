@@ -28,6 +28,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="..\SynthesisPorts.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="SynthesisSessionTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

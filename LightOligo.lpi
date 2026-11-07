@@ -133,6 +133,10 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
+        <Filename Value="src\AppSynthesisAdapters.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\common\AppPaths.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -166,6 +170,10 @@
       </Unit>
       <Unit>
         <Filename Value="src\synthesis\SynthesisRunner.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\synthesis\SynthesisPorts.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
