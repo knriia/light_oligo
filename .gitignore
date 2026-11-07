@@ -12,6 +12,10 @@ lib/
 /src/*/tests/*.exe
 /src/*/tests/lib/
 
+# Python cache from scripts/*.py
+__pycache__/
+*.pyc
+
 # Lazarus per-user session files and automatic backups
 *.lps
 backup/
