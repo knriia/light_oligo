@@ -17,9 +17,6 @@ uses
 type
   TDispenserStationLogEvent = procedure(Sender: TObject; const Msg: string) of object;
 
-  // Состояние шага SyrSt, запущенного из синтеза.
-  TSyringeStepStatus = (sssIdle, sssRunning, sssSucceeded, sssFailed);
-
   { TDispenserStationForm }
 
   TDispenserStationForm = class(TForm)

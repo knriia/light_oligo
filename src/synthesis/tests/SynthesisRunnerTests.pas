@@ -7,27 +7,31 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, OligoSlices, ProtocolFormat,
-  ProtocolModel, SynthesisRunner, ProtocolTestHelpers;
+  ProtocolModel, SynthesisRunner, SynthesisPorts, ProtocolTestHelpers;
 
 type
   // Подставной исполнитель: записывает, что его просили сделать.
   TRecordingActions = class(TSynthesisActions)
   public
     Journal: TStringList;       // журнал синтеза и вызовы действий
+    ProgressJournal: TStringList;
     StopAfterCalls: Integer;    // после стольких действий просим остановку (0 - не просим)
     FailSyringe: Boolean;
     FailLaser: Boolean;
+    UnknownSyringe: Boolean;
+    UnknownLaser: Boolean;
     Calls: Integer;
     constructor Create;
     destructor Destroy; override;
     procedure Log(const AText: string); override;
     function StopRequested: Boolean; override;
     function RunSyringe(const AStep: TSyringeStep;
-      out AErrorText: string): Boolean; override;
+      out AErrorText: string): TPortResult; override;
     procedure Pause(ASeconds: Integer); override;
     procedure Vacuum(AOn: Boolean); override;
     function Laser(ARepeats: Integer; ATimeSeconds: Double;
-      const AEzdFile: string; out AErrorText: string): Boolean; override;
+      const AEzdFile: string; out AErrorText: string): TPortResult; override;
+    procedure Progress(const AEvent: TSynthesisProgress); override;
   end;
 
   TSynthesisRunnerTests = class(TTestCase)
@@ -52,6 +56,9 @@ type
     procedure SyringeFailureStopsSynthesisAndLogsError;
     procedure MissingProtocolStopsWithError;
     procedure LaserFailureStopsSynthesisAndLogsError;
+    procedure UnknownSyringeStopsSynthesisAndLogsUnknown;
+    procedure UnknownLaserStopsSynthesisAndLogsUnknown;
+    procedure ProgressReportsLayerAndError;
     procedure NoLayersStartsAndCompletes;
     procedure ReturnsTrueOnlyWhenAllLayersRun;
   end;
@@ -64,10 +71,12 @@ constructor TRecordingActions.Create;
 begin
   inherited Create;
   Journal := TStringList.Create;
+  ProgressJournal := TStringList.Create;
 end;
 
 destructor TRecordingActions.Destroy;
 begin
+  ProgressJournal.Free;
   Journal.Free;
   inherited Destroy;
 end;
@@ -83,13 +92,20 @@ begin
 end;
 
 function TRecordingActions.RunSyringe(const AStep: TSyringeStep;
-  out AErrorText: string): Boolean;
+  out AErrorText: string): TPortResult;
 begin
   Inc(Calls);
   Journal.Add('syringe ' + AStep.Dispensers);
-  Result := not FailSyringe;
-  if Result then
+  if UnknownSyringe then
+    Result := prUnknown
+  else if FailSyringe then
+    Result := prFailed
+  else
+    Result := prSucceeded;
+  if Result = prSucceeded then
     AErrorText := ''
+  else if Result = prUnknown then
+    AErrorText := 'syringe state unknown'
   else
     AErrorText := 'device offline';
 end;
@@ -107,16 +123,29 @@ begin
 end;
 
 function TRecordingActions.Laser(ARepeats: Integer; ATimeSeconds: Double;
-  const AEzdFile: string; out AErrorText: string): Boolean;
+  const AEzdFile: string; out AErrorText: string): TPortResult;
 begin
   Inc(Calls);
   Journal.Add('laser ' + IntToStr(ARepeats) + ' ' +
     FloatToStr(ATimeSeconds) + ' ' + AEzdFile);
-  Result := not FailLaser;
-  if Result then
+  if UnknownLaser then
+    Result := prUnknown
+  else if FailLaser then
+    Result := prFailed
+  else
+    Result := prSucceeded;
+  if Result = prSucceeded then
     AErrorText := ''
+  else if Result = prUnknown then
+    AErrorText := 'laser state unknown'
   else
     AErrorText := 'ezcad busy';
+end;
+
+procedure TRecordingActions.Progress(const AEvent: TSynthesisProgress);
+begin
+  ProgressJournal.Add(Format('progress %d/%d op=%d error=%s', [AEvent.LayerIndex,
+    AEvent.LayerCount, AEvent.OperationIndex, AEvent.ErrorText]));
 end;
 
 { TSynthesisRunnerTests }
@@ -402,6 +431,70 @@ begin
   AssertEquals('после ошибки лазера операции не идут', 0, Pos('pause 5', Joined));
   AssertEquals('второй слой не начат', 0, Pos('CICLE=1', Joined));
   AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
+end;
+
+procedure TSynthesisRunnerTests.UnknownSyringeStopsSynthesisAndLogsUnknown;
+var
+  Runner: TSynthesisRunner;
+begin
+  FProtocolA.AddBlock('B');
+  AddStep(FProtocolA, SyringeOf('PA'));
+  AddStep(FProtocolA, PauseOf(5));
+  FActions.UnknownSyringe := True;
+  Runner := TSynthesisRunner.Create(Layers('AA'), @Lookup, FActions);
+  try
+    AssertFalse(Runner.Run);
+    AssertTrue(Runner.Failed);
+  finally
+    Runner.Free;
+  end;
+  AssertTrue(Joined, Pos('log SyrSt UNKNOWN: syringe state unknown', Joined) > 0);
+  AssertEquals('после неизвестного результата операции не идут', 0,
+    Pos('pause 5', Joined));
+  AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
+end;
+
+procedure TSynthesisRunnerTests.UnknownLaserStopsSynthesisAndLogsUnknown;
+var
+  Runner: TSynthesisRunner;
+begin
+  FProtocolA.AddBlock('B');
+  AddStep(FProtocolA, LaserOf(1, 1));
+  AddStep(FProtocolA, PauseOf(5));
+  FActions.UnknownLaser := True;
+  Runner := TSynthesisRunner.Create(Layers('AA'), @Lookup, FActions);
+  try
+    AssertFalse(Runner.Run);
+    AssertTrue(Runner.Failed);
+  finally
+    Runner.Free;
+  end;
+  AssertTrue(Joined, Pos('log Laser UNKNOWN: laser state unknown', Joined) > 0);
+  AssertEquals('после неизвестного результата операции не идут', 0,
+    Pos('pause 5', Joined));
+  AssertTrue(Joined, Pos('log Synthesis stopped by error', Joined) > 0);
+end;
+
+procedure TSynthesisRunnerTests.ProgressReportsLayerAndError;
+var
+  Runner: TSynthesisRunner;
+begin
+  FProtocolA.AddBlock('B');
+  AddStep(FProtocolA, SyringeOf('PA'));
+  FActions.FailSyringe := True;
+  Runner := TSynthesisRunner.Create(Layers('AA'), @Lookup, FActions);
+  try
+    AssertFalse(Runner.Run);
+  finally
+    Runner.Free;
+  end;
+  AssertTrue('событие слоя N из M',
+    Pos('progress 1/2 op=0 error=', FActions.ProgressJournal.Text) > 0);
+  AssertTrue('событие операции',
+    Pos('progress 1/2 op=1 error=', FActions.ProgressJournal.Text) > 0);
+  AssertTrue('событие ошибки',
+    Pos('progress 1/2 op=1 error=device offline',
+      FActions.ProgressJournal.Text) > 0);
 end;
 
 procedure TSynthesisRunnerTests.NoLayersStartsAndCompletes;

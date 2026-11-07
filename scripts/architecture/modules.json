@@ -21,6 +21,7 @@
   "unit_modules": {
     "LightOligo": "app",
     "UMainForm": "app",
+    "AppSynthesisAdapters": "app",
 
     "AppPaths": "platform",
     "CommonUtils": "platform",
@@ -60,6 +61,7 @@
     "USequencesForm": "oligo",
 
     "LaserMarking": "synthesis",
+    "SynthesisPorts": "synthesis",
     "ProtocolEditing": "protocol",
     "ProtocolFormat": "protocol",
     "ProtocolModel": "protocol",

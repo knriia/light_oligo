@@ -9,7 +9,7 @@ uses
   Graphics, Buttons,
   UProtocolForm, USynthesisForm, UDispenserStationHost, DispenserLayout,
   OligoSlices, AppPaths, IniFiles,
-  USequencesForm, UManualForm, EzCadApp;
+  USequencesForm, UManualForm, EzCadApp, AppSynthesisAdapters;
 
 
 type
@@ -37,14 +37,16 @@ type
     FSynthesisForm: TSynthesisForm;
     FManualForm: TManualForm;
     FEzCadWatcher: TEzCadDialogWatcher;
+    FSynthesisStation: TStationSyringeAdapter;
+    FSynthesisMarker: TEzCadLayerMarker;
     procedure SequencesLayersChanged(const ALayers: TSliceLayers);
     procedure SynthesisClearLog(Sender: TObject);
-    procedure SynthesisEzCadOpening(Sender: TObject);
     procedure SequencesLog(const AMsg: string);
     procedure UpdateManualControlsWidth;
     procedure UpdateMinimumWindowWidth;
     procedure DispenserStationLogMessage(Sender: TObject; const Msg: string);
   public
+    destructor Destroy; override;
     property DispenserStation: TDispenserStationForm read FDispenserStation;
     // Синтез запустил EzCAD: закрывать его окна лицензии и предупреждений.
     procedure StartEzCadWatcher;
@@ -108,16 +110,18 @@ begin
   FDispenserStation.Align := alClient;
   FDispenserStation.AttachLogSink(@DispenserStationLogMessage);
   FDispenserStation.Show;
+  FSynthesisStation := TStationSyringeAdapter.Create(FDispenserStation);
+  FSynthesisMarker := TEzCadLayerMarker.Create(
+    MyIni.ReadInteger('Laser', 'EzCAD2OpenTime', 1000), @StartEzCadWatcher);
   FSynthesisForm := TSynthesisForm.Create(Self);
   FSynthesisForm.BorderStyle := bsNone;
   FSynthesisForm.Parent := TS_Synthesis;
   FSynthesisForm.Align := alClient;
   FSynthesisForm.ApplyCaptions(MyInterface);
-  FSynthesisForm.Station := FDispenserStation;
+  FSynthesisForm.Station := FSynthesisStation;
+  FSynthesisForm.Marker := FSynthesisMarker;
   FSynthesisForm.OnLog := @SequencesLog;
   FSynthesisForm.OnClearLog := @SynthesisClearLog;
-  FSynthesisForm.OnEzCadOpening := @SynthesisEzCadOpening;
-  FSynthesisForm.EzCadOpenDelayMs := MyIni.ReadInteger('Laser','EzCAD2OpenTime',1000);
   FSynthesisForm.Show;
   FSequencesForm := TSequencesForm.Create(Self);
   FSequencesForm.BorderStyle := bsNone;
@@ -224,6 +228,15 @@ begin
 
   MyInterface.Free;
   MyIni.Free;
+end;
+
+destructor TMainForm.Destroy;
+begin
+  // Адаптеры принадлежат composition root и освобождаются после дочерних
+  // форм, которым они делегируют вызовы.
+  inherited Destroy;
+  FreeAndNil(FSynthesisMarker);
+  FreeAndNil(FSynthesisStation);
   FreeAndNil(FEzCadWatcher);
 end;
 
@@ -250,11 +263,6 @@ end;
 procedure TMainForm.SynthesisClearLog(Sender: TObject);
 begin
   Memo1.Clear;
-end;
-
-procedure TMainForm.SynthesisEzCadOpening(Sender: TObject);
-begin
-  StartEzCadWatcher;
 end;
 
 end.
