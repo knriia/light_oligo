@@ -32,22 +32,6 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="../DispenserOperationRules.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="../AutomationDocumentStorage.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="../AutomationProtocol.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="../AutomationProtocolRunner.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
         <Filename Value="AutomationProtocolRunnerTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -56,47 +40,11 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="../FormWorkDispatcher.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
         <Filename Value="ScenarioTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="../ScenarioList.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
         <Filename Value="ScenarioRunTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="ProtocolModelTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="ProtocolEditingTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="SynthesisSessionTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="SynthesisRunnerTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="SynthesisFolderTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="SynthesisWorkspaceTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="LaserMarkingTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
@@ -105,7 +53,7 @@
     <Version Value="11"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..;../../common;../../oligo;../../synthesis;../../laser;../../manual;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
+      <OtherUnitFiles Value=".;..;../../synthesis;../../synthesis/tests;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Target>

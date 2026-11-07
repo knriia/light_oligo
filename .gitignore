@@ -9,7 +9,8 @@ lib/
 *.res
 /bin/LightOligo.exe
 /bin/markezd_tests.exe
-/src/syringe_station/tests/*.exe
+/src/*/tests/*.exe
+/src/*/tests/lib/
 
 # Lazarus per-user session files and automatic backups
 *.lps

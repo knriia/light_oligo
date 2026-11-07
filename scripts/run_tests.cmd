@@ -14,7 +14,10 @@ if not defined LAZBUILD_CMD (
     for /f "delims=" %%I in ('where.exe lazbuild.exe 2^>nul') do if not defined LAZBUILD_CMD set "LAZBUILD_CMD=%%I"
 )
 if not defined LAZBUILD_CMD (
-    echo ERROR: lazbuild was not found in PATH.
+    if exist "C:\lazarus\lazbuild.exe" set "LAZBUILD_CMD=C:\lazarus\lazbuild.exe"
+)
+if not defined LAZBUILD_CMD (
+    echo ERROR: lazbuild was not found.
     echo Set LAZBUILD to the lazbuild executable path or add lazbuild.exe to PATH.
     popd
     exit /b 2
@@ -22,9 +25,16 @@ if not defined LAZBUILD_CMD (
 
 echo Using lazbuild: %LAZBUILD_CMD%
 set "FAILED=0"
+rem ProtocolFormatTests is linked by the scenario tests as a helper, but runs in synthesis_tests.
+set "STATION_SUITES=--suite=TAutomationProtocolRunnerTests,TDispenserCommandTests,TAutomationProtocolTests,TDispenserOperationRulesTests,TDispenserConfigModelTests,TDispenserLayoutTests,TDispenserConfigValidatorTests,TWindowSettingsStorageTests,TAutomationDocumentStorageTests,TDispenserCapacityValidatorTests,TDispenserConfigStorageTests,TDispenserRuntimeStateTests,TDispenserOperationCoordinatorTests,TDispenserConnectionCoordinatorTests,TDispenserControllerTests,TSerialPortFailureTests,TFormWorkDispatcherTests,TScenarioListTests,TScenarioFormatTests,TScenarioProtocolTests,TScenarioRunnerTests"
 
+call :build_and_run "src\common\tests\common_tests.lpi" "src\common\tests\common_tests.exe"
+call :build_and_run "src\laser\tests\laser_tests.lpi" "src\laser\tests\laser_tests.exe"
+call :build_and_run "src\manual\tests\manual_tests.lpi" "src\manual\tests\manual_tests.exe"
+call :build_and_run "src\oligo\tests\oligo_tests.lpi" "src\oligo\tests\oligo_tests.exe"
+call :build_and_run "src\synthesis\tests\synthesis_tests.lpi" "src\synthesis\tests\synthesis_tests.exe"
+call :build_and_run "src\syringe_station\tests\configuration_tests.lpi" "src\syringe_station\tests\configuration_tests.exe" "%STATION_SUITES%"
 call :build_and_run "src\laser\tests\markezd_tests.lpi" "bin\markezd_tests.exe"
-call :build_and_run "src\syringe_station\tests\configuration_tests.lpi" "src\syringe_station\tests\configuration_tests.exe"
 
 popd
 exit /b %FAILED%
@@ -45,8 +55,13 @@ if not exist "%~2" (
     exit /b 0
 )
 
-echo === Running %~2 ===
-"%~2"
+if not "%~3"=="" (
+    echo === Running %~2 %~3 ===
+    "%~2" %~3
+) else (
+    echo === Running %~2 ===
+    "%~2"
+)
 if errorlevel 1 (
     echo ERROR: tests failed for %~1
     set "FAILED=1"
