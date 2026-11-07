@@ -1,9 +1,10 @@
-program common_tests;
+program platform_tests;
 
 {$mode objfpc}{$H+}
 
 uses
-  Classes, consoletestrunner, AppPathsTests;
+  Classes, consoletestrunner, AppPathsTests, PathUtilsTests,
+  LocalizationTests;
 
 var
   Application: TTestRunner;
@@ -13,7 +14,7 @@ begin
   DefaultFormat := fPlainNoTiming;
   Application := TTestRunner.Create(nil);
   Application.Initialize;
-  Application.Title := 'Common module tests';
+  Application.Title := 'Platform module tests';
   Application.Run;
   Application.Free;
 end.

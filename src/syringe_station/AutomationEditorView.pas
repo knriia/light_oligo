@@ -86,7 +86,7 @@ type
 implementation
 
 uses
-  AppPaths, UOperationForm;
+  AppPaths, PathUtils, UOperationForm;
 
 const
   // В сценарии станции бывают только эти операции.

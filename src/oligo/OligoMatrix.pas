@@ -17,7 +17,7 @@ Procedure CopyMatrix(aDonorMatrix: TMatrix;
 Function AutoCenterBiasMatrix(aMatrix: TMatrix;
                               aStep: Double;
                               aGStep: Double;
-                              aGroup: Integer): TPoint;
+                              aGroup: Integer): TMatrixPoint;
 
 // Текст файла матрицы. Для пустой матрицы - пустая строка.
 function FormatMatrixText(const aMatrix: TMatrix): string;
@@ -57,7 +57,7 @@ begin
 end;
 
 function AutoCenterBiasMatrix(aMatrix: TMatrix; aStep: Double; aGStep: Double;
-  aGroup: Integer): TPoint;
+  aGroup: Integer): TMatrixPoint;
 // Определение смещения для центрирования матрицы с учетом шага, группировки и шага группы.
 // Для пустой матрицы смещение нулевое.
 var

@@ -55,11 +55,6 @@ function ManualConfigPath: string;
 // Создаёт папки data (со всеми подпапками) и configs.
 procedure EnsureDataDirs;
 
-// Путь внутри ABaseDir превращает в относительный, остальные не меняет.
-function MakePathRelative(const ABaseDir, AFileName: string): string;
-// Относительный путь достраивает от ABaseDir, абсолютный не меняет.
-function ResolvePath(const ABaseDir, AFileName: string): string;
-
 // Однократный перенос данных из старых мест в папку data:
 // настройки станции из профиля пользователя и файлы из папки protocols у exe.
 procedure MigrateLegacyData(const AExecutableFileName: string = '');
@@ -177,34 +172,6 @@ begin
   ForceDirectories(SynthesesDir);
   ForceDirectories(EzdDir);
   ForceDirectories(ConfigsDir);
-end;
-
-function IsAbsolutePath(const AFileName: string): Boolean;
-begin
-  Result := (ExtractFileDrive(AFileName) <> '') or
-    ((AFileName <> '') and (AFileName[1] in ['\', '/']));
-end;
-
-function MakePathRelative(const ABaseDir, AFileName: string): string;
-var
-  BaseDir: string;
-  FullName: string;
-begin
-  Result := AFileName;
-  if (Trim(ABaseDir) = '') or (Trim(AFileName) = '') then
-    Exit;
-  BaseDir := IncludeTrailingPathDelimiter(ExpandFileName(ABaseDir));
-  FullName := ExpandFileName(AFileName);
-  if SameText(Copy(FullName, 1, Length(BaseDir)), BaseDir) then
-    Result := Copy(FullName, Length(BaseDir) + 1, MaxInt);
-end;
-
-function ResolvePath(const ABaseDir, AFileName: string): string;
-begin
-  if (Trim(AFileName) = '') or IsAbsolutePath(AFileName) then
-    Result := AFileName
-  else
-    Result := IncludeTrailingPathDelimiter(ABaseDir) + AFileName;
 end;
 
 procedure MoveFilesFromLegacyProtocols(const AExecutableFileName: string);

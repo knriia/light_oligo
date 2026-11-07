@@ -1393,7 +1393,7 @@ end;
 
 procedure TOligoMatrixTests.AutoCenterOfEmptyMatrixIsZero;
 var
-  P: TPoint;
+  P: TMatrixPoint;
 begin
   P := AutoCenterBiasMatrix(nil, 0.1, 0.1, 10);
   AssertEquals(0.0, P[0], 1e-9);
@@ -1402,7 +1402,7 @@ end;
 
 procedure TOligoMatrixTests.AutoCenterWithoutGroups;
 var
-  P: TPoint;
+  P: TMatrixPoint;
 begin
   // 3 строки x 5 столбцов, шаг 1: по X сдвиг -2, по Y +1
   P := AutoCenterBiasMatrix(Matrix(['00000', '00000', '00000']), 1.0, 0.0, 0);
@@ -1412,7 +1412,7 @@ end;
 
 procedure TOligoMatrixTests.AutoCenterWithGroups;
 var
-  P: TPoint;
+  P: TMatrixPoint;
 begin
   // 5 столбцов, группы по 2: два межгрупповых промежутка по 0.5
   P := AutoCenterBiasMatrix(Matrix(['00000']), 1.0, 0.5, 2);
@@ -1469,7 +1469,7 @@ end;
 
 procedure TMarkGeometryTests.ManualBiasIsTakenAsIs;
 var
-  P: TPoint;
+  P: TMatrixPoint;
 begin
   P := MarkBias(Matrix(['00000']), Geometry(False));
   AssertEquals(3.25, P[0], 1e-9);
@@ -1478,7 +1478,7 @@ end;
 
 procedure TMarkGeometryTests.AutoCenterUsesMatrixAndSteps;
 var
-  P: TPoint;
+  P: TMatrixPoint;
 begin
   // то же, что AutoCenterWithGroups: ручное смещение не учитывается
   P := MarkBias(Matrix(['00000']), Geometry(True));

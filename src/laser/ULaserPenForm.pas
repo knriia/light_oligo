@@ -73,7 +73,8 @@ type
 
 implementation
 
-Uses UMainForm;
+uses
+  Localization;
 
 {$R *.lfm}
 
@@ -98,27 +99,27 @@ end;
 procedure TLaserPenForm.FormCreate(Sender: TObject);
 begin
   // интерфейс
-    Caption:=MyInterface.ReadString('LaserParam','LaserPenForm','Laser Parameters');
-    L_PenNo.Caption:=MyInterface.ReadString('LaserParam','L_PenNo','Pen No');
-    L_MarkLoop.Caption:=MyInterface.ReadString('LaserParam','L_MarkLoop','Mark Loops');
-    L_MarkSpeed.Caption:=MyInterface.ReadString('LaserParam','L_MarkSpeed','MarkSpeed');
-    L_PowerRatio.Caption:=MyInterface.ReadString('LaserParam','L_PowerRatio','PowerRatio');
-    L_Current.Caption:=MyInterface.ReadString('LaserParam','L_Current','Current');
-    L_Freq.Caption:=MyInterface.ReadString('LaserParam','L_Freq','Freq');
-    L_QPulseWidth.Caption:=MyInterface.ReadString('LaserParam','L_QPulseWidth','QPulseWidth');
-    L_StartTC.Caption:=MyInterface.ReadString('LaserParam','L_StartTC','StartTC');
-    L_LaserOffTC.Caption:=MyInterface.ReadString('LaserParam','L_LaserOffTC','LaserOffTC');
-    L_EndTC.Caption:=MyInterface.ReadString('LaserParam','L_EndTC','EndTC');
-    L_PolyTC.Caption:=MyInterface.ReadString('LaserParam','L_PolyTC','PolyTC');
-    L_JumpSpeed.Caption:=MyInterface.ReadString('LaserParam','L_JumpSpeed','JumpSpeed, mm/s');
-    L_JumpPosTC.Caption:=MyInterface.ReadString('LaserParam','L_JumpPosTC','JumpPosTC, ms');
-    L_JumpDistTC.Caption:=MyInterface.ReadString('LaserParam','L_JumpDistTC','JumpDistTC, ms');
-    L_PointTime.Caption:=MyInterface.ReadString('LaserParam','L_PointTime','PointTime, ms');
-    L_SpiWave.Caption:=MyInterface.ReadString('LaserParam','L_SpiWave','SpiWave');
-    CB_WobbleMode.Caption:=MyInterface.ReadString('LaserParam','CB_WobbleMode','Wobble Mode');
-    L_WobbleDiameter.Caption:=MyInterface.ReadString('LaserParam','L_WobbleDiameter','Wobble Diam, mm');
-    L_WobbleDist.Caption:=MyInterface.ReadString('LaserParam','L_WobbleDist','Wobble Dist, mm');
-    B_GetPen.Caption:=MyInterface.ReadString('LaserParam','B_GetPen','Значения из EzCAD');
+    Caption:=ReadInterfaceString('LaserParam','LaserPenForm','Laser Parameters');
+    L_PenNo.Caption:=ReadInterfaceString('LaserParam','L_PenNo','Pen No');
+    L_MarkLoop.Caption:=ReadInterfaceString('LaserParam','L_MarkLoop','Mark Loops');
+    L_MarkSpeed.Caption:=ReadInterfaceString('LaserParam','L_MarkSpeed','MarkSpeed');
+    L_PowerRatio.Caption:=ReadInterfaceString('LaserParam','L_PowerRatio','PowerRatio');
+    L_Current.Caption:=ReadInterfaceString('LaserParam','L_Current','Current');
+    L_Freq.Caption:=ReadInterfaceString('LaserParam','L_Freq','Freq');
+    L_QPulseWidth.Caption:=ReadInterfaceString('LaserParam','L_QPulseWidth','QPulseWidth');
+    L_StartTC.Caption:=ReadInterfaceString('LaserParam','L_StartTC','StartTC');
+    L_LaserOffTC.Caption:=ReadInterfaceString('LaserParam','L_LaserOffTC','LaserOffTC');
+    L_EndTC.Caption:=ReadInterfaceString('LaserParam','L_EndTC','EndTC');
+    L_PolyTC.Caption:=ReadInterfaceString('LaserParam','L_PolyTC','PolyTC');
+    L_JumpSpeed.Caption:=ReadInterfaceString('LaserParam','L_JumpSpeed','JumpSpeed, mm/s');
+    L_JumpPosTC.Caption:=ReadInterfaceString('LaserParam','L_JumpPosTC','JumpPosTC, ms');
+    L_JumpDistTC.Caption:=ReadInterfaceString('LaserParam','L_JumpDistTC','JumpDistTC, ms');
+    L_PointTime.Caption:=ReadInterfaceString('LaserParam','L_PointTime','PointTime, ms');
+    L_SpiWave.Caption:=ReadInterfaceString('LaserParam','L_SpiWave','SpiWave');
+    CB_WobbleMode.Caption:=ReadInterfaceString('LaserParam','CB_WobbleMode','Wobble Mode');
+    L_WobbleDiameter.Caption:=ReadInterfaceString('LaserParam','L_WobbleDiameter','Wobble Diam, mm');
+    L_WobbleDist.Caption:=ReadInterfaceString('LaserParam','L_WobbleDist','Wobble Dist, mm');
+    B_GetPen.Caption:=ReadInterfaceString('LaserParam','B_GetPen','Значения из EzCAD');
     B_OK.Caption:='OK';
     B_Cancel.Caption:='Отмена';
 end;

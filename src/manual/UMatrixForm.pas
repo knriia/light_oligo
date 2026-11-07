@@ -58,7 +58,7 @@ var
 implementation
 
 uses
-  UMainForm;
+  Localization;
 
 {$R *.lfm}
 
@@ -66,13 +66,13 @@ uses
 
 procedure TMatrixForm.FormCreate(Sender: TObject);
 begin
-  Caption:=MyInterface.ReadString('Matrix','MatrixForm','Matrix Creation');
-  GB_Matrix.Caption:=MyInterface.ReadString('Matrix','GB_Matrix','Matrix');
-  L_Columns.Caption:=MyInterface.ReadString('Matrix','L_Columns','Columns');
-  L_Rows.Caption:=MyInterface.ReadString('Matrix','L_Rows','Rows');
-  B_Clear.Caption:=MyInterface.ReadString('Matrix','B_Clear','Clear');
-  B_RND.Caption:=MyInterface.ReadString('Matrix','B_RND','RND');
-  B_LoadFile.Caption:=MyInterface.ReadString('Matrix','B_LoadFile','LoadFile');
+  Caption:=ReadInterfaceString('Matrix','MatrixForm','Matrix Creation');
+  GB_Matrix.Caption:=ReadInterfaceString('Matrix','GB_Matrix','Matrix');
+  L_Columns.Caption:=ReadInterfaceString('Matrix','L_Columns','Columns');
+  L_Rows.Caption:=ReadInterfaceString('Matrix','L_Rows','Rows');
+  B_Clear.Caption:=ReadInterfaceString('Matrix','B_Clear','Clear');
+  B_RND.Caption:=ReadInterfaceString('Matrix','B_RND','RND');
+  B_LoadFile.Caption:=ReadInterfaceString('Matrix','B_LoadFile','LoadFile');
 end;
 
 procedure TMatrixForm.SetDocument(ADocument: TMatrixDocument);

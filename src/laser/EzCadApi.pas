@@ -112,7 +112,7 @@ type
   TMatrix = MatrixTypes.TMatrix; // массив точек 0 - пусто, остальное - точка
 
 type
-  TPoint = MatrixTypes.TPoint; // 0-x, 1-y
+  TMatrixPoint = MatrixTypes.TMatrixPoint; // 0-x, 1-y
 
 type
   TArrOfArrOfInt = array of array of Integer;

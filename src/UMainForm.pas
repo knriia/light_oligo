@@ -7,9 +7,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
   Graphics, Buttons,
-  UProtocolForm, USynthesisForm, UDispenserStationHost, DispenserLayout,
-  OligoSlices, AppPaths, IniFiles,
-  USequencesForm, UManualForm, EzCadApp, AppSynthesisAdapters;
+  DispenserLayout, Localization, AppComposition;
 
 
 type
@@ -31,15 +29,7 @@ type
     procedure FormResize(Sender: TObject);
     procedure Tmr_EzCADerTimer(Sender: TObject);
   private
-    FDispenserStation: TDispenserStationForm;
-    FSequencesForm: TSequencesForm;
-    FProtocolForm: TProtocolForm;
-    FSynthesisForm: TSynthesisForm;
-    FManualForm: TManualForm;
-    FEzCadWatcher: TEzCadDialogWatcher;
-    FSynthesisStation: TStationSyringeAdapter;
-    FSynthesisMarker: TEzCadLayerMarker;
-    procedure SequencesLayersChanged(const ALayers: TSliceLayers);
+    FComposition: TAppComposition;
     procedure SynthesisClearLog(Sender: TObject);
     procedure SequencesLog(const AMsg: string);
     procedure UpdateManualControlsWidth;
@@ -47,15 +37,12 @@ type
     procedure DispenserStationLogMessage(Sender: TObject; const Msg: string);
   public
     destructor Destroy; override;
-    property DispenserStation: TDispenserStationForm read FDispenserStation;
     // Синтез запустил EzCAD: закрывать его окна лицензии и предупреждений.
     procedure StartEzCadWatcher;
   end;
 
 var
   MainForm: TMainForm;
-  MyInterface: TIniFile; // Только интерфейс
-  MyIni: TIniFile; // Все значения
 
 implementation
 
@@ -70,67 +57,21 @@ const
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  // папка data с данными рядом с exe; переносим туда данные из старых мест
-  MigrateLegacyData;
-  EnsureDataDirs;
+  FComposition := TAppComposition.Create(Self, TS_Manual, TS_Protocol,
+    TS_Synthesis, TS_Sequences, @SequencesLog, @SequencesLog, @SequencesLog,
+    @SynthesisClearLog, @DispenserStationLogMessage, @StartEzCadWatcher);
+  // данные, папки и настройки программы
+  FComposition.Initialize;
 
-  //интерфейс
-  MyInterface:=TIniFile.Create(ConfigFilePath(INTERFACE_FILE));
+  MainForm.Caption:=ReadInterfaceString('Main','MainForm','LightOligo');
+  TS_Manual.Caption:=ReadInterfaceString('Main','TS_Manual','Manual');
+  TS_Sequences.Caption:=ReadInterfaceString('Main','TS_Sequences','Sequence');
+  TS_Protocol.Caption:=ReadInterfaceString('Main','TS_Protocol','Protocol');
+  TS_Synthesis.Caption:=ReadInterfaceString('Main','TS_Synthesis','Synthesis');
+  TS_Log.Caption:=ReadInterfaceString('Main','TS_Log','Лог');
 
-  MainForm.Caption:=MyInterface.ReadString('Main','MainForm','LightOligo');
-  TS_Manual.Caption:=MyInterface.ReadString('Main','TS_Manual','Manual');
-  TS_Sequences.Caption:=MyInterface.ReadString('Main','TS_Sequences','Sequence');
-  TS_Protocol.Caption:=MyInterface.ReadString('Main','TS_Protocol','Protocol');
-  TS_Synthesis.Caption:=MyInterface.ReadString('Main','TS_Synthesis','Synthesis');
-  TS_Log.Caption:=MyInterface.ReadString('Main','TS_Log','Лог');
-
-
-  // значения
-  MyIni:=TIniFile.Create(ConfigFilePath(PROG_CONFIG_FILE));
-
-  //для экранов с включенным масштабированием
-  FEzCadWatcher := TEzCadDialogWatcher.Create;
-  FManualForm := TManualForm.Create(Self);
-  FManualForm.BorderStyle := bsNone;
-  FManualForm.Parent := TS_Manual;
-  FManualForm.Align := alClient;
-  FManualForm.ApplyCaptions(MyInterface);
-  FManualForm.LoadSettings;
-  FManualForm.OnLog := @SequencesLog;
-  FManualForm.Show;
-  FProtocolForm := TProtocolForm.Create(Self);
-  FProtocolForm.BorderStyle := bsNone;
-  FProtocolForm.Parent := TS_Protocol;
-  FProtocolForm.Align := alClient;
-  FProtocolForm.ApplyCaptions(MyInterface);
-  FProtocolForm.Show;
-  FDispenserStation := TDispenserStationForm.Create(Self);
-  FDispenserStation.BorderStyle := bsNone;
-  FDispenserStation.Parent := FManualForm.GB_PumpStation;
-  FDispenserStation.Align := alClient;
-  FDispenserStation.AttachLogSink(@DispenserStationLogMessage);
-  FDispenserStation.Show;
-  FSynthesisStation := TStationSyringeAdapter.Create(FDispenserStation);
-  FSynthesisMarker := TEzCadLayerMarker.Create(
-    MyIni.ReadInteger('Laser', 'EzCAD2OpenTime', 1000), @StartEzCadWatcher);
-  FSynthesisForm := TSynthesisForm.Create(Self);
-  FSynthesisForm.BorderStyle := bsNone;
-  FSynthesisForm.Parent := TS_Synthesis;
-  FSynthesisForm.Align := alClient;
-  FSynthesisForm.ApplyCaptions(MyInterface);
-  FSynthesisForm.Station := FSynthesisStation;
-  FSynthesisForm.Marker := FSynthesisMarker;
-  FSynthesisForm.OnLog := @SequencesLog;
-  FSynthesisForm.OnClearLog := @SynthesisClearLog;
-  FSynthesisForm.Show;
-  FSequencesForm := TSequencesForm.Create(Self);
-  FSequencesForm.BorderStyle := bsNone;
-  FSequencesForm.Parent := TS_Sequences;
-  FSequencesForm.Align := alClient;
-  FSequencesForm.ApplyCaptions(MyInterface);
-  FSequencesForm.OnLog := @SequencesLog;
-  FSequencesForm.OnLayersChanged := @SequencesLayersChanged;
-  FSequencesForm.Show;
+  // формы вкладок, адаптеры и связи между ними
+  FComposition.Build;
   Randomize();
   UpdateMinimumWindowWidth();
   UpdateManualControlsWidth();
@@ -184,60 +125,34 @@ end;
 
 procedure TMainForm.Tmr_EzCADerTimer(Sender: TObject);
 begin
-  if not FEzCadWatcher.Tick then
+  if not FComposition.EzCadWatcherTick then
     Tmr_EzCADer.Enabled:=False;
 end;
 
 procedure TMainForm.StartEzCadWatcher;
 begin
-  FEzCadWatcher.Start;
+  FComposition.EzCadWatcherStart;
   Tmr_EzCADer.Enabled:=True;
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
-  // сначала протокол и массив: вопрос о сохранении ничего не меняет в
-  // оборудовании
-  if Assigned(FProtocolForm) and
-     not FProtocolForm.CanCloseFromHost then
+  // порядок проверок (протокол, массив, синтез, станция) - в композиции
+  if Assigned(FComposition) and not FComposition.CanCloseAll then
   begin
     CloseAction := caNone;
     Exit;
   end;
 
-  if Assigned(FSequencesForm) and
-     not FSequencesForm.CanCloseFromHost then
-  begin
-    CloseAction := caNone;
-    Exit;
-  end;
-
-  if Assigned(FSynthesisForm) and
-     not FSynthesisForm.CanCloseFromHost then
-  begin
-    CloseAction := caNone;
-    Exit;
-  end;
-
-  if Assigned(FDispenserStation) and
-     not FDispenserStation.CanCloseFromHost then
-  begin
-    CloseAction := caNone;
-    Exit;
-  end;
-
-  MyInterface.Free;
-  MyIni.Free;
+  FinalizeLocalization;
 end;
 
 destructor TMainForm.Destroy;
 begin
-  // Адаптеры принадлежат composition root и освобождаются после дочерних
-  // форм, которым они делегируют вызовы.
+  // Адаптеры принадлежат композиции и освобождаются после дочерних форм,
+  // которым они делегируют вызовы.
   inherited Destroy;
-  FreeAndNil(FSynthesisMarker);
-  FreeAndNil(FSynthesisStation);
-  FreeAndNil(FEzCadWatcher);
+  FreeAndNil(FComposition);
 end;
 
 procedure TMainForm.DispenserStationLogMessage(Sender: TObject;
@@ -254,11 +169,6 @@ end;
 {ВКЛАДКА Protocol}
 
 {ВКЛАДКА Synthesis}
-
-procedure TMainForm.SequencesLayersChanged(const ALayers: TSliceLayers);
-begin
-  FSynthesisForm.SetLayers(ALayers);
-end;
 
 procedure TMainForm.SynthesisClearLog(Sender: TObject);
 begin

@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -137,15 +137,27 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\AppPaths.pas"/>
+        <Filename Value="src\AppComposition.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\CommonUtils.pas"/>
+        <Filename Value="src\platform\AppPaths.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\WinProcessUtils.pas"/>
+        <Filename Value="src\platform\Localization.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\platform\PathUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\platform\CommonUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\laser\WinProcessUtils.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -375,11 +387,11 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\MatrixTypes.pas"/>
+        <Filename Value="src\shared\MatrixTypes.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\TextFileUtils.pas"/>
+        <Filename Value="src\platform\TextFileUtils.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -398,7 +410,7 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\UFolderForm.pas"/>
+        <Filename Value="src\platform\UFolderForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="FolderForm"/>
         <HasResources Value="True"/>
@@ -413,7 +425,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\GridWidthMode.pas"/>
+        <Filename Value="src\oligo\GridWidthMode.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -424,7 +436,7 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\common\IniNumbers.pas"/>
+        <Filename Value="src\shared\IniNumbers.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -498,7 +510,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\common;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
+      <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>
