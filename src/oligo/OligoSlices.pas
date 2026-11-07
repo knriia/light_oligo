@@ -35,6 +35,15 @@ Function LoadSliceFile(var aSliceTable: TSliceLayers; aSliceFile: String): integ
 // номер слоя не число, нет ни одного слоя. Номер строки считается с 1.
 function LoadSliceLayers(const aSliceFile: String; out aLayers: TSliceLayers;
   out aErrorText: String): Boolean;
+// Читает Slices.txt (пути к матрицам слоёв), записанный SaveSliceStatistics.
+// Заполняет номер слоя, букву, число букв и путь к матрице; EZDFile остаётся
+// пустым. Имя матрицы строится от папки самого Slices.txt, поэтому папку
+// можно переносить; старые файлы с полными путями читаются как раньше.
+// При ошибке (нет файла, не читается, строка не из четырёх полей, номер
+// слоя или число букв не число, нет ни одного слоя) - False, причина в
+// AErrorText и пустая таблица: наполовину прочитанной она не бывает.
+function LoadSliceStatistics(const aSliceFile: String; out aLayers: TSliceLayers;
+  out aErrorText: String): Boolean;
 
 // Файлы слоёв в папке (Layer*.txt и Layer*.ezd), полные пути по алфавиту.
 // Для несуществующей папки - пустой список.
@@ -153,6 +162,84 @@ begin
       // Имя файла ищем рядом с файлом слоёв; старые файлы с полными
       // путями читаются как раньше.
       Table[n].EZDFile:=ResolvePath(ExtractFileDir(aSliceFile), Trim(Parts[2]));
+    end;
+  finally
+    Lines.Free;
+  end;
+  if Length(Table)=0 then
+  begin
+    aErrorText:='В файле слоёв нет ни одного слоя:'+LineEnding+aSliceFile;
+    Exit;
+  end;
+  aLayers:=Table;
+  Result:=True;
+end;
+
+function LoadSliceStatistics(const aSliceFile: String; out aLayers: TSliceLayers;
+  out aErrorText: String): Boolean;
+var
+  Lines: TStringList;
+  Parts: TStringArray;
+  Table: TSliceLayers;
+  i, n: integer;
+  Row: TSliceLayer;
+begin
+  Result:=False;
+  aLayers:=nil;
+  aErrorText:='';
+  if not FileExists(aSliceFile) then
+  begin
+    aErrorText:='Файл слоёв не найден:'+LineEnding+aSliceFile;
+    Exit;
+  end;
+  Table:=nil;
+  Lines:=TStringList.Create;
+  try
+    try
+      Lines.LoadFromFile(aSliceFile);
+    except
+      on E: Exception do
+      begin
+        aErrorText:='Не удалось прочитать файл слоёв (занят или нет доступа):'+
+                    LineEnding+aSliceFile+LineEnding+E.Message;
+        Exit;
+      end;
+    end;
+    // строка 0 - заголовки; пустые строки пропускаем
+    for i:=1 to Lines.Count-1 do
+    begin
+      if Trim(Lines[i])='' then
+        Continue;
+      Parts:=Lines[i].Split(#9);
+      if Length(Parts)<>4 then
+      begin
+        aErrorText:='Файл слоёв '+ExtractFileName(aSliceFile)+', строка '+
+                    IntToStr(i+1)+': ожидалось четыре поля через табуляцию '+
+                    '(номер слоя, буква, число букв, файл матрицы).';
+        Exit;
+      end;
+      Row:=Default(TSliceLayer);
+      if not TryStrToInt(Trim(Parts[0]), Row.LayerNumber) then
+      begin
+        aErrorText:='Файл слоёв '+ExtractFileName(aSliceFile)+', строка '+
+                    IntToStr(i+1)+': номер слоя "'+Trim(Parts[0])+
+                    '" не число.';
+        Exit;
+      end;
+      Row.Letter:=Trim(Parts[1]);
+      if not TryStrToInt(Trim(Parts[2]), Row.LetterCount) then
+      begin
+        aErrorText:='Файл слоёв '+ExtractFileName(aSliceFile)+', строка '+
+                    IntToStr(i+1)+': число букв "'+Trim(Parts[2])+
+                    '" не число.';
+        Exit;
+      end;
+      // Имя файла ищем рядом с файлом слоёв; старые файлы с полными
+      // путями читаются как раньше. EZD-файл в Slices.txt не указан.
+      Row.MatrixFile:=ResolvePath(ExtractFileDir(aSliceFile), Trim(Parts[3]));
+      n:=Length(Table);
+      SetLength(Table, n+1);
+      Table[n]:=Row;
     end;
   finally
     Lines.Free;

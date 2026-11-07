@@ -3,7 +3,8 @@ program laser_tests;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, consoletestrunner, LaserTests;
+  Classes, consoletestrunner, LaserTests, LaserConfigMigrationTests,
+  LaserArrayFolderTests;
 
 var
   Application: TTestRunner;

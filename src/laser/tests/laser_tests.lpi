@@ -19,13 +19,21 @@
         <Filename Value="LaserTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="LaserConfigMigrationTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="LaserArrayFolderTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value=".;..;../../shared;../../platform;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
+      <OtherUnitFiles Value=".;..;../../shared;../../platform;../../oligo;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Target>
