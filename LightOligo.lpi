@@ -250,7 +250,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\AutomationEditorView.pas"/>
+        <Filename Value="src\station\UAutomationEditorView.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -262,18 +262,18 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\ConfigRow.pas"/>
+        <Filename Value="src\station\UConfigRow.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\ConfigurationForm.pas"/>
+        <Filename Value="src\station\UConfigurationForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="ConfigurationForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\ConfigurationRows.pas"/>
+        <Filename Value="src\station\UConfigurationRows.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -329,7 +329,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\DispenserTable.pas"/>
+        <Filename Value="src\station\UDispenserTable.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -337,7 +337,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\DispenserView.pas"/>
+        <Filename Value="src\station\UDispenserView.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -380,7 +380,7 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\station\VolumeProgressBar.pas"/>
+        <Filename Value="src\station\UVolumeProgressBar.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>

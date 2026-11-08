@@ -7,11 +7,11 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ComCtrls, ExtCtrls, DispenserController, DispenserConfig,
-  DispenserConfigStorage, ConfigurationForm, DispenserView, DispenserTable,
+  DispenserConfigStorage, UConfigurationForm, UDispenserView, UDispenserTable,
   DispenserCapacityValidator, WindowSettingsStorage, DispenserLayout,
   DispenserConnectionCoordinator,
   DispenserOperationCoordinator, DispenserRuntimeState, DispenserTypes,
-  DispenserLimits, AutomationEditorView, AutomationProtocol,
+  DispenserLimits, UAutomationEditorView, AutomationProtocol,
   AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat,
   SyringeStepTracker, StationWork, StationWorkExecutor, ProtocolStartPlan,
   StationProtocolCoordinator;

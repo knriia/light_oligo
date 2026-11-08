@@ -1,4 +1,4 @@
-unit ConfigRow;
+unit UConfigRow;
 
 {$mode objfpc}{$H+}
 

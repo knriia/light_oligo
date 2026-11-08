@@ -1,4 +1,4 @@
-unit DispenserView;
+unit UDispenserView;
 
 {$mode objfpc}{$H+}
 
@@ -7,7 +7,7 @@ interface
 uses
   Classes, SysUtils, Controls, StdCtrls, ExtCtrls, Spin,
   LCLType, DispenserConfig, DispenserLayout, DispenserLimits,
-  DispenserResolution, VolumeProgressBar, DispenserConfigValidator;
+  DispenserResolution, UVolumeProgressBar, DispenserConfigValidator;
 
 type
   TDispenserView = class;

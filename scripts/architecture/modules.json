@@ -82,12 +82,8 @@
     "USynthesisForm": "synthesis",
 
     "AutomationDocumentStorage": "station",
-    "AutomationEditorView": "station",
     "AutomationProtocol": "station",
     "AutomationProtocolRunner": "station",
-    "ConfigRow": "station",
-    "ConfigurationForm": "station",
-    "ConfigurationRows": "station",
     "DispenserCapacityValidator": "station",
     "DispenserConfig": "station",
     "DispenserConfigStorage": "station",
@@ -101,9 +97,7 @@
     "DispenserProtocol": "station",
     "DispenserResolution": "station",
     "DispenserRuntimeState": "station",
-    "DispenserTable": "station",
     "DispenserTypes": "station",
-    "DispenserView": "station",
     "FormWorkDispatcher": "station",
     "ProtocolStartPlan": "station",
     "ScenarioList": "station",
@@ -113,8 +107,14 @@
     "StationWork": "station",
     "StationWorkExecutor": "station",
     "SyringeStepTracker": "station",
+    "UAutomationEditorView": "station",
+    "UConfigRow": "station",
+    "UConfigurationForm": "station",
+    "UConfigurationRows": "station",
+    "UDispenserTable": "station",
+    "UDispenserView": "station",
+    "UVolumeProgressBar": "station",
     "UDispenserStationHost": "station",
-    "VolumeProgressBar": "station",
     "WindowSettingsStorage": "station"
   },
   "allowed_edges": {
@@ -161,7 +161,8 @@
     "ValEdit"
   ],
   "rule2_exceptions": [
-    "UDispenserStationHost",
+    "EzCadApi",
+    "CommonUtils",
     "AppComposition"
   ],
   "rule3": {
@@ -170,17 +171,14 @@
       "OligoSlices",
       "AutomationDocumentStorage",
       "DispenserConfigStorage",
-      "WindowSettingsStorage",
-      "AutomationEditorView"
+      "WindowSettingsStorage"
     ],
-    "exceptions": [
-      "AutomationEditorView"
-    ]
+    "exceptions": []
   },
   "mapping_notes": [
     "WinProcessUtils сейчас лежит в src/laser, как и требуется целевой картой.",
     "LightOligo — program, а не unit; правило 2 применяется только к unit.",
-    "UDispenserStationHost исключён из правила 2 до отдельного распила формы.",
+    "EzCadApi (Graphics) и CommonUtils (Grids) временно исключены из правила 2: LCL-зависимость нужно убрать отдельной задачей.",
     "AppComposition — composition root приложения, ему разрешено собирать LCL-формы."
   ]
 }
