@@ -1,7 +1,7 @@
 object SynthesisForm: TSynthesisForm
-  Left = 0
+  Left = -976
   Height = 493
-  Top = 0
+  Top = 48
   Width = 840
   Caption = 'SynthesisForm'
   ClientHeight = 493
@@ -25,6 +25,7 @@ object SynthesisForm: TSynthesisForm
       Align = alClient
       ReadOnly = True
       TabOrder = 0
+      Options = [tvoAutoItemHeight, tvoHideSelection, tvoKeepCollapsedNodes, tvoReadOnly, tvoShowButtons, tvoShowLines, tvoShowRoot, tvoToolTips, tvoThemedDraw]
     end
   end
   object GB_SynthControl: TGroupBox
