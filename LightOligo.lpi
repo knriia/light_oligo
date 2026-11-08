@@ -417,7 +417,7 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\oligo\LayerEzd.pas"/>
+        <Filename Value="src\laser\LayerEzd.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -429,7 +429,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\oligo\UMarkGeometryForm.pas"/>
+        <Filename Value="src\laser\UMarkGeometryForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="MarkGeometryForm"/>
         <HasResources Value="True"/>
