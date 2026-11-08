@@ -25,6 +25,7 @@ if not defined LAZBUILD_CMD (
 
 echo Using lazbuild: %LAZBUILD_CMD%
 set "FAILED=0"
+set "FAILED_LIST="
 
 call :build_and_run "src\platform\tests\platform_tests.lpi" "src\platform\tests\platform_tests.exe"
 call :build_and_run "src\laser\tests\laser_tests.lpi" "src\laser\tests\laser_tests.exe"
@@ -35,6 +36,8 @@ call :build_and_run "src\synthesis\tests\synthesis_tests.lpi" "src\synthesis\tes
 call :build_and_run "src\station\tests\configuration_tests.lpi" "src\station\tests\configuration_tests.exe"
 call :build_and_run "src\laser\tests\markezd_tests.lpi" "bin\markezd_tests.exe"
 
+echo.
+if "%FAILED%"=="0" (echo ALL TEST PROJECTS PASSED) else (echo FAILED PROJECTS:%FAILED_LIST%)
 popd
 exit /b %FAILED%
 
@@ -45,12 +48,14 @@ echo === Building %~1 ===
 if errorlevel 1 (
     echo ERROR: build failed for %~1
     set "FAILED=1"
+    set "FAILED_LIST=%FAILED_LIST% %~1"
     exit /b 0
 )
 
 if not exist "%~2" (
     echo ERROR: expected test executable was not produced: %~2
     set "FAILED=1"
+    set "FAILED_LIST=%FAILED_LIST% %~1"
     exit /b 0
 )
 
@@ -64,6 +69,7 @@ if not "%~3"=="" (
 if errorlevel 1 (
     echo ERROR: tests failed for %~1
     set "FAILED=1"
+    set "FAILED_LIST=%FAILED_LIST% %~1"
 ) else (
     echo Tests passed for %~1
 )

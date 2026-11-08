@@ -43,9 +43,10 @@
 физическое движение дозаторов перечислены в `UI_CHECKLIST.md`; автоматические
 тесты их не заменяют.
 
-Сборка и запуск из каталога проекта:
+Сборка и запуск всех тестовых проектов из корня репозитория:
 
 ```text
-C:\lazarus\lazbuild.exe tests\configuration_tests.lpi
-tests\configuration_tests.exe
+scripts\run_tests.cmd
 ```
+
+Каждый модуль имеет свой проект в `src/<модуль>/tests/`.
