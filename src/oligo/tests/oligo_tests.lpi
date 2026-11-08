@@ -20,10 +20,6 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="LayerEzdTests.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
         <Filename Value="OligoSlicesFileTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -33,7 +29,7 @@
     <Version Value="11"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value=".;..;../../shared;../../platform;../../laser;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
+      <OtherUnitFiles Value=".;..;../../shared;../../platform;C:\lazarus\fpc\3.2.2\units\i386-win32\fcl-fpcunit"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Target>
