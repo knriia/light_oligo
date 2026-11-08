@@ -13,7 +13,7 @@ uses
   DispenserOperationCoordinator, DispenserRuntimeState, DispenserTypes,
   DispenserLimits, AutomationEditorView, AutomationProtocol,
   AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat,
-  SyringeStepTracker, StationWork, StationWorkExecutor;
+  SyringeStepTracker, StationWork, StationWorkExecutor, ProtocolStartPlan;
 
 type
   TDispenserStationLogEvent = procedure(Sender: TObject; const Msg: string) of object;
@@ -759,65 +759,27 @@ function TDispenserStationForm.StartProtocol(AProtocol: TAutomationProtocol;
 var
   Task: TFormWorkItem;
   Protocol: TAutomationProtocol;
-  Targets: TDispenserConfigList;
-  InitializationTargets: TDispenserConfigList;
-  InitializationTargetDescriptions: TStringList;
+  Plan: TProtocolStartPlan;
   ConfirmationText: string;
   Address: Integer;
   I: Integer;
-  J: Integer;
-  Target: TAutomationProtocolTarget;
-  State: TDispenserRuntimeState;
-  SeenAddresses: array[MIN_DISPENSER_VALUE..MAX_DISPENSER_VALUE]
-    of Boolean;
 begin
   Result := False;
   ErrorText := '';
   Cancelled := False;
   Protocol := AProtocol;
-  Targets := TDispenserConfigList.Create;
-  InitializationTargets := TDispenserConfigList.Create;
-  InitializationTargetDescriptions := TStringList.Create;
+  Plan := PlanProtocolStart(Protocol, FRuntimeStates);
   try
-    for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-      SeenAddresses[Address] := False;
-    for I := 0 to Protocol.Count - 1 do
-      for J := 0 to High(Protocol[I].Targets) do
-      begin
-        Target := Protocol[I].Targets[J];
-        Address := Target.Config.Address;
-        State := FRuntimeStates.Items[Address];
-        if State = nil then
-        begin
-          ErrorText := Target.Config.Name +
-            ': не удалось получить состояние дозатора.';
-          Exit;
-        end;
-        if State.OperationActive or State.CommandPending or
-          State.ProtocolReserved then
-        begin
-          ErrorText := Target.Config.Name +
-            ': дозатор сейчас выполняет другую команду.';
-          Exit;
-        end;
-        if not SeenAddresses[Address] then
-        begin
-          Targets.Add(Target.Config.Clone);
-          SeenAddresses[Address] := True;
-          if not State.IsInitializedFor(Target.Config) or
-            not State.CurrentVolumeKnown then
-          begin
-            InitializationTargets.Add(Target.Config.Clone);
-            InitializationTargetDescriptions.Add(Format('- %s (адрес %d)',
-              [Target.Config.Name, Address]));
-          end;
-        end;
-      end;
+    if Plan.Status <> ppsReady then
+    begin
+      ErrorText := Plan.ErrorText;
+      Exit;
+    end;
 
-    if InitializationTargets.Count > 0 then
+    if Plan.InitializationTargets.Count > 0 then
     begin
       ConfirmationText := 'Есть неинициализированные дозаторы:' +
-        LineEnding + InitializationTargetDescriptions.Text + LineEnding +
+        LineEnding + Plan.InitializationDescriptions.Text + LineEnding +
         'Перед началом выполнения протокола неинициализированные дозаторы ' +
         'будут инициализированы. Продолжить?';
       if MessageDlg(ConfirmationText, mtConfirmation, [mbYes, mbNo], 0) <>
@@ -829,19 +791,18 @@ begin
       end;
     end;
 
-    if InitializationTargets.Count > 0 then
+    if Plan.InitializationTargets.Count > 0 then
     begin
       Task := TFormWorkItem.Create(btkPrepareProtocol);
-      Task.Configs := InitializationTargets;
-      InitializationTargets := nil;
+      Task.Configs := Plan.TakeInitializationTargets;
     end
     else
       Task := TFormWorkItem.Create(btkStartProtocol);
     Task.Protocol := Protocol;
     Protocol := nil;
-    for I := 0 to Targets.Count - 1 do
+    for I := 0 to Plan.Targets.Count - 1 do
     begin
-      Address := Targets[I].Address;
+      Address := Plan.Targets[I].Address;
       Task.ReservedAddresses[Address] := True;
       FProtocolReserved[Address] := True;
       FRuntimeStates.Items[Address].ProtocolReserved := True;
@@ -860,9 +821,7 @@ begin
     UpdateUI;
     Result := True;
   finally
-    InitializationTargetDescriptions.Free;
-    InitializationTargets.Free;
-    Targets.Free;
+    Plan.Free;
     Protocol.Free;
   end;
 end;

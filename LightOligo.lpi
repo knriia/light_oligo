@@ -341,6 +341,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\station\ProtocolStartPlan.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\station\StationWork.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

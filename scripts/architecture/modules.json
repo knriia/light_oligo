@@ -104,6 +104,7 @@
     "DispenserTypes": "station",
     "DispenserView": "station",
     "FormWorkDispatcher": "station",
+    "ProtocolStartPlan": "station",
     "ScenarioList": "station",
     "SerialPort": "station",
     "SerialTransactionQueue": "station",

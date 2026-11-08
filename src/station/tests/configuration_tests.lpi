@@ -48,6 +48,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="ProtocolStartPlanTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="ScenarioTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
