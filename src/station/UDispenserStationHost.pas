@@ -5,7 +5,7 @@ unit UDispenserStationHost;
 interface
 
 uses
-  Classes, SysUtils, SyncObjs, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ComCtrls, ExtCtrls, DispenserController, DispenserConfig,
   DispenserConfigStorage, ConfigurationForm, DispenserView, DispenserTable,
   DispenserCapacityValidator, WindowSettingsStorage, DispenserLayout,
@@ -13,7 +13,7 @@ uses
   DispenserOperationCoordinator, DispenserRuntimeState, DispenserTypes,
   DispenserLimits, AutomationEditorView, AutomationProtocol,
   AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat,
-  SyringeStepTracker;
+  SyringeStepTracker, StationWork, StationWorkExecutor;
 
 type
   TDispenserStationLogEvent = procedure(Sender: TObject; const Msg: string) of object;
@@ -74,6 +74,7 @@ type
     FWindowSettings: TWindowSettingsStorage;
     FOperationTimer: TTimer;
     FWorkDispatcher: TFormWorkDispatcher;
+    FWorkExecutor: TStationWorkExecutor;
     FPendingWorkItems: TList;
     FQueuedUiEvents: TThreadList;
     FPollTaskActive: Boolean;
@@ -130,7 +131,6 @@ type
     procedure FinishSyringeStep(Failed: Boolean; const MessageText: string);
     procedure AutomationProtocolFinished(const MessageText: string;
       Failed: Boolean);
-    procedure ExecuteWorkItem(AWorkItem: TObject);
     procedure QueueWorkItem(AWorkItem: TObject);
     procedure DrainCompletedWorkItems;
     procedure DrainQueuedUiEvents;
@@ -165,113 +165,7 @@ implementation
 uses
   AppPaths;
 
-type
-  TFormWorkKind = (btkStartSingle, btkStartGroup, btkInitialize,
-    btkPrepareProtocol, btkPoll, btkBypass, btkChangeSpeed, btkStopOne,
-    btkStopAll,
-    btkStartProtocol, btkStopProtocol, btkConnect, btkDisconnect, btkScanPorts);
-
-  TFormWorkItem = class
-  private
-    FKind: TFormWorkKind;
-    FCompleted: Boolean;
-    FCompletionLock: TCriticalSection;
-  public
-    Config: TDispenserConfig;
-    Configs: TDispenserConfigList;
-    Requests: TDispenserOperationRequestArray;
-    Protocol: TAutomationProtocol;
-    Failures: TStringList;
-    PortList: TStringList;
-    PortName: string;
-    Address: Integer;
-    Channel: Integer;
-    Speed: Integer;
-    OperationKind: TDispenserOperationKind;
-    BypassEnabled: Boolean;
-    BypassValveType: TDispenserValveType;
-    ReservedAddresses: array[MIN_DISPENSER_VALUE..MAX_DISPENSER_VALUE]
-      of Boolean;
-    Success: Boolean;
-    ErrorText: string;
-    SingleResult: TDispenserOperationStartResult;
-    GroupResult: TDispenserGroupStartResult;
-    ConnectionResult: TDispenserConnectionResult;
-    constructor Create(AKind: TFormWorkKind);
-    destructor Destroy; override;
-    function IsCompleted: Boolean;
-    function WorkKind: TFormWorkKind;
-    procedure MarkCompleted;
-  end;
-
-  TQueuedUiEventKind = (quLog, quStateChanged, quFailure,
-    quProtocolFinished);
-
-  TQueuedUiEvent = class
-  public
-    Kind: TQueuedUiEventKind;
-    Address: Integer;
-    MessageText: string;
-    Flag: Boolean;
-    UpdateAndSaveVolume: Boolean;
-  end;
-
 {$R *.lfm}
-
-constructor TFormWorkItem.Create(AKind: TFormWorkKind);
-var
-  LoopAddress: Integer;
-begin
-  FKind := AKind;
-  FCompleted := False;
-  SingleResult := dosrCommandFailed;
-  GroupResult := dgsRejected;
-  ConnectionResult := dcrPortOpenFailed;
-  FCompletionLock := TCriticalSection.Create;
-  for LoopAddress := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-    ReservedAddresses[LoopAddress] := False;
-end;
-
-destructor TFormWorkItem.Destroy;
-var
-  I: Integer;
-begin
-  Config.Free;
-  Configs.Free;
-  for I := 0 to High(Requests) do
-    Requests[I].Config.Free;
-  SetLength(Requests, 0);
-  Protocol.Free;
-  Failures.Free;
-  PortList.Free;
-  FCompletionLock.Free;
-  inherited Destroy;
-end;
-
-procedure TFormWorkItem.MarkCompleted;
-begin
-  FCompletionLock.Acquire;
-  try
-    FCompleted := True;
-  finally
-    FCompletionLock.Release;
-  end;
-end;
-
-function TFormWorkItem.IsCompleted: Boolean;
-begin
-  FCompletionLock.Acquire;
-  try
-    Result := FCompleted;
-  finally
-    FCompletionLock.Release;
-  end;
-end;
-
-function TFormWorkItem.WorkKind: TFormWorkKind;
-begin
-  Result := FKind;
-end;
 
 { TDispenserStationForm }
 
@@ -364,7 +258,9 @@ begin
     @OperationSettingsChanged,
     @OperationSettingsWarning);
 
-  FWorkDispatcher := TFormWorkDispatcher.Create(@ExecuteWorkItem);
+  FWorkExecutor := TStationWorkExecutor.Create(FDispenser,
+    FConnectionCoordinator, FOperationCoordinator, FAutomationRunner);
+  FWorkDispatcher := TFormWorkDispatcher.Create(@FWorkExecutor.Execute);
   ComboBoxPorts.Text := LastPort;
   btnScanPortsClick(nil);
   FTable.SetConfigurations(FConfigurations);
@@ -427,6 +323,7 @@ begin
     FWorkDispatcher.Free;
     FWorkDispatcher := nil;
   end;
+  FreeAndNil(FWorkExecutor);
   FreeAndNil(FSyringeStep);
   if FPendingWorkItems <> nil then
   begin
@@ -1239,111 +1136,6 @@ begin
     Task.MarkCompleted;
   end;
   FOperationTimer.Enabled := True;
-end;
-
-procedure TDispenserStationForm.ExecuteWorkItem(AWorkItem: TObject);
-var
-  Task: TFormWorkItem;
-begin
-  Task := TFormWorkItem(AWorkItem);
-  Task.Success := False;
-  Task.ErrorText := '';
-  try
-    case Task.WorkKind of
-    btkStartSingle:
-      begin
-        Task.SingleResult := FOperationCoordinator.StartSingle(Task.Config,
-          Task.OperationKind, Task.Channel, Task.BypassEnabled, Task.ErrorText);
-        Task.Success := Task.SingleResult = dosrStarted;
-      end;
-    btkStartGroup:
-      begin
-        Task.GroupResult := FOperationCoordinator.StartGroup(
-          Task.OperationKind, Task.Requests, Task.ErrorText);
-        Task.Success := Task.GroupResult = dgsStarted;
-      end;
-    btkInitialize:
-      begin
-        Task.Failures := TStringList.Create;
-        Task.Success := FConnectionCoordinator.InitializeDispensers(
-          Task.Configs, Task.Failures);
-      end;
-    btkPrepareProtocol:
-      begin
-        Task.Failures := TStringList.Create;
-        Task.Success := FConnectionCoordinator.InitializeDispensers(
-          Task.Configs, Task.Failures);
-      end;
-    btkPoll:
-      begin
-        if FAutomationRunner.IsRunning then
-          FAutomationRunner.Poll;
-        if not FAutomationRunner.IsRunning then
-        begin
-          FOperationCoordinator.PollNextOperation;
-          FOperationCoordinator.PollNextProtocolOperation;
-        end;
-        FConnectionCoordinator.PollInitialization;
-        Task.Success := True;
-      end;
-    btkBypass:
-      begin
-        Task.Success := FDispenser.SetBypass(Task.Address, Task.Channel,
-          Task.BypassEnabled, Task.BypassValveType);
-        if not Task.Success then
-          Task.ErrorText := FDispenser.LastError;
-      end;
-    btkChangeSpeed:
-      Task.Success := FOperationCoordinator.ChangeActiveSpeed(Task.Config,
-        Task.Speed, Task.ErrorText);
-    btkStopOne:
-      Task.Success := FOperationCoordinator.StopActiveOperation(Task.Address,
-        Task.ErrorText);
-    btkStopAll:
-      begin
-        if FAutomationRunner.IsRunning then
-          FAutomationRunner.Stop;
-        Task.Success := FOperationCoordinator.StopAllActiveOperations(
-          Task.ErrorText);
-      end;
-    btkStartProtocol:
-      begin
-        Task.Success := FAutomationRunner.Start(Task.Protocol,
-          Task.ErrorText, True);
-        if Task.Success then
-          Task.Protocol := nil;
-      end;
-    btkStopProtocol:
-      begin
-        FAutomationRunner.Stop;
-        Task.Success := True;
-      end;
-    btkConnect:
-      begin
-        Task.ConnectionResult := FConnectionCoordinator.ConnectPort(
-          Task.PortName, Task.ErrorText);
-        Task.Success := Task.ConnectionResult = dcrConnected;
-      end;
-    btkDisconnect:
-      begin
-        FConnectionCoordinator.Disconnect;
-        Task.Success := True;
-      end;
-    btkScanPorts:
-      begin
-        Task.PortList := TStringList.Create;
-        FDispenser.ScanPorts(Task.PortList);
-        Task.Success := True;
-      end;
-    end;
-  except
-    on E: Exception do
-    begin
-      Task.Success := False;
-      Task.ErrorText := E.Message;
-    end;
-  end;
-  Task.MarkCompleted;
 end;
 
 procedure TDispenserStationForm.DrainCompletedWorkItems;

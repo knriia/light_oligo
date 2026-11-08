@@ -5,7 +5,7 @@ program configuration_tests;
 uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
-  WorkDispatcherTests, SyringeStepTrackerTests, ScenarioTests,
+  WorkDispatcherTests, SyringeStepTrackerTests, StationWorkTests, ScenarioTests,
   ScenarioRunTests;
 
 var
