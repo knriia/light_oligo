@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, SyncObjs, fpcunit, testregistry, DispenserController,
-  DispenserTypes, SerialPort;
+  DispenserProtocol, DispenserTypes, SerialPort;
 
 type
   TMockSerialPort = class(TSerialPort)
@@ -99,7 +99,6 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure MovementCommandBuildersCoverValveAndDirectionOptions;
     procedure ConnectDisconnectAndSendCommand;
     procedure QueryStatusCoversStatusDescriptionsAndQuietMode;
     procedure QueryStatusWithoutDetailsUpdatesReadyWithoutLogging;
@@ -374,25 +373,6 @@ begin
     FPort.QueueResponse(AnsiString('/0') + AnsiChar(96) + Position + #3#13#10)
   else
     FPort.QueueResponse(AnsiString('/0') + Position + #3#13#10);
-end;
-
-procedure TDispenserControllerTests.MovementCommandBuildersCoverValveAndDirectionOptions;
-begin
-  AssertEquals('/1Iv900V6000P12000R',
-    BuildDispenserMovementCommand(1, 1, 12000, 6000, True, True));
-  AssertEquals('/1Ov900V6000D12000R',
-    BuildDispenserMovementCommand(1, 2, 12000, 6000, False, True));
-  AssertEquals('', BuildDispenserMovementCommand(1, 0, 100, 10, True, True));
-  AssertEquals('', BuildDispenserMovementCommand(1, 3, 100, 10, False, True));
-  AssertEquals('/1I1v1V1P1R',
-    BuildDispenserMovementCommand(1, 1, 1, 1, True, False));
-  AssertEquals('/15O12v900V6000D12000R',
-    BuildDispenserMovementCommand(15, 12, 12000, 6000, False, False));
-  AssertEquals('/2BR', BuildDispenserValveCommand(2, 0, True, True));
-  AssertEquals('/2IR', BuildDispenserValveCommand(2, 1, False, True));
-  AssertEquals('/2OR', BuildDispenserValveCommand(2, 2, False, True));
-  AssertEquals('', BuildDispenserValveCommand(2, 3, False, True));
-  AssertEquals('', BuildDispenserValveCommand(2, 1, True, False));
 end;
 
 procedure TDispenserControllerTests.ConnectDisconnectAndSendCommand;

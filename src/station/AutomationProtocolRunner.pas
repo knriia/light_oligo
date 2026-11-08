@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, AutomationProtocol, DispenserController,
-  DispenserConfig, DispenserRuntimeState, DispenserTypes;
+  DispenserProtocol, DispenserConfig, DispenserRuntimeState, DispenserTypes;
 
 type
   TAutomationProtocolLogEvent = procedure(const Msg: string) of object;

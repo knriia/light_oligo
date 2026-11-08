@@ -6,8 +6,8 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, DispenserConfig,
-  DispenserController, DispenserRuntimeState, DispenserTypes,
-  DispenserOperationCoordinator, AutomationProtocol,
+  DispenserController, DispenserProtocol, DispenserRuntimeState,
+  DispenserTypes, DispenserOperationCoordinator, AutomationProtocol,
   AutomationProtocolRunner, DispenserLimits, ProtocolFormat, ScenarioList;
 
 type

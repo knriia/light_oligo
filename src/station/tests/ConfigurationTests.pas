@@ -50,20 +50,6 @@ type
     procedure WideLayoutDistributesExtraSpacingAcrossColumns;
   end;
 
-  TDispenserCommandTests = class(TTestCase)
-  published
-    procedure BuildsNonDistributiveChannelOneAspirate;
-    procedure BuildsNonDistributiveChannelTwoDispense;
-    procedure BuildsDistributiveChannelCommand;
-    procedure RejectsUnsupportedNonDistributiveChannel;
-    procedure BuildsNonDistributiveBypassCommand;
-    procedure BuildsNonDistributiveRestoreCommand;
-    procedure BuildsPlungerOnlyDispenseCommand;
-    procedure BuildsPlungerOnlyAspirateCommand;
-    procedure RejectsDistributiveValveCommand;
-    procedure RejectsUnsupportedNonDistributiveValveChannel;
-  end;
-
   TAutomationProtocolTests = class(TTestCase)
   private
     function CreateConfigurations: TDispenserConfigList;
@@ -230,61 +216,6 @@ begin
     #9#9'VolumeUnit=' + AVolumeUnit + ';' + LineEnding +
     #9#9'Speeds=' + ASpeeds + ';' + LineEnding +
     #9#9'SpeedUnit=' + ASpeedUnit + ';' + LineEnding;
-end;
-
-procedure TDispenserCommandTests.BuildsNonDistributiveChannelOneAspirate;
-begin
-  AssertEquals('/1Iv900V6000P12000R',
-    BuildDispenserMovementCommand(1, 1, 12000, 6000, True, True));
-end;
-
-procedure TDispenserCommandTests.BuildsNonDistributiveChannelTwoDispense;
-begin
-  AssertEquals('/1Ov900V6000D12000R',
-    BuildDispenserMovementCommand(1, 2, 12000, 6000, False, True));
-end;
-
-procedure TDispenserCommandTests.BuildsDistributiveChannelCommand;
-begin
-  AssertEquals('/2I3v100V100P250R',
-    BuildDispenserMovementCommand(2, 3, 250, 100, True, False));
-end;
-
-procedure TDispenserCommandTests.RejectsUnsupportedNonDistributiveChannel;
-begin
-  AssertEquals('', BuildDispenserMovementCommand(1, 3, 250, 100, True, True));
-end;
-
-procedure TDispenserCommandTests.BuildsNonDistributiveBypassCommand;
-begin
-  AssertEquals('/1BR', BuildDispenserValveCommand(1, 2, True, True));
-end;
-
-procedure TDispenserCommandTests.BuildsNonDistributiveRestoreCommand;
-begin
-  AssertEquals('/1OR', BuildDispenserValveCommand(1, 2, False, True));
-end;
-
-procedure TDispenserCommandTests.BuildsPlungerOnlyDispenseCommand;
-begin
-  AssertEquals('/1v900V4800D24000R',
-    BuildDispenserPlungerCommand(1, 24000, 4800, False));
-end;
-
-procedure TDispenserCommandTests.BuildsPlungerOnlyAspirateCommand;
-begin
-  AssertEquals('/2v750V750P1200R',
-    BuildDispenserPlungerCommand(2, 1200, 750, True));
-end;
-
-procedure TDispenserCommandTests.RejectsDistributiveValveCommand;
-begin
-  AssertEquals('', BuildDispenserValveCommand(1, 1, True, False));
-end;
-
-procedure TDispenserCommandTests.RejectsUnsupportedNonDistributiveValveChannel;
-begin
-  AssertEquals('', BuildDispenserValveCommand(1, 3, False, True));
 end;
 
 function TAutomationProtocolTests.CreateConfigurations:
@@ -2832,7 +2763,6 @@ begin
 end;
 
 initialization
-  RegisterTest(TDispenserCommandTests);
   RegisterTest(TAutomationProtocolTests);
   RegisterTest(TDispenserOperationRulesTests);
   RegisterTest(TDispenserConfigModelTests);

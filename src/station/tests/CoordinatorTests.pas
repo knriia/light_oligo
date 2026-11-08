@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, DispenserConfig,
-  DispenserConnectionCoordinator, DispenserController,
+  DispenserConnectionCoordinator, DispenserController, DispenserProtocol,
   DispenserOperationCoordinator,
   DispenserRuntimeState, DispenserTypes, DispenserLimits;
 

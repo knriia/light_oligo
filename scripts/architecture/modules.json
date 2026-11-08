@@ -98,6 +98,7 @@
     "DispenserLimits": "station",
     "DispenserOperationCoordinator": "station",
     "DispenserOperationRules": "station",
+    "DispenserProtocol": "station",
     "DispenserResolution": "station",
     "DispenserRuntimeState": "station",
     "DispenserTable": "station",

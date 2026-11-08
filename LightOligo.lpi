@@ -317,6 +317,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\station\DispenserProtocol.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\station\DispenserResolution.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
