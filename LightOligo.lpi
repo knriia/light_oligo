@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
+            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -246,121 +246,121 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\AutomationDocumentStorage.pas"/>
+        <Filename Value="src\station\AutomationDocumentStorage.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\AutomationEditorView.pas"/>
+        <Filename Value="src\station\AutomationEditorView.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\AutomationProtocol.pas"/>
+        <Filename Value="src\station\AutomationProtocol.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\AutomationProtocolRunner.pas"/>
+        <Filename Value="src\station\AutomationProtocolRunner.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\ConfigRow.pas"/>
+        <Filename Value="src\station\ConfigRow.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\ConfigurationForm.pas"/>
+        <Filename Value="src\station\ConfigurationForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="ConfigurationForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\ConfigurationRows.pas"/>
+        <Filename Value="src\station\ConfigurationRows.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserCapacityValidator.pas"/>
+        <Filename Value="src\station\DispenserCapacityValidator.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserConfig.pas"/>
+        <Filename Value="src\station\DispenserConfig.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserConfigStorage.pas"/>
+        <Filename Value="src\station\DispenserConfigStorage.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserConfigValidator.pas"/>
+        <Filename Value="src\station\DispenserConfigValidator.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserConnectionCoordinator.pas"/>
+        <Filename Value="src\station\DispenserConnectionCoordinator.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserController.pas"/>
+        <Filename Value="src\station\DispenserController.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserLayout.pas"/>
+        <Filename Value="src\station\DispenserLayout.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserLimits.pas"/>
+        <Filename Value="src\station\DispenserLimits.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserOperationCoordinator.pas"/>
+        <Filename Value="src\station\DispenserOperationCoordinator.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserOperationRules.pas"/>
+        <Filename Value="src\station\DispenserOperationRules.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserResolution.pas"/>
+        <Filename Value="src\station\DispenserResolution.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserRuntimeState.pas"/>
+        <Filename Value="src\station\DispenserRuntimeState.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserTable.pas"/>
+        <Filename Value="src\station\DispenserTable.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserTypes.pas"/>
+        <Filename Value="src\station\DispenserTypes.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\DispenserView.pas"/>
+        <Filename Value="src\station\DispenserView.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\FormWorkDispatcher.pas"/>
+        <Filename Value="src\station\FormWorkDispatcher.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\SerialPort.pas"/>
+        <Filename Value="src\station\SerialPort.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\SerialTransactionQueue.pas"/>
+        <Filename Value="src\station\SerialTransactionQueue.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\UDispenserStationHost.pas"/>
+        <Filename Value="src\station\UDispenserStationHost.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="DispenserStationForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\VolumeProgressBar.pas"/>
+        <Filename Value="src\station\VolumeProgressBar.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\WindowSettingsStorage.pas"/>
+        <Filename Value="src\station\WindowSettingsStorage.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -467,7 +467,7 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\syringe_station\ScenarioList.pas"/>
+        <Filename Value="src\station\ScenarioList.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -514,7 +514,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\syringe_station"/>
+      <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

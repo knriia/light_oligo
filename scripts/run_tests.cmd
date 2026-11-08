@@ -32,7 +32,7 @@ call :build_and_run "src\manual\tests\manual_tests.lpi" "src\manual\tests\manual
 call :build_and_run "src\oligo\tests\oligo_tests.lpi" "src\oligo\tests\oligo_tests.exe"
 call :build_and_run "src\protocol\tests\protocol_tests.lpi" "src\protocol\tests\protocol_tests.exe"
 call :build_and_run "src\synthesis\tests\synthesis_tests.lpi" "src\synthesis\tests\synthesis_tests.exe"
-call :build_and_run "src\syringe_station\tests\configuration_tests.lpi" "src\syringe_station\tests\configuration_tests.exe"
+call :build_and_run "src\station\tests\configuration_tests.lpi" "src\station\tests\configuration_tests.exe"
 call :build_and_run "src\laser\tests\markezd_tests.lpi" "bin\markezd_tests.exe"
 
 popd
