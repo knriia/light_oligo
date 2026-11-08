@@ -6,7 +6,8 @@ uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
   WorkDispatcherTests, SyringeStepTrackerTests, StationWorkTests,
-  ProtocolStartPlanTests, ScenarioTests, ScenarioRunTests;
+  ProtocolStartPlanTests, StationProtocolCoordinatorTests,
+  ScenarioTests, ScenarioRunTests;
 
 var
   Application: TTestRunner;
