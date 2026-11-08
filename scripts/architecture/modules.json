@@ -108,6 +108,7 @@
     "ScenarioList": "station",
     "SerialPort": "station",
     "SerialTransactionQueue": "station",
+    "StationProtocolCoordinator": "station",
     "StationWork": "station",
     "StationWorkExecutor": "station",
     "SyringeStepTracker": "station",

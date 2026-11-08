@@ -52,6 +52,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="StationProtocolCoordinatorTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="ScenarioTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

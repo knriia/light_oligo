@@ -345,6 +345,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\station\StationProtocolCoordinator.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\station\StationWork.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

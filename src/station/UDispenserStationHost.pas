@@ -13,14 +13,15 @@ uses
   DispenserOperationCoordinator, DispenserRuntimeState, DispenserTypes,
   DispenserLimits, AutomationEditorView, AutomationProtocol,
   AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat,
-  SyringeStepTracker, StationWork, StationWorkExecutor, ProtocolStartPlan;
+  SyringeStepTracker, StationWork, StationWorkExecutor, ProtocolStartPlan,
+  StationProtocolCoordinator;
 
 type
   TDispenserStationLogEvent = procedure(Sender: TObject; const Msg: string) of object;
 
   { TDispenserStationForm }
 
-  TDispenserStationForm = class(TForm)
+  TDispenserStationForm = class(TForm, IStationProtocolHost)
     btnConnect: TButton;
     btnConfiguration: TButton;
     btnEmptySelected: TButton;
@@ -81,16 +82,10 @@ type
     FDrainingWorkItems: Boolean;
     FConnectionTaskActive: Boolean;
     FScanTaskActive: Boolean;
-    FProtocolTaskActive: Boolean;
-    FInitializationUiPending: Boolean;
-    FPendingAutomationProtocol: TAutomationProtocol;
-    FInitializingAddresses: array[MIN_DISPENSER_VALUE..
-      MAX_DISPENSER_VALUE] of Boolean;
-    FProtocolReserved: array[MIN_DISPENSER_VALUE..MAX_DISPENSER_VALUE]
-      of Boolean;
     FSelectedOperationRequests: TDispenserOperationRequestArray;
     FSelectedOperationRequestCount: Integer;
     FSyringeStep: TSyringeStepTracker;
+    FProtocol: TStationProtocolCoordinator;
 
     procedure ClearFocusOnMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -131,7 +126,7 @@ type
     procedure FinishSyringeStep(Failed: Boolean; const MessageText: string);
     procedure AutomationProtocolFinished(const MessageText: string;
       Failed: Boolean);
-    procedure QueueWorkItem(AWorkItem: TObject);
+    procedure QueueWorkItem(ATask: TFormWorkItem);
     procedure DrainCompletedWorkItems;
     procedure DrainQueuedUiEvents;
     procedure QueueUiEvent(AEvent: TObject);
@@ -140,10 +135,18 @@ type
       const MessageText: string; UpdateAndSaveVolume: Boolean);
     procedure ApplyAutomationProtocolFinished(const MessageText: string;
       Failed: Boolean);
+    // IStationProtocolHost; QueueWorkItem, UpdateUI, Log и
+    // ShowOperationWarning объявлены выше.
+    function Configurations: TDispenserConfigList;
+    function HasActiveInitialization: Boolean;
+    function IsAddressInitializing(AAddress: Integer): Boolean;
+    procedure GetInitializationResults(AFailures: TStrings;
+      out ASuccess: Boolean);
     function HasPendingInitializationTask(AAddress: Integer): Boolean;
-    procedure FinishInitializationIfComplete;
-    procedure QueuePendingAutomationProtocol;
-    procedure ReleaseProtocolReservations;
+    procedure SetProtocolReserved(AAddress: Integer; AReserved: Boolean);
+    procedure SetCommandPending(AAddress: Integer; APending: Boolean);
+    procedure SetBypassSupported(AAddress: Integer; AEnabled: Boolean);
+    procedure RefreshCurrentVolumes;
   public
     procedure AttachLogSink(AHandler: TDispenserStationLogEvent);
     function CanCloseFromHost: Boolean;
@@ -176,7 +179,6 @@ var
   LastPort: string;
   SavedWidth: Integer;
   SavedHeight: Integer;
-  Address: Integer;
 begin
   FPendingWorkItems := TList.Create;
   FQueuedUiEvents := TThreadList.Create;
@@ -186,11 +188,6 @@ begin
   FDrainingWorkItems := False;
   FConnectionTaskActive := False;
   FScanTaskActive := False;
-  FProtocolTaskActive := False;
-  FInitializationUiPending := False;
-  FPendingAutomationProtocol := nil;
-  for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-    FInitializingAddresses[Address] := False;
   Constraints.MinWidth := 0;
   Constraints.MinHeight := 0;
   FWindowSettings := TWindowSettingsStorage.Create(SettingsFilePath,
@@ -232,6 +229,8 @@ begin
     FConfigurations := TDispenserConfigList.Create;
 
   FRuntimeStates := TDispenserRuntimeStates.Create;
+  FProtocol := TStationProtocolCoordinator.Create(Self, FRuntimeStates,
+    FSyringeStep);
   FDispenser := TDispenserController.Create;
   FDispenser.OnLogMessage := @Log;
   FConnectionCoordinator := TDispenserConnectionCoordinator.Create(FDispenser,
@@ -345,12 +344,11 @@ begin
     FQueuedUiEvents.Free;
     FQueuedUiEvents := nil;
   end;
-  FPendingAutomationProtocol.Free;
-  FPendingAutomationProtocol := nil;
   if FWindowSettings <> nil then
     FWindowSettings.Save(Width, Height);
   SaveCurrentSettings;
   FAutomationRunner.Free;
+  FreeAndNil(FProtocol);
   FTable.Free;
   FConfigurations.Free;
   FConnectionCoordinator.Free;
@@ -618,7 +616,7 @@ begin
   FTable.RefreshCurrentVolumes(@FRuntimeStates.GetCurrentVolume,
     @FRuntimeStates.IsCurrentVolumeKnown);
   btnConfiguration.Enabled := not FAutomationRunner.IsRunning and
-    not FProtocolTaskActive;
+    not FProtocol.TaskActive;
 
   btnFillSelected.Enabled := FDispenser.IsConnected and
     FTable.HasSelectedOperableDispensers;
@@ -743,7 +741,7 @@ begin
     ErrorText := 'Сначала подключите устройство.';
     Exit;
   end;
-  if FAutomationRunner.IsRunning or FProtocolTaskActive then
+  if FAutomationRunner.IsRunning or FProtocol.TaskActive then
   begin
     ErrorText := 'Протокол уже выполняется.';
     Exit;
@@ -757,12 +755,9 @@ end;
 function TDispenserStationForm.StartProtocol(AProtocol: TAutomationProtocol;
   out ErrorText: string; out Cancelled: Boolean): Boolean;
 var
-  Task: TFormWorkItem;
   Protocol: TAutomationProtocol;
   Plan: TProtocolStartPlan;
   ConfirmationText: string;
-  Address: Integer;
-  I: Integer;
 begin
   Result := False;
   ErrorText := '';
@@ -791,33 +786,8 @@ begin
       end;
     end;
 
-    if Plan.InitializationTargets.Count > 0 then
-    begin
-      Task := TFormWorkItem.Create(btkPrepareProtocol);
-      Task.Configs := Plan.TakeInitializationTargets;
-    end
-    else
-      Task := TFormWorkItem.Create(btkStartProtocol);
-    Task.Protocol := Protocol;
+    FProtocol.QueueProtocolStart(Protocol, Plan);
     Protocol := nil;
-    for I := 0 to Plan.Targets.Count - 1 do
-    begin
-      Address := Plan.Targets[I].Address;
-      Task.ReservedAddresses[Address] := True;
-      FProtocolReserved[Address] := True;
-      FRuntimeStates.Items[Address].ProtocolReserved := True;
-      FTable.SetProtocolReserved(Address, True);
-    end;
-    if Task.WorkKind = btkPrepareProtocol then
-      for I := 0 to Task.Configs.Count - 1 do
-      begin
-        Address := Task.Configs[I].Address;
-        FRuntimeStates.Items[Address].CommandPending := True;
-        FInitializingAddresses[Address] := True;
-        FTable.SetCommandPending(Address, True);
-      end;
-    FProtocolTaskActive := True;
-    QueueWorkItem(Task);
     UpdateUI;
     Result := True;
   finally
@@ -850,18 +820,14 @@ begin
 end;
 
 procedure TDispenserStationForm.StopSyringeStep;
-var
-  Task: TFormWorkItem;
 begin
   if not FSyringeStep.RequestStop then
     Exit;
   // Если исполнитель ещё не запущен (идёт инициализация), протокол
-  // не будет поставлен в очередь: см. QueuePendingAutomationProtocol.
+  // не будет поставлен в очередь: см. TStationProtocolCoordinator.
   if FAutomationRunner.IsRunning then
   begin
-    Task := TFormWorkItem.Create(btkStopProtocol);
-    FProtocolTaskActive := True;
-    QueueWorkItem(Task);
+    FProtocol.QueueStopProtocol;
     UpdateUI;
   end;
 end;
@@ -898,7 +864,7 @@ begin
     ShowOperationWarning(MessageText)
   else
     Log(MessageText);
-  ReleaseProtocolReservations;
+  FProtocol.ReleaseProtocolReservations;
   FOperationTimer.Enabled := FAutomationRunner.IsRunning or
     FOperationCoordinator.HasActiveOperations or
     FConnectionCoordinator.HasActiveInitialization;
@@ -925,138 +891,50 @@ begin
   end;
 end;
 
-procedure TDispenserStationForm.FinishInitializationIfComplete;
-var
-  Address: Integer;
-  I: Integer;
-  Config: TDispenserConfig;
-  State: TDispenserRuntimeState;
-  Failures: TStringList;
-  Success: Boolean;
-  ReleasedAddress: Boolean;
-  IsProtocolInitialization: Boolean;
+function TDispenserStationForm.Configurations: TDispenserConfigList;
 begin
-  ReleasedAddress := False;
-  for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-  begin
-    if not FInitializingAddresses[Address] or
-      FConnectionCoordinator.IsAddressInitializing(Address) or
-      HasPendingInitializationTask(Address) then
-      Continue;
-
-    FInitializingAddresses[Address] := False;
-    State := FRuntimeStates.Items[Address];
-    Config := nil;
-    if FConfigurations <> nil then
-      for I := 0 to FConfigurations.Count - 1 do
-        if FConfigurations[I].Address = Address then
-        begin
-          Config := FConfigurations[I];
-          Break;
-        end;
-    if State <> nil then
-    begin
-      State.CommandPending := False;
-      FTable.SetBypassSupported(Address,
-        State.IsInitializedFor(Config) and
-        (State.ValveType = dvtNonDistributive));
-    end;
-    FTable.SetCommandPending(Address, False);
-    ReleasedAddress := True;
-  end;
-
-  if ReleasedAddress then
-  begin
-    FTable.RefreshCurrentVolumes(@FRuntimeStates.GetCurrentVolume,
-      @FRuntimeStates.IsCurrentVolumeKnown);
-    UpdateUI;
-  end;
-
-  if not FInitializationUiPending or
-    FConnectionCoordinator.HasActiveInitialization or
-    HasPendingInitializationTask(0) then
-      Exit;
-
-  Failures := TStringList.Create;
-  try
-    FConnectionCoordinator.GetInitializationResults(Failures, Success);
-    IsProtocolInitialization := FPendingAutomationProtocol <> nil;
-    FInitializationUiPending := False;
-    FTable.RefreshCurrentVolumes(@FRuntimeStates.GetCurrentVolume,
-      @FRuntimeStates.IsCurrentVolumeKnown);
-
-    if Failures.Count > 0 then
-      ShowOperationWarning('Не удалось инициализировать дозаторы:' +
-        LineEnding + Failures.Text)
-    else if not Success then
-      ShowOperationWarning('Не удалось завершить инициализацию дозаторов.')
-    else if IsProtocolInitialization then
-      Log('Дозаторы протокола готовы; запуск протокола поставлен в очередь.')
-    else
-      Log('Инициализация всех запущенных дозаторов завершена');
-
-    if IsProtocolInitialization then
-    begin
-      if Success and (Failures.Count = 0) then
-        QueuePendingAutomationProtocol
-      else
-      begin
-        FPendingAutomationProtocol.Free;
-        FPendingAutomationProtocol := nil;
-        FProtocolTaskActive := False;
-        ReleaseProtocolReservations;
-        FinishSyringeStep(True, 'Не удалось инициализировать дозаторы.');
-      end;
-    end;
-    UpdateUI;
-  finally
-    Failures.Free;
-  end;
+  Result := FConfigurations;
 end;
 
-procedure TDispenserStationForm.QueuePendingAutomationProtocol;
-var
-  Address: Integer;
-  Task: TFormWorkItem;
+function TDispenserStationForm.HasActiveInitialization: Boolean;
 begin
-  if FPendingAutomationProtocol = nil then
-  begin
-    FProtocolTaskActive := False;
-    ReleaseProtocolReservations;
-    Exit;
-  end;
-
-  if FSyringeStep.StopRequested then
-  begin
-    // Синтез остановлен во время инициализации: протокол не запускаем.
-    FreeAndNil(FPendingAutomationProtocol);
-    FProtocolTaskActive := False;
-    ReleaseProtocolReservations;
-    FinishSyringeStep(True, 'Шаг дозаторов остановлен пользователем.');
-    Log('Шаг дозаторов остановлен до запуска.');
-    Exit;
-  end;
-
-  Task := TFormWorkItem.Create(btkStartProtocol);
-  Task.Protocol := FPendingAutomationProtocol;
-  FPendingAutomationProtocol := nil;
-  for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-    if FProtocolReserved[Address] then
-      Task.ReservedAddresses[Address] := True;
-  QueueWorkItem(Task);
+  Result := FConnectionCoordinator.HasActiveInitialization;
 end;
 
-procedure TDispenserStationForm.ReleaseProtocolReservations;
-var
-  Address: Integer;
+function TDispenserStationForm.IsAddressInitializing(
+  AAddress: Integer): Boolean;
 begin
-  for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-    if FProtocolReserved[Address] then
-    begin
-      FRuntimeStates.Items[Address].ProtocolReserved := False;
-      FTable.SetProtocolReserved(Address, False);
-      FProtocolReserved[Address] := False;
-    end;
+  Result := FConnectionCoordinator.IsAddressInitializing(AAddress);
+end;
+
+procedure TDispenserStationForm.GetInitializationResults(
+  AFailures: TStrings; out ASuccess: Boolean);
+begin
+  FConnectionCoordinator.GetInitializationResults(AFailures, ASuccess);
+end;
+
+procedure TDispenserStationForm.SetProtocolReserved(AAddress: Integer;
+  AReserved: Boolean);
+begin
+  FTable.SetProtocolReserved(AAddress, AReserved);
+end;
+
+procedure TDispenserStationForm.SetCommandPending(AAddress: Integer;
+  APending: Boolean);
+begin
+  FTable.SetCommandPending(AAddress, APending);
+end;
+
+procedure TDispenserStationForm.SetBypassSupported(AAddress: Integer;
+  AEnabled: Boolean);
+begin
+  FTable.SetBypassSupported(AAddress, AEnabled);
+end;
+
+procedure TDispenserStationForm.RefreshCurrentVolumes;
+begin
+  FTable.RefreshCurrentVolumes(@FRuntimeStates.GetCurrentVolume,
+    @FRuntimeStates.IsCurrentVolumeKnown);
 end;
 
 procedure TDispenserStationForm.OperationTimerTick(Sender: TObject);
@@ -1065,9 +943,9 @@ var
 begin
   DrainCompletedWorkItems;
   DrainQueuedUiEvents;
-  FinishInitializationIfComplete;
+  FProtocol.FinishInitializationIfComplete;
   if not FPollTaskActive and
-    (not FProtocolTaskActive or
+    (not FProtocol.TaskActive or
     FConnectionCoordinator.HasActiveInitialization) and
     (FAutomationRunner.IsRunning or FOperationCoordinator.HasActiveOperations or
     FConnectionCoordinator.HasActiveInitialization)
@@ -1082,17 +960,14 @@ begin
     FConnectionCoordinator.HasActiveInitialization;
 end;
 
-procedure TDispenserStationForm.QueueWorkItem(AWorkItem: TObject);
-var
-  Task: TFormWorkItem;
+procedure TDispenserStationForm.QueueWorkItem(ATask: TFormWorkItem);
 begin
-  Task := TFormWorkItem(AWorkItem);
-  FPendingWorkItems.Add(Task);
-  if (FWorkDispatcher = nil) or not FWorkDispatcher.Enqueue(Task) then
+  FPendingWorkItems.Add(ATask);
+  if (FWorkDispatcher = nil) or not FWorkDispatcher.Enqueue(ATask) then
   begin
-    Task.Success := False;
-    Task.ErrorText := 'Очередь фоновых операций остановлена.';
-    Task.MarkCompleted;
+    ATask.Success := False;
+    ATask.ErrorText := 'Очередь фоновых операций остановлена.';
+    ATask.MarkCompleted;
   end;
   FOperationTimer.Enabled := True;
 end;
@@ -1104,7 +979,6 @@ var
   SelectedPortIndex: Integer;
   Task: TFormWorkItem;
   Config: TDispenserConfig;
-  State: TDispenserRuntimeState;
 begin
   if (FPendingWorkItems = nil) or FDrainingWorkItems then
     Exit;
@@ -1145,59 +1019,8 @@ begin
             ShowOperationWarning('Групповая операция прервана при запуске; ' +
               'проверьте состояние дозаторов: ' + Task.ErrorText);
         end;
-      btkInitialize:
-        begin
-          if Task.Success then
-            FInitializationUiPending := True
-          else
-          begin
-            for J := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-              if Task.ReservedAddresses[J] then
-              begin
-                FInitializingAddresses[J] := False;
-                State := FRuntimeStates.Items[J];
-                if State <> nil then
-                  State.CommandPending := False;
-                FTable.SetCommandPending(J, False);
-              end;
-            if (Task.Failures <> nil) and (Task.Failures.Count > 0) then
-              ShowOperationWarning('Не удалось запустить инициализацию:' +
-                LineEnding + Task.Failures.Text)
-            else
-            ShowOperationWarning('Не удалось выполнить инициализацию: ' +
-              Task.ErrorText);
-          end;
-        end;
-      btkPrepareProtocol:
-        begin
-          if Task.Success then
-          begin
-            FPendingAutomationProtocol := Task.Protocol;
-            Task.Protocol := nil;
-            FInitializationUiPending := True;
-          end
-          else
-          begin
-            for J := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-              if Task.ReservedAddresses[J] then
-              begin
-                FInitializingAddresses[J] := False;
-                State := FRuntimeStates.Items[J];
-                if State <> nil then
-                  State.CommandPending := False;
-                FTable.SetCommandPending(J, False);
-              end;
-            FProtocolTaskActive := False;
-            ReleaseProtocolReservations;
-            FinishSyringeStep(True, 'Не удалось подготовить дозаторы.');
-            if (Task.Failures <> nil) and (Task.Failures.Count > 0) then
-              ShowOperationWarning('Не удалось запустить инициализацию дозаторов протокола:' +
-                LineEnding + Task.Failures.Text)
-            else
-              ShowOperationWarning('Не удалось подготовить протокол: ' +
-                Task.ErrorText);
-          end;
-        end;
+      btkInitialize, btkPrepareProtocol:
+        FProtocol.HandleCompleted(Task);
       btkPoll:
         begin
           FPollTaskActive := False;
@@ -1234,48 +1057,8 @@ begin
           if not Task.Success then
             ShowOperationWarning(Task.ErrorText);
         end;
-      btkStopAll:
-        begin
-          FProtocolTaskActive := False;
-          for J := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-            if Task.ReservedAddresses[J] then
-            begin
-              FRuntimeStates.Items[J].CommandPending := False;
-              FTable.SetCommandPending(J, False);
-            end;
-          if not Task.Success and (Task.ErrorText <> '') then
-            ShowOperationWarning(Task.ErrorText);
-        end;
-      btkStartProtocol:
-        begin
-          FProtocolTaskActive := False;
-          if not Task.Success then
-          begin
-            for J := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
-              if Task.ReservedAddresses[J] then
-              begin
-                FRuntimeStates.Items[J].ProtocolReserved := False;
-                FTable.SetProtocolReserved(J, False);
-                FProtocolReserved[J] := False;
-              end;
-            FinishSyringeStep(True, 'Не удалось запустить протокол: ' +
-              Task.ErrorText);
-            ShowOperationWarning('Не удалось запустить протокол: ' +
-              Task.ErrorText);
-          end
-          else if FSyringeStep.StopRequested then
-          begin
-            // Остановку запросили, пока протокол ставился в очередь.
-            FProtocolTaskActive := True;
-            QueueWorkItem(TFormWorkItem.Create(btkStopProtocol));
-          end;
-        end;
-      btkStopProtocol:
-        begin
-          FProtocolTaskActive := False;
-          if not Task.Success and (Task.ErrorText <> '') then
-            ShowOperationWarning(Task.ErrorText);
-        end;
+      btkStopAll, btkStartProtocol, btkStopProtocol:
+        FProtocol.HandleCompleted(Task);
       btkConnect:
         begin
           FConnectionTaskActive := False;
@@ -1505,15 +1288,13 @@ begin
 
   if State.OperationOwner = dooProtocol then
   begin
-    Task := TFormWorkItem.Create(btkStopProtocol);
-    FProtocolTaskActive := True;
-  end
-  else
-  begin
-    Task := TFormWorkItem.Create(btkStopOne);
-    State.CommandPending := True;
-    FTable.SetCommandPending(AView.Config.Address, True);
+    FProtocol.QueueStopProtocol(AView.Config.Address);
+    UpdateUI;
+    Exit;
   end;
+  Task := TFormWorkItem.Create(btkStopOne);
+  State.CommandPending := True;
+  FTable.SetCommandPending(AView.Config.Address, True);
   Task.Address := AView.Config.Address;
   QueueWorkItem(Task);
   UpdateUI;
@@ -1550,7 +1331,7 @@ begin
     Exit;
   end;
   Task := TFormWorkItem.Create(btkStopAll);
-  FProtocolTaskActive := FAutomationRunner.IsRunning;
+  FProtocol.MarkStopAllQueued(FAutomationRunner.IsRunning);
   for Address := MIN_DISPENSER_VALUE to MAX_DISPENSER_VALUE do
     if FRuntimeStates.Items[Address].OperationActive then
     begin
@@ -1808,7 +1589,6 @@ var
   Targets: TDispenserConfigList;
   BusyDispensers: TStringList;
   AddressFound: Boolean;
-  Task: TFormWorkItem;
 begin
   Result := False;
   ErrorText := '';
@@ -1874,19 +1654,8 @@ begin
       Exit;
     end;
 
-    Task := TFormWorkItem.Create(btkInitialize);
-    Task.Configs := Targets;
+    FProtocol.QueueInitialization(Targets);
     Targets := nil;
-    for I := 0 to Task.Configs.Count - 1 do
-    begin
-      Config := Task.Configs[I];
-      State := FRuntimeStates.Items[Config.Address];
-      State.CommandPending := True;
-      FTable.SetCommandPending(Config.Address, True);
-      Task.ReservedAddresses[Config.Address] := True;
-      FInitializingAddresses[Config.Address] := True;
-    end;
-    QueueWorkItem(Task);
     if BusyDispensers.Count > 0 then
       ShowOperationWarning('Инициализация запущена для свободных дозаторов. '
         + 'Пропущены занятые:' + LineEnding + BusyDispensers.Text);
@@ -1940,7 +1709,7 @@ procedure TDispenserStationForm.btnConfigurationClick(Sender: TObject);
 var
   ConfigForm: TConfigurationForm;
 begin
-  if FAutomationRunner.IsRunning or FProtocolTaskActive then
+  if FAutomationRunner.IsRunning or FProtocol.TaskActive then
   begin
     ShowOperationWarning('Дождитесь завершения или остановите протокол.');
     Exit;
