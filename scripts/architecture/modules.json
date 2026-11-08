@@ -172,7 +172,6 @@
     ]
   },
   "mapping_notes": [
-    "MatrixDocument сейчас лежит в src/manual, а GridWidthMode — в src/oligo; по целевой карте оба относятся к oligo.",
     "WinProcessUtils сейчас лежит в src/laser, как и требуется целевой картой.",
     "LightOligo — program, а не unit; правило 2 применяется только к unit.",
     "UDispenserStationHost исключён из правила 2 до отдельного распила формы.",

@@ -455,7 +455,7 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\manual\MatrixDocument.pas"/>
+        <Filename Value="src\oligo\MatrixDocument.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
