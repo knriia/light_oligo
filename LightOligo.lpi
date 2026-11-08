@@ -341,6 +341,14 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\station\StationWork.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src\station\StationWorkExecutor.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\station\SyringeStepTracker.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
