@@ -1,4 +1,4 @@
-unit VolumeProgressBar;
+unit UVolumeProgressBar;
 
 {$mode objfpc}{$H+}
 

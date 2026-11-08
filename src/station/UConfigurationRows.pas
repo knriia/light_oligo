@@ -1,4 +1,4 @@
-unit ConfigurationRows;
+unit UConfigurationRows;
 
 {$mode objfpc}{$H+}
 
@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, Contnrs,
-  DispenserConfig, DispenserConfigValidator, DispenserLimits, ConfigRow,
+  DispenserConfig, DispenserConfigValidator, DispenserLimits, UConfigRow,
   DispenserRuntimeState;
 
 type

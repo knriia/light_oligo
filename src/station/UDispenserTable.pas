@@ -1,4 +1,4 @@
-unit DispenserTable;
+unit UDispenserTable;
 
 {$mode objfpc}{$H+}
 
@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, Controls, Forms, StdCtrls, ExtCtrls, ComCtrls, Contnrs,
-  DispenserConfig, DispenserView, DispenserLayout,
+  DispenserConfig, UDispenserView, DispenserLayout,
   DispenserCapacityValidator;
 
 type

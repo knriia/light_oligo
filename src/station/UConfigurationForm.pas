@@ -1,4 +1,4 @@
-unit ConfigurationForm;
+unit UConfigurationForm;
 
 {$mode objfpc}{$H+}
 
@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, Dialogs,
-  ComCtrls, Spin, DispenserConfig, ConfigurationRows,
+  ComCtrls, Spin, DispenserConfig, UConfigurationRows,
   WindowSettingsStorage, DispenserRuntimeState;
 
 type
