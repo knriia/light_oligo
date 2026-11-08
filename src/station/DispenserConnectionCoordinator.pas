@@ -5,7 +5,7 @@ unit DispenserConnectionCoordinator;
 interface
 
 uses
-  Classes, SyncObjs, DispenserController, DispenserConfig,
+  Classes, SyncObjs, DispenserController, DispenserProtocol, DispenserConfig,
   DispenserRuntimeState, DispenserTypes, DispenserLimits;
 
 type

@@ -5,8 +5,8 @@ unit DispenserOperationCoordinator;
 interface
 
 uses
-  SysUtils, DispenserController, DispenserConfig, DispenserOperationRules,
-  DispenserRuntimeState, DispenserTypes, DispenserLimits, DispenserResolution;
+  SysUtils, DispenserController, DispenserProtocol, DispenserConfig,
+  DispenserOperationRules, DispenserRuntimeState, DispenserTypes, DispenserLimits, DispenserResolution;
 
 type
   TDispenserOperationRequest = record

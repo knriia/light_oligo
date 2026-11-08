@@ -7,6 +7,7 @@ uses
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
   WorkDispatcherTests, SyringeStepTrackerTests, StationWorkTests,
   ProtocolStartPlanTests, StationProtocolCoordinatorTests,
+  DispenserProtocolTests,
   ScenarioTests, ScenarioRunTests;
 
 var
