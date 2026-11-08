@@ -5,8 +5,8 @@ program configuration_tests;
 uses
   Classes, consoletestrunner, ConfigurationTests, RuntimeStateTests,
   CoordinatorTests, ControllerTests, AutomationProtocolRunnerTests,
-  WorkDispatcherTests, SyringeStepTrackerTests, StationWorkTests, ScenarioTests,
-  ScenarioRunTests;
+  WorkDispatcherTests, SyringeStepTrackerTests, StationWorkTests,
+  ProtocolStartPlanTests, ScenarioTests, ScenarioRunTests;
 
 var
   Application: TTestRunner;
