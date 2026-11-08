@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
+            <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
+            <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -126,18 +126,18 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\UMainForm.pas"/>
+        <Filename Value="src\app\UMainForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="MainForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
-        <Filename Value="src\AppSynthesisAdapters.pas"/>
+        <Filename Value="src\app\AppSynthesisAdapters.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\AppComposition.pas"/>
+        <Filename Value="src\app\AppComposition.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -514,7 +514,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
+      <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

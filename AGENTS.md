@@ -13,7 +13,7 @@
 
 ## Структура
 
-Исходники в `src/<модуль>/`, тесты каждого модуля в `src/<модуль>/tests/`. Модули: `shared`, `platform`, `oligo`, `protocol`, `laser`, `synthesis`, `station`, `manual`; в корне `src/` — `app` (AppComposition, UMainForm). Допустимые зависимости задаёт `scripts/architecture/modules.json`.
+Исходники в `src/<модуль>/`, тесты каждого модуля в `src/<модуль>/tests/`. Модули: `shared`, `platform`, `oligo`, `protocol`, `laser`, `synthesis`, `station`, `manual`, `app` (AppComposition, UMainForm). Допустимые зависимости задаёт `scripts/architecture/modules.json`.
 
 ## Проверки
 
