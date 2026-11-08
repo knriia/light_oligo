@@ -12,7 +12,8 @@ uses
   DispenserConnectionCoordinator,
   DispenserOperationCoordinator, DispenserRuntimeState, DispenserTypes,
   DispenserLimits, AutomationEditorView, AutomationProtocol,
-  AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat;
+  AutomationProtocolRunner, FormWorkDispatcher, ProtocolFormat,
+  SyringeStepTracker;
 
 type
   TDispenserStationLogEvent = procedure(Sender: TObject; const Msg: string) of object;
@@ -88,9 +89,7 @@ type
       of Boolean;
     FSelectedOperationRequests: TDispenserOperationRequestArray;
     FSelectedOperationRequestCount: Integer;
-    FSyringeStepStatus: TSyringeStepStatus;
-    FSyringeStepError: string;
-    FSyringeStepStopRequested: Boolean;
+    FSyringeStep: TSyringeStepTracker;
 
     procedure ClearFocusOnMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -287,6 +286,7 @@ var
 begin
   FPendingWorkItems := TList.Create;
   FQueuedUiEvents := TThreadList.Create;
+  FSyringeStep := TSyringeStepTracker.Create;
   FWorkDispatcher := nil;
   FPollTaskActive := False;
   FDrainingWorkItems := False;
@@ -427,6 +427,7 @@ begin
     FWorkDispatcher.Free;
     FWorkDispatcher := nil;
   end;
+  FreeAndNil(FSyringeStep);
   if FPendingWorkItems <> nil then
   begin
     for I := FPendingWorkItems.Count - 1 downto 0 do
@@ -988,9 +989,7 @@ begin
   Protocol.Add(Command);
   if not StartProtocol(Protocol, ErrorText, Cancelled) then
     Exit;
-  FSyringeStepStatus := sssRunning;
-  FSyringeStepError := '';
-  FSyringeStepStopRequested := False;
+  FSyringeStep.Start;
   Result := True;
 end;
 
@@ -998,9 +997,8 @@ procedure TDispenserStationForm.StopSyringeStep;
 var
   Task: TFormWorkItem;
 begin
-  if FSyringeStepStatus <> sssRunning then
+  if not FSyringeStep.RequestStop then
     Exit;
-  FSyringeStepStopRequested := True;
   // Если исполнитель ещё не запущен (идёт инициализация), протокол
   // не будет поставлен в очередь: см. QueuePendingAutomationProtocol.
   if FAutomationRunner.IsRunning then
@@ -1015,21 +1013,13 @@ end;
 function TDispenserStationForm.SyringeStepStatus(
   out ErrorText: string): TSyringeStepStatus;
 begin
-  Result := FSyringeStepStatus;
-  ErrorText := FSyringeStepError;
+  Result := FSyringeStep.Status(ErrorText);
 end;
 
 procedure TDispenserStationForm.FinishSyringeStep(Failed: Boolean;
   const MessageText: string);
 begin
-  if FSyringeStepStatus <> sssRunning then
-    Exit;
-  if Failed then
-    FSyringeStepStatus := sssFailed
-  else
-    FSyringeStepStatus := sssSucceeded;
-  FSyringeStepError := MessageText;
-  FSyringeStepStopRequested := False;
+  FSyringeStep.Finish(Failed, MessageText);
 end;
 
 procedure TDispenserStationForm.AutomationProtocolFinished(const MessageText: string;
@@ -1180,7 +1170,7 @@ begin
     Exit;
   end;
 
-  if FSyringeStepStopRequested and (FSyringeStepStatus = sssRunning) then
+  if FSyringeStep.StopRequested then
   begin
     // Синтез остановлен во время инициализации: протокол не запускаем.
     FreeAndNil(FPendingAutomationProtocol);
@@ -1522,8 +1512,7 @@ begin
             ShowOperationWarning('Не удалось запустить протокол: ' +
               Task.ErrorText);
           end
-          else if FSyringeStepStopRequested and
-            (FSyringeStepStatus = sssRunning) then
+          else if FSyringeStep.StopRequested then
           begin
             // Остановку запросили, пока протокол ставился в очередь.
             FProtocolTaskActive := True;
