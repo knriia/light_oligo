@@ -40,6 +40,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="SyringeStepTrackerTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="ScenarioTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

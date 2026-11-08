@@ -107,6 +107,7 @@
     "ScenarioList": "station",
     "SerialPort": "station",
     "SerialTransactionQueue": "station",
+    "SyringeStepTracker": "station",
     "UDispenserStationHost": "station",
     "VolumeProgressBar": "station",
     "WindowSettingsStorage": "station"
