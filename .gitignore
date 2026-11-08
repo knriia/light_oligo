@@ -44,6 +44,7 @@ Desktop.ini
 /bin/configs/sequences.ini
 /bin/configs/manual.ini
 /bin/configs/syringe_pump.ini
+/bin/configs/laser.ini
 # Old location of station scenarios (moved to bin/data/automation on start)
 /bin/protocols/
 

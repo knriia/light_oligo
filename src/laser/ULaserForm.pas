@@ -114,19 +114,16 @@ begin
 
   L_Folder:=TLabel.Create(Self);
   L_Folder.Name:='L_Folder';
+  L_Folder.AutoSize:=False; // раскладку задаёт LayoutButtons, иначе цикл ChangeBounds
   L_Folder.Parent:=Self;
-  L_Folder.Left:=MARGIN;
-  L_Folder.Top:=ROW_TOP+B_ChooseArray.Height+10;
   L_Array:=TLabel.Create(Self);
   L_Array.Name:='L_Array';
+  L_Array.AutoSize:=False;
   L_Array.Parent:=Self;
-  L_Array.Left:=MARGIN;
-  L_Array.Top:=L_Folder.Top+L_Folder.Height+6;
   L_Layers:=TLabel.Create(Self);
   L_Layers.Name:='L_Layers';
+  L_Layers.AutoSize:=False;
   L_Layers.Parent:=Self;
-  L_Layers.Left:=MARGIN;
-  L_Layers.Top:=L_Array.Top+L_Array.Height+6;
   ShowLoadedInfo;
 
   LayoutButtons;
@@ -148,9 +145,23 @@ procedure TLaserForm.LayoutButtons;
 const
   GAP = 8;
   ROW_TOP = 4;
+  MARGIN = 8;
 var
-  X, i: Integer;
+  X, Y, i: Integer;
   Buttons: array of TButton;
+  Labels: array of TLabel;
+
+  function LabelHeight(ALabel: TLabel): Integer;
+  var
+    W, H: Integer;
+  begin
+    W:=0;
+    H:=0;
+    ALabel.GetPreferredSize(W, H);
+    if H<=0 then
+      H:=ALabel.Height;
+    Result:=H;
+  end;
 
   function TextWidth(AButton: TButton): Integer;
   var
@@ -173,11 +184,15 @@ begin
     Buttons[i].TabOrder:=i;
     Inc(X, Buttons[i].Width+GAP);
   end;
-  // ширину меток держит Resize; длинный путь виден целиком во всплывающей
-  // подсказке
-  L_Folder.Width:=ClientWidth-2*L_Folder.Left;
-  L_Array.Width:=L_Folder.Width;
-  L_Layers.Width:=L_Folder.Width;
+  // метки без AutoSize (иначе цикл ChangeBounds): ширину, высоту и Top
+  // задаём здесь; длинный путь виден целиком во всплывающей подсказке
+  Y:=ROW_TOP+B_ChooseArray.Height+10;
+  Labels:=[L_Folder, L_Array, L_Layers];
+  for i:=0 to High(Labels) do
+  begin
+    Labels[i].SetBounds(MARGIN, Y, ClientWidth-2*MARGIN, LabelHeight(Labels[i]));
+    Inc(Y, Labels[i].Height+6);
+  end;
 end;
 
 procedure TLaserForm.DoShow;
@@ -190,12 +205,8 @@ end;
 procedure TLaserForm.Resize;
 begin
   inherited Resize;
-  if Assigned(L_Folder) then
-  begin
-    L_Folder.Width:=ClientWidth-2*L_Folder.Left;
-    L_Array.Width:=L_Folder.Width;
-    L_Layers.Width:=L_Folder.Width;
-  end;
+  if Assigned(L_Layers) then
+    LayoutButtons;
 end;
 
 procedure TLaserForm.LoadSettings;
