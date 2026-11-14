@@ -71,6 +71,33 @@ object SequencesForm: TSequencesForm
       TabOrder = 4
       OnClick = B_SaveOligoArrClick
     end
+    object B_LaserParams: TButton
+      Left = 350
+      Height = 25
+      Top = 12
+      Width = 90
+      Caption = 'B_LaserParams'
+      TabOrder = 9
+      OnClick = B_LaserParamsClick
+    end
+    object B_Geometry: TButton
+      Left = 350
+      Height = 25
+      Top = 12
+      Width = 90
+      Caption = 'B_Geometry'
+      TabOrder = 10
+      OnClick = B_GeometryClick
+    end
+    object B_CreateEzd: TButton
+      Left = 350
+      Height = 25
+      Top = 12
+      Width = 90
+      Caption = 'B_CreateEzd'
+      TabOrder = 11
+      OnClick = B_CreateEzdClick
+    end
   end
   object P_OligoArr: TPanel
     Left = 0

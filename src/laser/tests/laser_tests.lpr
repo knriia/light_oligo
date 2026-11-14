@@ -4,7 +4,7 @@ program laser_tests;
 
 uses
   Classes, consoletestrunner, LaserTests, LaserConfigMigrationTests,
-  LaserArrayFolderTests, LayerEzdTests;
+  LayerEzdTests;
 
 var
   Application: TTestRunner;

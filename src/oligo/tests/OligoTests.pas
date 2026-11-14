@@ -91,6 +91,9 @@ type
     procedure DocumentForgetsSlicingWhenArrayIsReplaced;
     procedure DocumentForgetsSlicingOnClearAndClose;
     procedure DocumentForgetsSlicingWhenCellChanges;
+    procedure DocumentForgetsSlicingWhenSavedToOtherFolder;
+    procedure DocumentKeepsSlicingWhenSavedToSameFolder;
+    procedure DocumentKeepsSlicingOnClearOfEmptyCells;
     procedure GeometryFileMissingGivesDefaults;
     procedure GeometryFileRoundTrip;
     procedure GeometryFileUsesDecimalPoint;
@@ -1149,6 +1152,60 @@ begin
     AssertTrue('вне массива', Doc.HasSlicing);
     AssertTrue(Doc.SetCell(0, 1, 'C'));
     AssertFalse('ячейка изменена', Doc.HasSlicing);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentForgetsSlicingWhenSavedToOtherFolder;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText, OtherDir: string;
+begin
+  OtherDir := FilePath('other');
+  AssertTrue(ForceDirectories(OtherDir));
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT']));
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('a.csv'), ErrorText));
+    Doc.SetSlicing(SliceTableOf(1), Doc.ArrayDir);
+    AssertTrue(ErrorText, Doc.SaveToFile(
+      IncludeTrailingPathDelimiter(OtherDir) + 'a.csv', ErrorText));
+    AssertFalse('слои остались рядом со старым файлом', Doc.HasSlicing);
+    AssertEquals('', Doc.SliceDir);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentKeepsSlicingWhenSavedToSameFolder;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT']));
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('a.csv'), ErrorText));
+    Doc.SetSlicing(SliceTableOf(1), Doc.ArrayDir);
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('renamed.csv'), ErrorText));
+    AssertTrue(Doc.HasSlicing);
+    AssertEquals(Doc.ArrayDir, Doc.SliceDir);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentKeepsSlicingOnClearOfEmptyCells;
+var
+  Doc: TOligoArrayDocument;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr([';']));
+    Doc.SetSlicing(SliceTableOf(1), FDirectory);
+    Doc.ClearCells;
+    AssertTrue('очищать нечего, слои остаются', Doc.HasSlicing);
   finally
     Doc.Free;
   end;

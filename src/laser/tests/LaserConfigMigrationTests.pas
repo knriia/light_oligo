@@ -1,5 +1,5 @@
 unit LaserConfigMigrationTests;
-// Тесты переноса настроек вкладки «Лазер» из sequences.ini в laser.ini.
+// Тесты переноса настроек лазера из sequences.ini в laser.ini.
 
 {$mode objfpc}{$H+}
 

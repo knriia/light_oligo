@@ -45,7 +45,7 @@ type
 
     // Результат слайсинга: таблица слоёв и папка, рядом с которой лежат
     // Slices.txt и Slices.lays. Забывается, когда массив меняется,
-    // заменяется, очищается или убирается.
+    // заменяется, очищается, убирается или сохраняется в другую папку.
     procedure SetSlicing(const ATable: TSliceLayers; const ASliceDir: string);
     procedure ForgetSlicing;
     function HasSlicing: Boolean;
@@ -92,6 +92,10 @@ begin
     Exit;
   FFileName:=ExpandFileName(AFileName);
   FModified:=False;
+  // слои лежат рядом со старым файлом: рядом с новым их нет
+  if HasSlicing and
+     not SameFileName(ExcludeTrailingPathDelimiter(FSliceDir), ArrayDir) then
+    ForgetSlicing;
 end;
 
 function TOligoArrayDocument.SetCell(ARow, ACol: Integer;
@@ -123,13 +127,13 @@ procedure TOligoArrayDocument.ClearCells;
 var
   i, j: Integer;
 begin
-  ForgetSlicing;
   for i:=0 to High(FArr) do
     for j:=0 to High(FArr[i]) do
       if FArr[i,j]<>'' then
       begin
         FArr[i,j]:='';
         FModified:=True;
+        ForgetSlicing; // слои нарезаны из прежнего содержимого
       end;
 end;
 

@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils, Controls, OligoSlices,
   UProtocolForm, USynthesisForm, UDispenserStationHost, USequencesForm,
-  UManualForm, ULaserForm, EzCadApp, AppSynthesisAdapters;
+  UManualForm, ULaserActions, EzCadApp, AppSynthesisAdapters;
 
 type
   { TAppComposition }
@@ -21,7 +21,6 @@ type
     FProtocolParent: TWinControl;
     FSynthesisParent: TWinControl;
     FSequencesParent: TWinControl;
-    FLaserParent: TWinControl;
     FManualLog: TManualLogEvent;
     FSynthesisLog: TSynthesisLogEvent;
     FSequencesLog: TSequencesLogEvent;
@@ -34,15 +33,14 @@ type
     FProtocolForm: TProtocolForm;
     FSynthesisForm: TSynthesisForm;
     FManualForm: TManualForm;
-    FLaserForm: TLaserForm;
+    FLaserActions: TLaserActions;
     FEzCadWatcher: TEzCadDialogWatcher;
     FSynthesisStation: TStationSyringeAdapter;
     FSynthesisMarker: TEzCadLayerMarker;
     procedure LayersChanged(const ALayers: TSliceLayers);
   public
     constructor Create(AOwner: TComponent; AManualParent,
-      AProtocolParent, ASynthesisParent, ASequencesParent,
-      ALaserParent: TWinControl;
+      AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
       AManualLog: TManualLogEvent; ASynthesisLog: TSynthesisLogEvent;
       ASequencesLog: TSequencesLogEvent; ALaserLog: TLaserLogEvent;
       AClearLog: TNotifyEvent;
@@ -66,8 +64,7 @@ uses
 { TAppComposition }
 
 constructor TAppComposition.Create(AOwner: TComponent; AManualParent,
-  AProtocolParent, ASynthesisParent, ASequencesParent,
-  ALaserParent: TWinControl;
+  AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
   AManualLog: TManualLogEvent; ASynthesisLog: TSynthesisLogEvent;
   ASequencesLog: TSequencesLogEvent; ALaserLog: TLaserLogEvent;
   AClearLog: TNotifyEvent;
@@ -80,7 +77,6 @@ begin
   FProtocolParent := AProtocolParent;
   FSynthesisParent := ASynthesisParent;
   FSequencesParent := ASequencesParent;
-  FLaserParent := ALaserParent;
   FManualLog := AManualLog;
   FSynthesisLog := ASynthesisLog;
   FSequencesLog := ASequencesLog;
@@ -93,7 +89,8 @@ end;
 destructor TAppComposition.Destroy;
 begin
   // Формы принадлежат FOwner и уже освобождены его деструктором.
-  // Адаптеры и наблюдатель освобождаются после дочерних форм.
+  // Адаптеры, действия лазера и наблюдатель освобождаются после дочерних форм.
+  FreeAndNil(FLaserActions);
   FreeAndNil(FSynthesisMarker);
   FreeAndNil(FSynthesisStation);
   FreeAndNil(FEzCadWatcher);
@@ -165,17 +162,16 @@ begin
   FSequencesForm.ApplyCaptions(InterfaceIniFile);
   FSequencesForm.OnLog := FSequencesLog;
   FSequencesForm.OnLayersChanged := @LayersChanged;
-  FSequencesForm.Show;
 
-  FLaserForm := TLaserForm.Create(FOwner);
-  FLaserForm.BorderStyle := bsNone;
-  FLaserForm.Parent := FLaserParent;
-  FLaserForm.Align := alClient;
-  FLaserForm.ApplyCaptions(InterfaceIniFile);
-  FLaserForm.LoadSettings;
-  FLaserForm.OnLog := FLaserLog;
-  FLaserForm.OnLayersChanged := @LayersChanged;
-  FLaserForm.Show;
+  // кнопки лазера на вкладке последовательностей: форма про лазер не знает,
+  // действия подключаются здесь
+  FLaserActions := TLaserActions.Create;
+  FLaserActions.OnLog := FLaserLog;
+  FLaserActions.LoadSettings;
+  FSequencesForm.OnEditLaserParams := @FLaserActions.EditLaserParams;
+  FSequencesForm.OnEditGeometry := @FLaserActions.EditGeometry;
+  FSequencesForm.OnCreateEzd := @FLaserActions.CreateEzd;
+  FSequencesForm.Show;
 end;
 
 procedure TAppComposition.LayersChanged(const ALayers: TSliceLayers);
