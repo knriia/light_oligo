@@ -130,6 +130,10 @@ type
     procedure SubstrateOutlineIsCircleOfDiameter;
     procedure ZeroDiameterMeansNoSubstrate;
     procedure FitCheckExplainsWhatIsWrong;
+    procedure PreviewWarningWithoutPointsSaysNoOligos;
+    procedure PreviewWarningNamesOverflowInMillimeters;
+    procedure PreviewWarningIgnoresFittingAndRoundingError;
+    procedure GeometryWithZeroStepOrSpotIsInvalid;
   end;
 
   TOligoPasteTests = class(TTestCase)
@@ -1619,6 +1623,81 @@ begin
   AssertEquals('', ErrorText);
 end;
 
+procedure TMarkGeometryTests.PreviewWarningWithoutPointsSaysNoOligos;
+begin
+  AssertEquals('В массиве нет олигов',
+    PreviewWarning(nil, DefaultMarkGeometry));
+end;
+
+procedure TMarkGeometryTests.PreviewWarningNamesOverflowInMillimeters;
+var
+  G: TMarkGeometry;
+  P: TArrOfTPoint;
+begin
+  G := DefaultMarkGeometry;
+  G.SubstrateDiameter := 2;  // радиус 1 мм
+  G.SpotSize := 200;         // радиус пятна 0.1 мм
+  P := nil;
+  SetLength(P, 1);
+  P[0][0] := 0.6;
+  P[0][1] := 0.8;            // до центра 1 мм, край пятна - 1.1 мм: выход 0.1 мм
+  AssertEquals('Массив выходит за подложку на 0' +
+    DefaultFormatSettings.DecimalSeparator + '1 мм', PreviewWarning(P, G));
+end;
+
+procedure TMarkGeometryTests.PreviewWarningIgnoresFittingAndRoundingError;
+var
+  G: TMarkGeometry;
+  P: TArrOfTPoint;
+begin
+  G := DefaultMarkGeometry;
+  G.SubstrateDiameter := 2;
+  G.SpotSize := 200;
+  P := nil;
+  SetLength(P, 1);
+  P[0][0] := 0;
+  P[0][1] := -0.9;           // край пятна ровно на краю подложки
+  P[0][1] := -0.5;           // внутри подложки
+  AssertEquals('внутри', '', PreviewWarning(P, G));
+  P[0][1] := -0.9;           // край пятна ровно на краю подложки
+  AssertEquals('на краю', '', PreviewWarning(P, G));
+  P[0][1] := -(0.9 + OVERFLOW_TOLERANCE_MM / 10); // выход меньше погрешности
+  AssertEquals('погрешность', '', PreviewWarning(P, G));
+  G.SubstrateDiameter := 0;  // подложки нет - выходить не за что
+  P[0][1] := -500;
+  AssertEquals('без подложки', '', PreviewWarning(P, G));
+end;
+
+procedure TMarkGeometryTests.GeometryWithZeroStepOrSpotIsInvalid;
+var
+  G: TMarkGeometry;
+begin
+  G := DefaultMarkGeometry;
+  AssertTrue('по умолчанию', IsValidMarkGeometry(G));
+  G.Step := 0;
+  AssertFalse('шаг 0', IsValidMarkGeometry(G));
+  G.Step := -0.1;
+  AssertFalse('шаг отрицательный', IsValidMarkGeometry(G));
+  G := DefaultMarkGeometry;
+  G.SpotSize := 0;
+  AssertFalse('пятно 0', IsValidMarkGeometry(G));
+  G.SpotSize := -15;
+  AssertFalse('пятно отрицательное', IsValidMarkGeometry(G));
+  G := DefaultMarkGeometry;
+  G.Group := -1;
+  AssertFalse('группа отрицательная', IsValidMarkGeometry(G));
+  G.Group := 0;
+  AssertTrue('без групп - допустимо', IsValidMarkGeometry(G));
+  G := DefaultMarkGeometry;
+  G.GroupStep := -0.1;
+  AssertFalse('шаг групп отрицательный', IsValidMarkGeometry(G));
+  G := DefaultMarkGeometry;
+  G.SubstrateDiameter := -1;
+  AssertFalse('подложка меньше 0', IsValidMarkGeometry(G));
+  G.SubstrateDiameter := 0;
+  AssertTrue('подложки нет - допустимо', IsValidMarkGeometry(G));
+end;
+
 procedure TMarkGeometryTests.FitCheckExplainsWhatIsWrong;
 var
   G: TMarkGeometry;
@@ -1635,6 +1714,10 @@ begin
   P[1][0] := 0.5;
   P[1][1] := 0;
   AssertTrue('помещается', CheckArrayFitsSubstrate(P, G, ErrorText));
+  AssertEquals('', ErrorText);
+
+  P[1][0] := 0.9 + OVERFLOW_TOLERANCE_MM / 10; // выход меньше допуска
+  AssertTrue('в пределах допуска', CheckArrayFitsSubstrate(P, G, ErrorText));
   AssertEquals('', ErrorText);
 
   P[1][0] := 1.5;            // край пятна на 1.6 мм от центра

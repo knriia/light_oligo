@@ -379,7 +379,7 @@ begin
   for i:=0 to High(Points) do
     PreviewForm.AddSpot(Points[i][0], Points[i][1], Geometry.SpotSize/2000);
   Overflow:=SubstrateOverflow(Points, Geometry);
-  if (Length(Points)>0) and (Overflow>1e-9) then
+  if (Length(Points)>0) and (Overflow>OVERFLOW_TOLERANCE_MM) then
     PreviewForm.Caption:=PreviewForm.Caption+' - массив выходит за подложку на '+
       FormatFloat('0.###', Overflow)+' мм';
   PreviewForm.ShowPreview;

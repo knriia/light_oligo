@@ -1,12 +1,12 @@
 object MarkGeometryForm: TMarkGeometryForm
   Left = 400
-  Height = 296
+  Height = 340
   Top = 250
-  Width = 330
-  BorderStyle = bsDialog
+  Width = 680
+  BorderStyle = bsSizeable
   Caption = 'MarkGeometryForm'
-  ClientHeight = 296
-  ClientWidth = 330
+  ClientHeight = 340
+  ClientWidth = 680
   Position = poMainFormCenter
   object L_Step: TLabel
     Left = 12
@@ -25,6 +25,7 @@ object MarkGeometryForm: TMarkGeometryForm
     Increment = 0.01
     MaxValue = 10
     MinValue = 0.001
+    OnChange = ParamChange
     TabOrder = 0
     Value = 0.1
   end
@@ -42,6 +43,7 @@ object MarkGeometryForm: TMarkGeometryForm
     Top = 42
     Width = 90
     MaxValue = 1000
+    OnChange = ParamChange
     TabOrder = 1
     Value = 10
   end
@@ -61,6 +63,7 @@ object MarkGeometryForm: TMarkGeometryForm
     DecimalPlaces = 3
     Increment = 0.01
     MaxValue = 10
+    OnChange = ParamChange
     TabOrder = 2
     Value = 0.1
   end
@@ -90,6 +93,7 @@ object MarkGeometryForm: TMarkGeometryForm
     Increment = 0.01
     MaxValue = 100
     MinValue = -100
+    OnChange = ParamChange
     TabOrder = 4
   end
   object L_BiasY: TLabel
@@ -109,6 +113,7 @@ object MarkGeometryForm: TMarkGeometryForm
     Increment = 0.01
     MaxValue = 100
     MinValue = -100
+    OnChange = ParamChange
     TabOrder = 5
   end
   object L_SpotSize: TLabel
@@ -127,6 +132,7 @@ object MarkGeometryForm: TMarkGeometryForm
     DecimalPlaces = 1
     MaxValue = 1000
     MinValue = 0.1
+    OnChange = ParamChange
     TabOrder = 6
     Value = 15
   end
@@ -146,22 +152,38 @@ object MarkGeometryForm: TMarkGeometryForm
     DecimalPlaces = 1
     MaxValue = 300
     MinValue = 0.1
+    OnChange = ParamChange
     TabOrder = 7
     Value = 20
   end
-  object B_Preview: TButton
-    Left = 12
-    Height = 25
-    Top = 260
-    Width = 100
-    Caption = 'B_Preview'
-    OnClick = B_PreviewClick
+  object P_Preview: TPanel
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Left = 330
+    Height = 340
+    Top = 0
+    Width = 350
+    BevelOuter = bvNone
+    ClientHeight = 340
+    ClientWidth = 350
     TabOrder = 10
+    TabStop = False
+    object L_Info: TLabel
+      Left = 0
+      Height = 20
+      Top = 320
+      Width = 350
+      Align = alBottom
+      AutoSize = False
+      Caption = ''
+      Font.Color = clRed
+      ParentFont = False
+    end
   end
   object B_OK: TButton
+    Anchors = [akLeft, akBottom]
     Left = 146
     Height = 25
-    Top = 260
+    Top = 304
     Width = 80
     Caption = 'B_OK'
     Default = True
@@ -169,9 +191,10 @@ object MarkGeometryForm: TMarkGeometryForm
     TabOrder = 8
   end
   object B_Cancel: TButton
+    Anchors = [akLeft, akBottom]
     Left = 236
     Height = 25
-    Top = 260
+    Top = 304
     Width = 80
     Cancel = True
     Caption = 'B_Cancel'

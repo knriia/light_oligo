@@ -51,6 +51,7 @@
 
     "LayerEzd": "laser",
     "MarkGeometry": "oligo",
+    "PreviewLayout": "oligo",
     "OligoArray": "oligo",
     "OligoArrayCsv": "oligo",
     "OligoArrayDocument": "oligo",

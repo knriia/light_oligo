@@ -1,14 +1,19 @@
 unit UMarkGeometryForm;
 // Окно параметров геометрии маркировки: шаг, группы и смещение точек,
-// диаметр пятна и подложки. «Просмотр» показывает массив на подложке с
-// введёнными (ещё не сохранёнными) параметрами.
+// диаметр пятна и подложки. Справа в том же окне - массив на подложке с
+// введёнными (ещё не сохранёнными) параметрами; он перерисовывается при
+// каждом изменении.
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, StdCtrls, Spin, MatrixTypes, MarkGeometry;
+  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, Spin, MatrixTypes,
+  MarkGeometry, PreviewLayout, UPreviewForm;
+
+const
+  REFRESH_DELAY_MS = 150; // пауза в вводе перед перерисовкой превью
 
 type
 
@@ -17,7 +22,6 @@ type
   TMarkGeometryForm = class(TForm)
     B_Cancel: TButton;
     B_OK: TButton;
-    B_Preview: TButton;
     CB_AutoCenter: TCheckBox;
     FSE_BiasX: TFloatSpinEdit;
     FSE_BiasY: TFloatSpinEdit;
@@ -28,30 +32,37 @@ type
     L_BiasX: TLabel;
     L_BiasY: TLabel;
     L_Group: TLabel;
+    L_Info: TLabel;
     L_GroupStep: TLabel;
     L_Step: TLabel;
     L_SpotSize: TLabel;
     L_Substrate: TLabel;
+    P_Preview: TPanel;
     SE_Group: TSpinEdit;
-    procedure B_PreviewClick(Sender: TObject);
     procedure CB_AutoCenterChange(Sender: TObject);
+    procedure ParamChange(Sender: TObject);
   private
     FArrayMatrix: TMatrix;
+    FPreview: TPreviewForm; // встроен в P_Preview, принадлежит окну
+    FLoading: Boolean;      // поля заполняются: превью рисуем один раз в конце
+    FNeedZoom: Boolean;     // следующая отрисовка показывает всё целиком
+    FDrawnSubstrate: Double; // подложка, с которой масштаб подогнан в последний раз
+    FRefreshTimer: TTimer;  // перерисовка после паузы в вводе, не на каждую клавишу
+    procedure RefreshPreview;
+    procedure ScheduleRefresh;
+    procedure RefreshTimerTick(Sender: TObject);
     procedure UpdateBiasEnabled;
     function EnteredGeometry: TMarkGeometry;
   public
     constructor Create(TheOwner: TComponent); override;
     // True - нажали OK, AGeometry - введённые значения.
     // При отмене AGeometry не меняется. AArrayMatrix - занятые ячейки
-    // массива для просмотра (пустая - на просмотре только подложка).
+    // массива для превью справа (пустая - в превью только подложка).
     class function Execute(const ACaption: string;
       var AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix): Boolean;
   end;
 
 implementation
-
-uses
-  UPreviewForm;
 
 {$R *.lfm}
 
@@ -68,14 +79,51 @@ begin
   L_BiasY.Caption:='Смещение по Y, мм:';
   L_SpotSize.Caption:='Диаметр пятна, мкм:';
   L_Substrate.Caption:='Диаметр подложки, мм:';
-  B_Preview.Caption:='Просмотр';
   B_OK.Caption:='OK';
   B_Cancel.Caption:='Отмена';
+  L_Info.Caption:='';
+
+  // размер при создании - минимальный: окно растёт, а поля и кнопки остаются
+  // на местах, увеличивается только превью
+  Constraints.MinWidth:=Width;
+  Constraints.MinHeight:=Height;
+  FNeedZoom:=True;
+  FRefreshTimer:=TTimer.Create(Self);
+  FRefreshTimer.Enabled:=False;
+  FRefreshTimer.Interval:=REFRESH_DELAY_MS;
+  FRefreshTimer.OnTimer:=@RefreshTimerTick;
+  FPreview:=TPreviewForm.Create(Self);
+  FPreview.BorderStyle:=bsNone;
+  FPreview.Parent:=P_Preview;
+  FPreview.Align:=alClient;
+  FPreview.CenterChart:=True;
+  FPreview.Show;
 end;
 
 procedure TMarkGeometryForm.CB_AutoCenterChange(Sender: TObject);
 begin
   UpdateBiasEnabled;
+  ScheduleRefresh;
+end;
+
+procedure TMarkGeometryForm.ParamChange(Sender: TObject);
+begin
+  ScheduleRefresh;
+end;
+
+procedure TMarkGeometryForm.ScheduleRefresh;
+// большой массив пересчитывается заметное время: ждём паузу в вводе
+begin
+  if (FPreview=nil) or FLoading then
+    Exit;
+  FRefreshTimer.Enabled:=False;
+  FRefreshTimer.Enabled:=True;
+end;
+
+procedure TMarkGeometryForm.RefreshTimerTick(Sender: TObject);
+begin
+  FRefreshTimer.Enabled:=False;
+  RefreshPreview;
 end;
 
 procedure TMarkGeometryForm.UpdateBiasEnabled;
@@ -100,41 +148,39 @@ begin
   Result.SubstrateDiameter:=FSE_Substrate.Value;
 end;
 
-procedure TMarkGeometryForm.B_PreviewClick(Sender: TObject);
+procedure TMarkGeometryForm.RefreshPreview;
 // весь массив на подложке с введёнными параметрами
 const
   OUTLINE_POINTS = 100;
 var
   Geometry: TMarkGeometry;
   Points, Outline: TArrOfTPoint;
-  Preview: TPreviewForm;
-  Overflow: Double;
   i: Integer;
 begin
+  if (FPreview=nil) or FLoading then // окно ещё собирается или заполняется
+    Exit;
   Geometry:=EnteredGeometry;
-  Points:=MatrixToMarkPoints(FArrayMatrix, Geometry);
-  Outline:=SubstrateOutline(Geometry, OUTLINE_POINTS);
-  Preview:=TPreviewForm.Create(nil);
-  try
-    Preview.ClearPreview;
-    for i:=0 to High(Outline) do
-      Preview.AddSubstratePoint(Outline[i][0], Outline[i][1]);
-    for i:=0 to High(Points) do
-      Preview.AddSpot(Points[i][0], Points[i][1], Geometry.SpotSize/2000);
-    Preview.Caption:='Просмотр';
-    if Length(Points)=0 then
-      Preview.Caption:=Preview.Caption+' - в массиве нет олигов'
-    else
-    begin
-      Overflow:=SubstrateOverflow(Points, Geometry);
-      if Overflow>1e-9 then
-        Preview.Caption:=Preview.Caption+' - массив выходит за подложку на '+
-          FormatFloat('0.###', Overflow)+' мм';
-    end;
-    Preview.ShowPreviewModal;
-  finally
-    Preview.Free;
+  FPreview.ClearPreview;
+  L_Info.Caption:='';
+  // пока значение вводят, поле может на миг оказаться недопустимым
+  if not IsValidMarkGeometry(Geometry) then
+  begin
+    L_Info.Caption:='Проверьте значения параметров';
+    FNeedZoom:=True;
+    Exit;
   end;
+  Outline:=SubstrateOutline(Geometry, OUTLINE_POINTS);
+  for i:=0 to High(Outline) do
+    FPreview.AddSubstratePoint(Outline[i][0], Outline[i][1]);
+  Points:=MatrixToMarkPoints(FArrayMatrix, Geometry);
+  for i:=0 to High(Points) do
+    FPreview.AddSpot(Points[i][0], Points[i][1], Geometry.SpotSize/2000);
+  L_Info.Caption:=PreviewWarning(Points, Geometry);
+  // масштаб пользователя не сбрасываем, пока не изменилась сама подложка
+  if NeedFullZoom(FNeedZoom, FDrawnSubstrate, Geometry.SubstrateDiameter) then
+    FPreview.ZoomFull;
+  FNeedZoom:=False;
+  FDrawnSubstrate:=Geometry.SubstrateDiameter;
 end;
 
 class function TMarkGeometryForm.Execute(const ACaption: string;
@@ -145,6 +191,7 @@ begin
   Form:=TMarkGeometryForm.Create(nil);
   try
     Form.Caption:=ACaption;
+    Form.FLoading:=True;
     Form.FArrayMatrix:=AArrayMatrix;
     Form.FSE_Step.Value:=AGeometry.Step;
     Form.SE_Group.Value:=AGeometry.Group;
@@ -155,6 +202,8 @@ begin
     Form.FSE_SpotSize.Value:=AGeometry.SpotSize;
     Form.FSE_Substrate.Value:=AGeometry.SubstrateDiameter;
     Form.UpdateBiasEnabled;
+    Form.FLoading:=False;
+    Form.RefreshPreview; // первый раз сразу, без ожидания таймера
     Result:=Form.ShowModal=mrOK;
     if Result then
       AGeometry:=Form.EnteredGeometry;
