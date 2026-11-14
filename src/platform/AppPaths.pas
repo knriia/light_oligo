@@ -28,7 +28,7 @@ const
   PROG_CONFIG_FILE = 'ProgConfig.ini'; // настройки ручной вкладки, лазера, станции
   SEQUENCES_CONFIG_FILE = 'sequences.ini'; // настройки вкладки последовательностей
   MANUAL_CONFIG_FILE = 'manual.ini'; // настройки ручной вкладки
-  LASER_CONFIG_FILE = 'laser.ini';   // настройки вкладки лазера
+  LASER_CONFIG_FILE = 'laser.ini';   // настройки лазера
 
 // Папка с exe. Пустой AExecutableFileName означает текущую программу.
 function AppDir(const AExecutableFileName: string = ''): string;

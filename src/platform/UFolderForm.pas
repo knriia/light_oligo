@@ -10,6 +10,9 @@ uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls;
 
 type
+  TListFolderFilesFunc = function(const ADir: string): TStringArray;
+  TDeleteFolderFilesFunc = function(const ADir: string;
+    out AErrorText: string): Boolean;
 
   { TFolderForm }
 
@@ -30,6 +33,14 @@ type
     class function Execute(const ACaption, APrompt: string;
       var AFolder: string): Boolean;
   end;
+
+// Папка для файлов, которые программа будет записывать. Если в ней уже есть
+// такие файлы (AListFiles) - только с согласия их удалить (ADeleteFiles),
+// иначе папку спрашивают снова. AFilesName - как назвать файлы в вопросе.
+// Папка создаётся. False - отмена или папку не удалось создать/очистить.
+function ChooseFolderForFiles(const ACaption, APrompt, AFilesName: string;
+  AListFiles: TListFolderFilesFunc; ADeleteFiles: TDeleteFolderFilesFunc;
+  var APath: string): Boolean;
 
 implementation
 
@@ -90,6 +101,38 @@ begin
   finally
     Form.Free;
   end;
+end;
+
+function ChooseFolderForFiles(const ACaption, APrompt, AFilesName: string;
+  AListFiles: TListFolderFilesFunc; ADeleteFiles: TDeleteFolderFilesFunc;
+  var APath: string): Boolean;
+var
+  Existing: TStringArray;
+  ErrorText: string;
+begin
+  Result:=False;
+  repeat
+    if not TFolderForm.Execute(ACaption, APrompt, APath) then
+      Exit;
+    Existing:=AListFiles(APath);
+    if Length(Existing)>0 then
+    begin
+      if MessageDlg('В папке уже есть '+AFilesName+' ('+
+           IntToStr(Length(Existing))+'):'+LineEnding+APath+LineEnding+
+           'Удалить их и записать новые?', mtConfirmation,
+           [mbYes, mbNo], 0)<>mrYes then
+        Continue;
+      if not ADeleteFiles(APath, ErrorText) then
+      begin
+        ShowMessage(ErrorText);
+        Exit;
+      end;
+    end;
+    Break;
+  until false;
+  Result:=ForceDirectories(APath);
+  if not Result then
+    ShowMessage('Не удалось создать папку:'+LineEnding+APath);
 end;
 
 end.

@@ -24,7 +24,6 @@ type
     TS_Manual: TTabSheet;
     TS_Log: TTabSheet;
     TS_Sequences: TTabSheet;
-    TS_Laser: TTabSheet;
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
@@ -59,7 +58,7 @@ const
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
   FComposition := TAppComposition.Create(Self, TS_Manual, TS_Protocol,
-    TS_Synthesis, TS_Sequences, TS_Laser, @SequencesLog, @SequencesLog,
+    TS_Synthesis, TS_Sequences, @SequencesLog, @SequencesLog,
     @SequencesLog, @SequencesLog,
     @SynthesisClearLog, @DispenserStationLogMessage, @StartEzCadWatcher);
   // данные, папки и настройки программы
@@ -68,7 +67,6 @@ begin
   MainForm.Caption:=ReadInterfaceString('Main','MainForm','LightOligo');
   TS_Manual.Caption:=ReadInterfaceString('Main','TS_Manual','Manual');
   TS_Sequences.Caption:=ReadInterfaceString('Main','TS_Sequences','Sequence');
-  TS_Laser.Caption:=ReadInterfaceString('Main','TS_Laser','Laser');
   TS_Protocol.Caption:=ReadInterfaceString('Main','TS_Protocol','Protocol');
   TS_Synthesis.Caption:=ReadInterfaceString('Main','TS_Synthesis','Synthesis');
   TS_Log.Caption:=ReadInterfaceString('Main','TS_Log','Лог');
