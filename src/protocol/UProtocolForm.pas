@@ -27,9 +27,9 @@ type
     B_New: TButton;
     B_Open: TButton;
     B_Save: TButton;
+    GB_ProtControl: TGroupBox;
     L_File: TLabel;
     OD_File: TOpenDialog;
-    P_Buttons: TPanel;
     SD_File: TSaveDialog;
     TV_Protocol: TTreeView;
     procedure B_AddBlockClick(Sender: TObject);
@@ -94,6 +94,7 @@ end;
 procedure TProtocolForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
   FCaptions := AIni;
+  GB_ProtControl.Caption := AIni.ReadString(CAPTIONS_SECTION, 'GB_ProtControl', 'Управление');
   B_New.Caption := AIni.ReadString(CAPTIONS_SECTION, 'B_NewProtocol', 'Создать');
   B_Open.Caption := AIni.ReadString(CAPTIONS_SECTION, 'B_LoadProtocolLayer', 'Открыть');
   B_Save.Caption := AIni.ReadString(CAPTIONS_SECTION, 'B_SaveProtocolLayer', 'Сохранить');

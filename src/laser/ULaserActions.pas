@@ -26,8 +26,8 @@ type
     procedure LoadSettings;
     // Перо лазера, с которым создаются EZD слоёв.
     procedure EditLaserParams(Sender: TObject);
-    // Геометрия, с которой создаются EZD слоёв. Просмотр чертит занятые
-    // ячейки массива AArr.
+    // Геометрия, с которой создаются EZD слоёв. Окно параметров чертит
+    // занятые ячейки массива AArr.
     procedure EditGeometry(const AArr: TOligoArr);
     // EZD-файл для каждого слоя ATable (по умолчанию в папке ezd рядом с
     // массивом, имя как у файла матрицы слоя) и Slices.lays с параметрами в

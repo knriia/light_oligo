@@ -3,6 +3,7 @@ unit MarkGeometry;
 // Используется при создании EZD-файлов в ручном режиме и для слоёв.
 
 {$mode ObjFPC}{$H+}
+{$codepage utf8}
 
 interface
 
@@ -12,6 +13,9 @@ uses
 const
   GEOMETRY_SECTION = 'Geometry';
   GEOMETRY_FILE = 'geometry.ini'; // геометрия, с которой созданы EZD слоёв
+  // Выход пятен за край подложки меньше этого (мм) считается погрешностью
+  // расчёта: пятно ещё помещается.
+  OVERFLOW_TOLERANCE_MM = 1e-9;
 
 type
   TMarkGeometry = record
@@ -76,6 +80,15 @@ function SubstrateOverflow(const APoints: TArrOfTPoint;
 // строчной буквы, чтобы вызывающий мог добавить, что именно не сделано.
 function CheckArrayFitsSubstrate(const APoints: TArrOfTPoint;
   const AGeometry: TMarkGeometry; out AErrorText: string): Boolean;
+
+// Годятся ли параметры для расчёта точек: шаг и диаметр пятна больше нуля,
+// размер группы и доп. шаг между группами и диаметр подложки не отрицательные
+// (группа 0 - без групп, диаметр подложки 0 - подложки нет).
+function IsValidMarkGeometry(const AGeometry: TMarkGeometry): Boolean;
+// Предупреждение для превью: в массиве нет олигов (точек нет) или на сколько
+// мм массив выходит за подложку. Пустая строка - предупреждать не о чем.
+function PreviewWarning(const APoints: TArrOfTPoint;
+  const AGeometry: TMarkGeometry): string;
 
 // Контур подложки (окружность с центром в нуле) из ACount точек.
 function SubstrateOutline(const AGeometry: TMarkGeometry;
@@ -306,7 +319,7 @@ begin
   if Length(APoints) = 0 then
     Exit;
   Overflow := SubstrateOverflow(APoints, AGeometry);
-  if Overflow <= 1e-9 then
+  if Overflow <= OVERFLOW_TOLERANCE_MM then
     Exit;
   Result := False;
   MinX := APoints[0][0];
@@ -328,6 +341,30 @@ begin
     'Пятна выходят за край подложки на ' + Mm(Overflow) + ' мм.' + LineEnding +
     'Уменьшите шаг или размер матрицы, проверьте смещение или укажите ' +
     'больший диаметр подложки в параметрах геометрии.';
+end;
+
+function IsValidMarkGeometry(const AGeometry: TMarkGeometry): Boolean;
+begin
+  Result := (AGeometry.Step > 0) and (AGeometry.SpotSize > 0) and
+    (AGeometry.Group >= 0) and (AGeometry.GroupStep >= 0) and
+    (AGeometry.SubstrateDiameter >= 0);
+end;
+
+function PreviewWarning(const APoints: TArrOfTPoint;
+  const AGeometry: TMarkGeometry): string;
+var
+  Overflow: Double;
+begin
+  Result := '';
+  if Length(APoints) = 0 then
+  begin
+    Result := 'В массиве нет олигов';
+    Exit;
+  end;
+  Overflow := SubstrateOverflow(APoints, AGeometry);
+  if Overflow > OVERFLOW_TOLERANCE_MM then
+    Result := 'Массив выходит за подложку на ' + FormatFloat('0.###', Overflow) +
+      ' мм';
 end;
 
 function SubstrateOutline(const AGeometry: TMarkGeometry;

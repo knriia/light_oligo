@@ -17,7 +17,7 @@ type
   // Таблица слоёв массива изменилась (слайсинг, EZD-файлы) или сброшена
   // (пустая): синтез берёт слои отсюда.
   TSequencesLayersEvent = procedure(const ALayers: TSliceLayers) of object;
-  // Геометрия маркировки: просмотр чертит занятые ячейки массива.
+  // Параметры геометрии маркировки: окно чертит занятые ячейки массива.
   TSequencesGeometryEvent = procedure(const AArr: TOligoArr) of object;
   // EZD-файлы для слоёв ATable (Slices.txt лежит в ASliceDir). True - созданы
   // все, AResult - таблица с путями к EZD.
@@ -71,7 +71,6 @@ type
     procedure DisplayOligoArray;
     procedure ApplyWidthMode;
     procedure StoreCell(ACol, ARow: Integer);
-    procedure LayoutButtons;
     function SaveArray: Boolean;
     function ConfirmSaveIfModified: Boolean;
     function RequireArray: Boolean;
@@ -79,9 +78,6 @@ type
     procedure SetOnEditLaserParams(AValue: TNotifyEvent);
     procedure SetOnEditGeometry(AValue: TSequencesGeometryEvent);
     procedure SetOnCreateEzd(AValue: TSequencesCreateEzdEvent);
-  protected
-    procedure DoShow; override;
-    procedure Resize; override;
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -127,7 +123,7 @@ end;
 
 procedure TSequencesForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
-  GB_OligControl.Caption:=AIni.ReadString('Oligo','GB_OligControl','Oligonucleotides');
+  GB_OligControl.Caption:=AIni.ReadString('Oligo','GB_OligControl','Control');
   B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','Create array');
   B_ClearOligoArr.Caption:=AIni.ReadString('Oligo','B_ClearOligoArr','Clear array');
   B_CloseOligoArr.Caption:=AIni.ReadString('Oligo','B_CloseOligoArr','Remove array');
@@ -135,71 +131,8 @@ begin
   B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save array');
   B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slicing');
   B_LaserParams.Caption:=AIni.ReadString('Oligo','B_LaserParams','Laser parameters');
-  B_Geometry.Caption:=AIni.ReadString('Oligo','B_Geometry','Geometry');
+  B_Geometry.Caption:=AIni.ReadString('Oligo','B_Geometry','Geometry parameters');
   B_CreateEzd.Caption:=AIni.ReadString('Oligo','B_CreateEzd','Create EZD');
-  LayoutButtons;
-end;
-
-procedure TSequencesForm.DoShow;
-begin
-  inherited DoShow;
-  LayoutButtons; // окна кнопок уже созданы - ширина текста известна точно
-end;
-
-procedure TSequencesForm.LayoutButtons;
-// Кнопки идут слева направо, ширина каждой - по её надписи; не поместившиеся
-// переносятся в следующий ряд.
-const
-  GAP = 8;
-  ROW_TOP = 4;
-  ROW_BOTTOM = 6;
-var
-  X, Y, W, i: Integer;
-  Buttons: array of TButton;
-  GroupHeight: Integer;
-
-  function TextWidth(AButton: TButton): Integer;
-  var
-    PrefW, PrefH: Integer;
-  begin
-    PrefW:=0;
-    PrefH:=0;
-    AButton.GetPreferredSize(PrefW, PrefH);
-    if PrefW<=0 then // окно кнопки ещё не создано
-      PrefW:=AButton.Width;
-    Result:=PrefW;
-  end;
-
-begin
-  if not Assigned(B_CreateEzd) then // форма ещё загружается
-    Exit;
-  Buttons:=[B_CreateOligoArr, B_LoadOligoArr, B_SaveOligoArr, B_ClearOligoArr,
-            B_CloseOligoArr, B_SliceOligoArr, B_LaserParams, B_Geometry,
-            B_CreateEzd];
-  X:=GAP;
-  Y:=ROW_TOP;
-  for i:=0 to High(Buttons) do
-  begin
-    W:=TextWidth(Buttons[i]);
-    if (X>GAP) and (X+W>GB_OligControl.ClientWidth) then
-    begin
-      X:=GAP;
-      Inc(Y, Buttons[i].Height+GAP);
-    end;
-    Buttons[i].SetBounds(X, Y, W, Buttons[i].Height);
-    Buttons[i].TabOrder:=i; // Tab ходит по кнопкам в том же порядке
-    Inc(X, W+GAP);
-  end;
-  // группа по высоте ровно под ряды кнопок, остальное место - таблице
-  GroupHeight:=Y+B_CreateOligoArr.Height+ROW_BOTTOM;
-  if GB_OligControl.ClientHeight<>GroupHeight then
-    GB_OligControl.ClientHeight:=GroupHeight;
-end;
-
-procedure TSequencesForm.Resize;
-begin
-  inherited Resize;
-  LayoutButtons; // ширина окна изменилась - ряды перераскладываем
 end;
 
 procedure TSequencesForm.UpdateLaserButtons;
@@ -500,7 +433,7 @@ begin
 end;
 
 procedure TSequencesForm.B_GeometryClick(Sender: TObject);
-// просмотр геометрии чертит занятые ячейки массива, поэтому массив нужен
+// окно параметров геометрии чертит занятые ячейки массива, поэтому он нужен
 begin
   if not RequireArray then
     Exit;

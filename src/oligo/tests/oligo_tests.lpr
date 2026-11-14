@@ -4,7 +4,7 @@ program oligo_tests;
 
 uses
   Classes, consoletestrunner, OligoTests,
-  OligoSlicesFileTests, MatrixDocumentTests;
+  OligoSlicesFileTests, MatrixDocumentTests, PreviewLayoutTests;
 
 var
   Application: TTestRunner;
