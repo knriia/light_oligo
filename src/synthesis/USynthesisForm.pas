@@ -26,6 +26,7 @@ type
     B_OpenSynthesis: TButton;
     B_SaveSynthesis: TButton;
     B_LoadLayers: TButton;
+    B_RemoveSelected: TButton;
     B_LoadProtToSynth: TButton;
     B_Pause: TButton;
     B_Start: TButton;
@@ -34,6 +35,7 @@ type
     OD_File: TOpenDialog;
     TV_Synthesis: TTreeView;
     procedure B_LoadLayersClick(Sender: TObject);
+    procedure B_RemoveSelectedClick(Sender: TObject);
     procedure B_NewSynthesisClick(Sender: TObject);
     procedure B_OpenSynthesisClick(Sender: TObject);
     procedure B_SaveSynthesisClick(Sender: TObject);
@@ -75,6 +77,10 @@ implementation
 
 uses
   AppPaths;
+
+const
+  // Node.Data узла дерева: протокол - его номер + 1, слои - эта метка
+  TREE_LAYERS_MARK = -1;
 
 type
   // Передаёт потоку журнал и порты из окна синтеза.
@@ -138,6 +144,7 @@ begin
   GB_Files.Caption := AIni.ReadString('Synthesis', 'GB_Files', 'Synthesis Tree');
   B_LoadProtToSynth.Caption := AIni.ReadString('Synthesis', 'B_LoadProtToSynth', 'Load Protocol');
   B_LoadLayers.Caption := AIni.ReadString('Synthesis', 'B_LoadLayers', 'Load Layers');
+  B_RemoveSelected.Caption := AIni.ReadString('Synthesis', 'B_RemoveSelected', 'Remove Selected');
   B_NewSynthesis.Caption := AIni.ReadString('Synthesis', 'B_NewSynthesis', 'New Synthesis');
   B_OpenSynthesis.Caption := AIni.ReadString('Synthesis', 'B_OpenSynthesis', 'Open');
   B_SaveSynthesis.Caption := AIni.ReadString('Synthesis', 'B_SaveSynthesis', 'Save');
@@ -210,6 +217,7 @@ begin
     begin
       Letter := Session.ProtocolLetters[I];
       Node := TV_Synthesis.Items.AddChild(Root, Letter + '.pro');
+      Node.Data := Pointer(PtrInt(I + 1));
       Lines.Text := Session.ProtocolOf(Letter).ToText;
       for J := 0 to Lines.Count - 1 do
         if Trim(Lines[J]) <> '' then
@@ -220,6 +228,7 @@ begin
     begin
       Node := TV_Synthesis.Items.AddChild(Root, 'Слои: ' +
         IntToStr(Session.LayerCount));
+      Node.Data := Pointer(PtrInt(TREE_LAYERS_MARK));
       for I := 0 to Session.LayerCount - 1 do
         TV_Synthesis.Items.AddChild(Node, IntToStr(Session.Layers[I].LayerNumber) +
           ' ' + Session.Layers[I].Letter + ' ' + Session.Layers[I].EZDFile);
@@ -373,6 +382,69 @@ begin
   finally
     FileNames.Free;
   end;
+end;
+
+procedure TSynthesisForm.B_RemoveSelectedClick(Sender: TObject);
+// Убрать из синтеза выбранный протокол или все слои (узел или его потомок)
+var
+  Node: TTreeNode;
+  Mark: PtrInt;
+  Letter, Question: string;
+  I: Integer;
+  HasLayersOfLetter: Boolean;
+begin
+  if Running then
+  begin
+    ShowMessage('Синтез идёт. Остановите его, чтобы менять состав синтеза.');
+    Exit;
+  end;
+  Node := TV_Synthesis.Selected;
+  while (Node <> nil) and (Node.Level > 1) do
+    Node := Node.Parent;
+  if (Node = nil) or (Node.Level <> 1) then
+  begin
+    ShowMessage('Выберите в дереве протокол или слои.');
+    Exit;
+  end;
+  Mark := PtrInt(Node.Data);
+  if Mark = TREE_LAYERS_MARK then
+  begin
+    Question := 'Убрать из синтеза все слои?';
+    if FWorkspace.Started then
+      Question := Question + LineEnding + 'Папка запущенного синтеза не ' +
+        'изменится: сохранять придётся в другую папку.';
+    if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+      Exit;
+    FWorkspace.RemoveLayers;
+    Log('Слои убраны из синтеза');
+  end
+  else
+  begin
+    if (Mark < 1) or (Mark > FWorkspace.Session.ProtocolCount) then
+      Exit;
+    Letter := FWorkspace.Session.ProtocolLetters[Mark - 1];
+    Question := 'Убрать из синтеза протокол ' + Letter + '.pro?';
+    HasLayersOfLetter := False;
+    for I := 0 to FWorkspace.Session.LayerCount - 1 do
+      if FWorkspace.Session.Layers[I].Letter = Letter then
+        HasLayersOfLetter := True;
+    if HasLayersOfLetter then
+      Question := Question + LineEnding + 'Слои с буквой ' + Letter +
+        ' останутся без протокола, синтез нельзя будет запустить.';
+    if FWorkspace.Started then
+      Question := Question + LineEnding + 'Папка запущенного синтеза не ' +
+        'изменится: сохранять придётся в другую папку.';
+    if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+      Exit;
+    if not FWorkspace.RemoveProtocol(Letter) then
+    begin
+      ShowMessage('Протокол ' + Letter + ' не найден в синтезе.');
+      RebuildTree;
+      Exit;
+    end;
+    Log('Протокол ' + Letter + ' убран из синтеза');
+  end;
+  RebuildTree;
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
