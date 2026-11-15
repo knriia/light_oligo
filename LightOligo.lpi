@@ -399,6 +399,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src\oligo\PreviewLayout.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\laser\Lmc1Results.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
