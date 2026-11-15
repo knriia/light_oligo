@@ -31,6 +31,9 @@ type
   private
     FDirectory: string;
     FWriter: TFakeEzdWriter;
+    FEventCurrent, FEventTotal: array of Integer;
+    FEventStage: TStringList;
+    procedure OnProgress(ACurrent, ATotal: Integer; const AStage: string);
     function FilePath(const AName: string): string;
     function Layer(ANumber: Integer; const AMatrixName: string): TSliceLayer;
     procedure WriteMatrix(const AName: string; const ARows: array of string);
@@ -49,6 +52,9 @@ type
     procedure SliceEzdFailureDoesNotWriteLays;
     procedure ArrayOffSubstrateWritesNothing;
     procedure EveryLayerGetsTheTabPen;
+    procedure ProgressReportsReadAndWriteSteps;
+    procedure SliceEzdFilesForwardsProgress;
+    procedure ProgressDoesNotReportDoneOnFailure;
   end;
 
 implementation
@@ -135,14 +141,28 @@ begin
   inherited SetUp;
   FDirectory := IncludeTrailingPathDelimiter(GetTempDir(False)) +
     'light_oligo_ezd_' + IntToStr(GetTickCount64);
+  FEventStage := TStringList.Create;
   AssertTrue(ForceDirectories(FDirectory));
   FWriter := TFakeEzdWriter.Create;
+  FEventCurrent := nil;
+  FEventTotal := nil;
+end;
+
+procedure TLayerEzdTests.OnProgress(ACurrent, ATotal: Integer;
+  const AStage: string);
+begin
+  SetLength(FEventCurrent, Length(FEventCurrent) + 1);
+  SetLength(FEventTotal, Length(FEventTotal) + 1);
+  FEventCurrent[High(FEventCurrent)] := ACurrent;
+  FEventTotal[High(FEventTotal)] := ATotal;
+  FEventStage.Add(AStage);
 end;
 
 procedure TLayerEzdTests.TearDown;
 var
   Search: TSearchRec;
 begin
+  FEventStage.Free;
   FWriter.Free;
   if FindFirst(FilePath('*'), faAnyFile and not faDirectory, Search) = 0 then
   try
@@ -344,6 +364,73 @@ begin
   AssertFalse('DLL не подключается', FWriter.Opened);
   AssertEquals(0, FWriter.Saved.Count);
   AssertEquals('', Done[0].EZDFile);
+end;
+
+procedure TLayerEzdTests.ProgressReportsReadAndWriteSteps;
+const
+  ExpectedCurrent: array[0..6] of Integer = (0, 0, 1, 2, 2, 3, 4);
+var
+  Table, Done: TSliceLayers;
+  ErrorText: string;
+  I: Integer;
+begin
+  WriteMatrix('Layer1_A2.txt', ['11']);
+  WriteMatrix('Layer2_A1.txt', ['01']);
+  Table := [Layer(1, 'Layer1_A2.txt'), Layer(2, 'Layer2_A1.txt')];
+
+  AssertTrue(ErrorText, CreateLayerEzdFiles(FWriter, Table, FilePath('ezd'),
+    Geometry, Pen, Done, ErrorText, @OnProgress));
+
+  // начало, чтение слоёв 0 и 1, подключение, запись слоёв 0 и 1, конец:
+  // всего 2*2 шага
+  AssertEquals(7, FEventStage.Count);
+  for I := 0 to 6 do
+  begin
+    AssertEquals('current #' + IntToStr(I), ExpectedCurrent[I], FEventCurrent[I]);
+    AssertEquals('total #' + IntToStr(I), 4, FEventTotal[I]);
+  end;
+  AssertEquals('Чтение матриц слоёв', FEventStage[0]);
+  AssertEquals('Чтение матриц слоёв: 1 из 2', FEventStage[1]);
+  AssertEquals('Чтение матриц слоёв: 2 из 2', FEventStage[2]);
+  AssertEquals('Подключение к MarkEzd.dll', FEventStage[3]);
+  AssertEquals('Запись EZD: Layer1_A2.ezd (1 из 2)', FEventStage[4]);
+  AssertEquals('Запись EZD: Layer2_A1.ezd (2 из 2)', FEventStage[5]);
+  AssertEquals('Готово', FEventStage[6]);
+end;
+
+procedure TLayerEzdTests.SliceEzdFilesForwardsProgress;
+var
+  Table, Done: TSliceLayers;
+  ErrorText: string;
+begin
+  WriteMatrix('Layer1_A1.txt', ['1']);
+  Table := [Layer(1, 'Layer1_A1.txt')];
+
+  AssertTrue(ErrorText, CreateSliceEzdFiles(FWriter, Table, FilePath('ezd'),
+    FDirectory, Geometry, Pen, Done, ErrorText, @OnProgress));
+
+  // начало, чтение слоя, подключение, запись слоя, конец
+  AssertEquals(5, FEventStage.Count);
+  AssertEquals(2, FEventTotal[4]);
+  AssertEquals(2, FEventCurrent[4]);
+  AssertEquals('Готово', FEventStage[4]);
+end;
+
+procedure TLayerEzdTests.ProgressDoesNotReportDoneOnFailure;
+var
+  Table, Done: TSliceLayers;
+  ErrorText: string;
+  I: Integer;
+begin
+  // матрицы слоя нет: EZD не создаётся, «Готово» не сообщается
+  Table := [Layer(1, 'Layer1_A1.txt')];
+  AssertFalse(CreateLayerEzdFiles(FWriter, Table, FilePath('ezd'), Geometry,
+    Pen, Done, ErrorText, @OnProgress));
+  AssertTrue(FEventStage.Count > 0);
+  for I := 0 to FEventStage.Count - 1 do
+    AssertTrue('событие #' + IntToStr(I) + ': ' + FEventStage[I],
+      FEventStage[I] <> 'Готово');
+  AssertTrue(FEventCurrent[High(FEventCurrent)] < FEventTotal[0]);
 end;
 
 initialization

@@ -41,7 +41,8 @@ implementation
 
 uses
   Forms, Dialogs, AppPaths, MarkGeometry, LaserPen, LayerEzd, MarkEzdWriter,
-  LaserConfigMigration, UFolderForm, UMarkGeometryForm, ULaserPenForm;
+  LaserConfigMigration, UFolderForm, UMarkGeometryForm, ULaserPenForm,
+  UEzdProgressForm;
 
 { TLaserActions }
 
@@ -111,6 +112,7 @@ var
   Path, ErrorText: String;
   Geometry: TMarkGeometry;
   Writer: TMarkEzdWriter;
+  Progress: TEzdProgressForm;
 begin
   Result:=False;
   AResult:=nil;
@@ -125,10 +127,13 @@ begin
   // Сообщение MarkEzd.dll при подключении (например, что плата маркера
   // не найдена) не закрываем: пользователь должен его увидеть.
   Writer:=TMarkEzdWriter.Create(AppDir, Application.MainFormHandle, @Log);
+  Progress:=TEzdProgressForm.Create(Application);
   try
+    Progress.Open;
     Result:=CreateSliceEzdFiles(Writer, ATable, Path, ASliceDir, Geometry,
-      LoadLaserPen(LaserConfigPath), AResult, ErrorText);
+      LoadLaserPen(LaserConfigPath), AResult, ErrorText, @Progress.Report);
   finally
+    Progress.Free;
     Writer.Free;
   end;
   if not Result then
