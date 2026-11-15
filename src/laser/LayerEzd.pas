@@ -4,6 +4,7 @@ unit LayerEzd;
 // без MarkEzd.dll.
 
 {$mode ObjFPC}{$H+}
+{$codepage utf8}
 
 interface
 

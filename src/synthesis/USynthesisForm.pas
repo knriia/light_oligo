@@ -338,7 +338,9 @@ end;
 procedure TSynthesisForm.B_LoadProtToSynthClick(Sender: TObject);
 // Добавить протокол в синтез
 var
-  Letter, ErrorText: string;
+  Letter, ErrorText, Errors: string;
+  FileNames: TStringList;
+  I: Integer;
 begin
   if Running then
   begin
@@ -348,15 +350,29 @@ begin
   OD_File.Filter := 'Протокол|*.pro';
   OD_File.InitialDir := ProtocolsDir;
   OD_File.FileName := '';
-  if not OD_File.Execute then
-    Exit;
-  if FWorkspace.AddProtocolFile(OD_File.FileName, Letter, ErrorText) then
-  begin
-    Log('Протокол для буквы ' + Letter + ' загружен: ' + OD_File.FileName);
+  FileNames := TStringList.Create;
+  try
+    OD_File.Options := OD_File.Options + [ofAllowMultiSelect];
+    try
+      if not OD_File.Execute then
+        Exit;
+      FileNames.Assign(OD_File.Files);
+      FileNames.Sort;
+    finally
+      OD_File.Options := OD_File.Options - [ofAllowMultiSelect];
+    end;
+    Errors := '';
+    for I := 0 to FileNames.Count - 1 do
+      if FWorkspace.AddProtocolFile(FileNames[I], Letter, ErrorText) then
+        Log('Протокол для буквы ' + Letter + ' загружен: ' + FileNames[I])
+      else
+        Errors := Errors + ErrorText + LineEnding;
     RebuildTree;
-  end
-  else
-    ShowMessage(ErrorText);
+    if Errors <> '' then
+      ShowMessage(Trim(Errors));
+  finally
+    FileNames.Free;
+  end;
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
