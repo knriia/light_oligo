@@ -11,6 +11,11 @@ uses
   Classes, SysUtils, MatrixTypes, MarkGeometry, OligoSlices, LaserPen;
 
 type
+  // Ход создания EZD: ACurrent из ATotal шагов выполнено, AStage - что
+  // делается сейчас.
+  TEzdProgressEvent = procedure(ACurrent, ATotal: Integer;
+    const AStage: string) of object;
+
   // Запись EZD-файлов. Open - один раз перед записью, Close - после.
   // Параметры пера записываются в каждый файл: с ними пойдёт маркировка.
   TEzdWriter = class
@@ -30,9 +35,12 @@ function LayerEzdFileName(const ALayer: TSliceLayer): string;
 // AResult - копия таблицы, EZDFile заполнен только у записанных слоёв.
 // True - записаны все слои. Иначе в AErrorText список слоёв с причинами:
 // неполный набор слоёв для синтеза использовать нельзя.
+// AOnProgress (может быть nil) вызывается перед началом и после каждого
+// шага: чтение матрицы слоя, запись EZD слоя (всего 2*слоёв шагов).
 function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir: string; const AGeometry: TMarkGeometry; const APen: TLaserPen;
-  out AResult: TSliceLayers; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string;
+  AOnProgress: TEzdProgressEvent = nil): Boolean;
 
 // EZD целиком: EZD-файлы всех слоёв в AEzdDir, а в ASliceDir - таблица
 // Slices.lays и параметры, с которыми созданы EZD: геометрия (geometry.ini)
@@ -41,7 +49,8 @@ function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
 function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
   const APen: TLaserPen;
-  out AResult: TSliceLayers; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string;
+  AOnProgress: TEzdProgressEvent = nil): Boolean;
 
 implementation
 
@@ -55,7 +64,8 @@ end;
 
 function CreateLayerEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir: string; const AGeometry: TMarkGeometry; const APen: TLaserPen;
-  out AResult: TSliceLayers; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string;
+  AOnProgress: TEzdProgressEvent): Boolean;
 var
   i: Integer;
   Matrix: TMatrix;
@@ -63,9 +73,18 @@ var
   Reasons: array of string;
   EzdFile, Reason, Failed, FitError: string;
   AllPoints: TArrOfTPoint;
-  n, k: Integer;
+  n, k, Total: Integer;
+
+  procedure Report(ADone: Integer; const AStage: string);
+  begin
+    if Assigned(AOnProgress) then
+      AOnProgress(ADone, Total, AStage);
+  end;
+
 begin
   AResult := Copy(ATable);
+  Total := 2 * Length(AResult);
+  Report(0, 'Чтение матриц слоёв');
   for i := 0 to High(AResult) do
     AResult[i].EZDFile := '';
 
@@ -78,6 +97,8 @@ begin
   AllPoints := nil;
   for i := 0 to High(AResult) do
   begin
+    Report(i, 'Чтение матриц слоёв: ' + IntToStr(i + 1) + ' из ' +
+      IntToStr(Length(AResult)));
     Matrix := nil;
     if not ReadMatrixFromFile(AResult[i].MatrixFile, Matrix) then
       Reasons[i] := 'не удалось прочитать матрицу слоя'
@@ -102,6 +123,7 @@ begin
     Exit(False);
   end;
 
+  Report(Length(AResult), 'Подключение к MarkEzd.dll');
   if not AWriter.Open(Reason) then
   begin
     AErrorText := 'Не удалось подключиться к MarkEzd.dll: ' + Reason;
@@ -115,6 +137,9 @@ begin
       Reason := Reasons[i];
       if Reason = '' then
       begin
+        Report(Length(AResult) + i, 'Запись EZD: ' +
+          LayerEzdFileName(AResult[i]) + ' (' + IntToStr(i + 1) + ' из ' +
+          IntToStr(Length(AResult)) + ')');
         EzdFile := IncludeTrailingPathDelimiter(AEzdDir) +
           LayerEzdFileName(AResult[i]);
         if AWriter.SavePoints(EzdFile,
@@ -133,7 +158,10 @@ begin
 
   Result := Failed = '';
   if Result then
-    AErrorText := ''
+  begin
+    Report(Total, 'Готово');
+    AErrorText := '';
+  end
   else
     AErrorText := 'EZD-файлы созданы не для всех слоёв:' + Failed;
 end;
@@ -141,10 +169,11 @@ end;
 function CreateSliceEzdFiles(AWriter: TEzdWriter; const ATable: TSliceLayers;
   const AEzdDir, ASliceDir: string; const AGeometry: TMarkGeometry;
   const APen: TLaserPen;
-  out AResult: TSliceLayers; out AErrorText: string): Boolean;
+  out AResult: TSliceLayers; out AErrorText: string;
+  AOnProgress: TEzdProgressEvent): Boolean;
 begin
   Result := CreateLayerEzdFiles(AWriter, ATable, AEzdDir, AGeometry, APen,
-    AResult, AErrorText);
+    AResult, AErrorText, AOnProgress);
   if not Result then
   begin
     AErrorText := AErrorText + LineEnding + LineEnding +
