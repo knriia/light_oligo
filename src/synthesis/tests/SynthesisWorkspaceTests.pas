@@ -48,6 +48,16 @@ type
     procedure StartedSynthesisCanBeSavedElsewhereAndStartedAgain;
     procedure OpenedStartedSynthesisKnowsItWasStarted;
     procedure NewSynthesisClearsSessionButKeepsFiles;
+    procedure RemoveProtocolRemovesOnlyThatLetter;
+    procedure RemoveMissingProtocolChangesNothing;
+    procedure RemoveLayersKeepsProtocols;
+    procedure SaveAfterRemoveProtocolDropsItsFile;
+    procedure SaveAfterRemoveLayersDropsLayersFiles;
+    procedure RemovingEverythingFromSavedSynthesisNeedsSave;
+    procedure RemovingEverythingFromUnsavedSynthesisNeedsNoSave;
+    procedure RemoveFromStartedSynthesisNeedsOtherFolder;
+    procedure RemovedProtocolOfLayersMakesStartRefuse;
+    procedure RemoveLayersThenLoadOtherArrayTakesItsName;
   end;
 
 implementation
@@ -474,6 +484,179 @@ begin
   AssertFalse(FWs.Started);
   AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
   AddProtocol('A');   // та же буква снова допустима
+end;
+
+procedure TSynthesisWorkspaceTests.RemoveProtocolRemovesOnlyThatLetter;
+begin
+  AddProtocol('A');
+  AddProtocol('C');
+  AddProtocol('G');
+  AssertTrue(FWs.RemoveProtocol('C'));
+  AssertEquals(2, FWs.Session.ProtocolCount);
+  AssertFalse(FWs.Session.HasProtocol('C'));
+  AssertEquals('A', FWs.Session.ProtocolLetters[0]);
+  AssertEquals('G', FWs.Session.ProtocolLetters[1]);
+  AssertTrue(FWs.NeedsSave);
+end;
+
+procedure TSynthesisWorkspaceTests.RemoveMissingProtocolChangesNothing;
+begin
+  AddProtocol('A');
+  SaveTo('first');
+  AssertFalse(FWs.RemoveProtocol('T'));
+  AssertEquals(1, FWs.Session.ProtocolCount);
+  AssertFalse('синтез не изменён', FWs.NeedsSave);
+end;
+
+procedure TSynthesisWorkspaceTests.RemoveLayersKeepsProtocols;
+begin
+  AddProtocol('A');
+  LoadLayers('Arr1', 'A', 3);
+  FWs.RemoveLayers;
+  AssertEquals(0, FWs.Session.LayerCount);
+  AssertEquals(1, FWs.Session.ProtocolCount);
+  AssertTrue(FWs.NeedsSave);
+end;
+
+procedure TSynthesisWorkspaceTests.SaveAfterRemoveProtocolDropsItsFile;
+var
+  Folder, ErrorText: string;
+  Info: TSynthesisInfo;
+begin
+  AddProtocol('A');
+  AddProtocol('C');
+  LoadLayers('Arr1', 'A', 2);
+  Folder := SaveTo('first');
+  AssertTrue(FWs.RemoveProtocol('C'));
+  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
+  AssertFalse(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'C.pro'));
+  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
+  AssertTrue(FileExists(Folder + PathDelim + 'layers' + PathDelim + 'Layer2.ezd'));
+  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+    Info, ErrorText));
+  AssertEquals(2, Info.LayerCount);
+  AssertFalse(FWs.NeedsSave);
+end;
+
+procedure TSynthesisWorkspaceTests.SaveAfterRemoveLayersDropsLayersFiles;
+var
+  Folder, ErrorText: string;
+  Info: TSynthesisInfo;
+  Other: TSynthesisWorkspace;
+begin
+  AddProtocol('A');
+  LoadLayers('Arr1', 'A', 2);
+  Folder := SaveTo('first');
+  FWs.RemoveLayers;
+  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
+  AssertFalse(DirectoryExists(Folder + PathDelim + 'layers'));
+  AssertFalse(FileExists(Folder + PathDelim + SYNTHESIS_SLICES_FILE));
+  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
+  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+    Info, ErrorText));
+  AssertEquals(0, Info.LayerCount);
+  Other := TSynthesisWorkspace.Create;
+  try
+    AssertTrue(ErrorText, Other.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+      ErrorText));
+    AssertEquals(0, Other.Session.LayerCount);
+    AssertEquals(1, Other.Session.ProtocolCount);
+    AssertEquals('A', Other.Session.ProtocolLetters[0]);
+  finally
+    Other.Free;
+  end;
+end;
+
+procedure TSynthesisWorkspaceTests.RemovingEverythingFromSavedSynthesisNeedsSave;
+var
+  Folder, ErrorText: string;
+  Info: TSynthesisInfo;
+  Other: TSynthesisWorkspace;
+begin
+  AddProtocol('A');
+  LoadLayers('Arr1', 'A', 1);
+  Folder := SaveTo('first');
+  FWs.RemoveLayers;
+  AssertTrue(FWs.RemoveProtocol('A'));
+  AssertTrue('на диске прежний состав', FWs.NeedsSave);
+  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
+  AssertFalse(FWs.NeedsSave);
+  AssertFalse(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
+  AssertFalse(DirectoryExists(Folder + PathDelim + 'layers'));
+  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+    Info, ErrorText));
+  AssertEquals(0, Info.LayerCount);
+  Other := TSynthesisWorkspace.Create;
+  try
+    AssertTrue(ErrorText, Other.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+      ErrorText));
+    AssertEquals(0, Other.Session.LayerCount);
+    AssertEquals(0, Other.Session.ProtocolCount);
+  finally
+    Other.Free;
+  end;
+end;
+
+procedure TSynthesisWorkspaceTests.RemovingEverythingFromUnsavedSynthesisNeedsNoSave;
+begin
+  AddProtocol('A');
+  LoadLayers('Arr1', 'A', 1);
+  FWs.RemoveLayers;
+  AssertTrue(FWs.RemoveProtocol('A'));
+  AssertFalse('сохранять нечего, на диске ничего нет', FWs.NeedsSave);
+end;
+
+procedure TSynthesisWorkspaceTests.RemoveFromStartedSynthesisNeedsOtherFolder;
+var
+  Snap: TSynthesisSnapshot;
+  ErrorText, First, Second: string;
+begin
+  AddProtocol('A');
+  AddProtocol('C');
+  LoadLayers('Arr1', 'A', 1);
+  First := SaveTo('first');
+  AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
+  AssertTrue(FWs.RemoveProtocol('C'));
+  AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
+  AssertTrue(ErrorText, Pos('изменён после сохранения', ErrorText) > 0);
+  AssertFalse(FWs.Save(First, Later, ErrorText));
+  AssertTrue(ErrorText, Pos('не перезаписывается', ErrorText) > 0);
+  AssertTrue('запись выполненного цела',
+    FileExists(First + PathDelim + 'protocols' + PathDelim + 'C.pro'));
+  Second := SaveTo('second');
+  AssertFalse(FWs.Started);
+  AssertFalse(FileExists(Second + PathDelim + 'protocols' + PathDelim + 'C.pro'));
+  AssertTrue(ErrorText, FWs.PrepareStart(Later, Snap, ErrorText));
+end;
+
+procedure TSynthesisWorkspaceTests.RemovedProtocolOfLayersMakesStartRefuse;
+var
+  Snap: TSynthesisSnapshot;
+  ErrorText: string;
+begin
+  AddProtocol('A');
+  LoadLayers('Arr1', 'A', 1);
+  SaveTo('first');
+  AssertTrue(FWs.RemoveProtocol('A'));
+  AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
+  AssertTrue(ErrorText, Pos('Нет протоколов для букв: A', ErrorText) > 0);
+end;
+
+procedure TSynthesisWorkspaceTests.RemoveLayersThenLoadOtherArrayTakesItsName;
+var
+  Folder, ErrorText: string;
+  Info: TSynthesisInfo;
+begin
+  AddProtocol('A');
+  LoadLayers('Arr1', 'A', 1);
+  FWs.RemoveLayers;
+  LoadLayers('Arr2', 'A', 1);
+  Folder := SaveTo('first');
+  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+    Info, ErrorText));
+  AssertEquals('Arr2', Info.ArrayName);
+  AssertEquals(Path('arrays' + PathDelim + 'Arr2' + PathDelim + 'ezd'),
+    Info.SourceFolder);
 end;
 
 initialization

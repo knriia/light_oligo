@@ -83,22 +83,31 @@ object SynthesisForm: TSynthesisForm
       TabOrder = 4
       OnClick = B_LoadLayersClick
     end
+    object B_RemoveSelected: TButton
+      Left = 16
+      Height = 25
+      Top = 192
+      Width = 150
+      Caption = 'B_RemoveSelected'
+      TabOrder = 5
+      OnClick = B_RemoveSelectedClick
+    end
     object B_Start: TButton
       Left = 16
       Height = 25
-      Top = 208
+      Top = 240
       Width = 150
       Caption = 'B_Start'
-      TabOrder = 5
+      TabOrder = 6
       OnClick = B_StartClick
     end
     object B_Pause: TButton
       Left = 16
       Height = 25
-      Top = 240
+      Top = 272
       Width = 150
       Caption = 'B_Pause'
-      TabOrder = 6
+      TabOrder = 7
       OnClick = B_PauseClick
     end
   end

@@ -40,6 +40,10 @@ type
     // Слои из файла Slices.lays; уже загруженные заменяются.
     function AddLayersFile(const AFileName: string;
       out AErrorText: string): Boolean;
+    // Убирает протокол буквы из синтеза; False - такого протокола нет.
+    function RemoveProtocol(const ALetter: string): Boolean;
+    // Убирает все слои из синтеза (протоколы остаются).
+    procedure RemoveLayers;
     // Слои после нарезки массива (пустая таблица - массив сброшен).
     procedure ReplaceLayers(const ALayers: TSliceLayers);
 
@@ -81,7 +85,10 @@ end;
 
 function TSynthesisWorkspace.GetNeedsSave: Boolean;
 begin
-  Result := FDirty and ((FSession.LayerCount > 0) or (FSession.ProtocolCount > 0));
+  // пустой, но уже сохранённый синтез тоже нужно сохранить: на диске остался
+  // прежний состав
+  Result := FDirty and ((FFolder <> '') or (FSession.LayerCount > 0) or
+    (FSession.ProtocolCount > 0));
 end;
 
 function TSynthesisWorkspace.AddProtocolFile(const AFileName: string;
@@ -100,6 +107,18 @@ begin
   Result := LoadSliceLayers(AFileName, Loaded, AErrorText);
   if Result then
     ReplaceLayers(Loaded);
+end;
+
+function TSynthesisWorkspace.RemoveProtocol(const ALetter: string): Boolean;
+begin
+  Result := FSession.RemoveProtocol(ALetter);
+  if Result then
+    FDirty := True;
+end;
+
+procedure TSynthesisWorkspace.RemoveLayers;
+begin
+  ReplaceLayers(nil);
 end;
 
 procedure TSynthesisWorkspace.ReplaceLayers(const ALayers: TSliceLayers);
@@ -184,7 +203,8 @@ begin
   Result := False;
   AErrorText := '';
   Target := ExcludeTrailingPathDelimiter(AFolder);
-  if (FSession.LayerCount = 0) and (FSession.ProtocolCount = 0) then
+  if (FSession.LayerCount = 0) and (FSession.ProtocolCount = 0) and
+    (FFolder = '') then
   begin
     AErrorText := 'Нечего сохранять: загрузите слои или протоколы.';
     Exit;
