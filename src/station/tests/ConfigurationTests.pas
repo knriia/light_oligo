@@ -10,7 +10,8 @@ uses
   DispenserLimits, DispenserCapacityValidator, WindowSettingsStorage,
   DispenserOperationRules, DispenserController, DispenserResolution,
   DispenserTypes, DispenserLayout, AutomationDocumentStorage,
-  AutomationProtocol, AutomationProtocolRunnerTests;
+  AutomationProtocol, AutomationProtocolRunnerTests, ProtocolFormat,
+  ScenarioList;
 
 type
   TDispenserOperationRulesTests = class(TTestCase)
@@ -63,6 +64,16 @@ type
     procedure ParsesDifferentValuesForEachDispenser;
     procedure ExpressesFractionsInNanoliters;
     procedure RejectsUnknownDispenser;
+    procedure ConfigCheckAcceptsStepMatchingConfiguration;
+    procedure ConfigCheckAcceptsMaximumSpeedFromConfiguration;
+    procedure ConfigCheckAcceptsVolumeAboveSyringe;
+    procedure ConfigCheckRejectsUnknownDispenser;
+    procedure ConfigCheckRejectsValveBeyondChannelCount;
+    procedure ConfigCheckRejectsSpeedAboveConfiguredMaximum;
+    procedure ConfigCheckRejectsMissingConfigurations;
+    procedure ScenarioReportIsEmptyForMatchingScenario;
+    procedure ScenarioReportListsEveryMismatchWithItemNumber;
+    procedure ScenarioReportIsEmptyWithoutScenario;
     procedure RejectsMismatchedValueCount;
     procedure RejectsUnknownUnits;
     procedure RejectsSpeedAboveConfiguredMaximum;
@@ -448,6 +459,173 @@ begin
     AssertTrue(Pos('не найден', ErrorText) > 0);
   finally
     Protocol.Free;
+    Configurations.Free;
+  end;
+end;
+
+function ConfigStep(const ANames, AValves, AVolumes, ASpeeds: string): TSyringeStep;
+begin
+  Result := Default(TSyringeStep);
+  Result.Dispensers := ANames;
+  Result.Valves := AValves;
+  Result.Volumes := AVolumes;
+  Result.VolumeUnit := 'мкл';
+  Result.Speeds := ASpeeds;
+  Result.SpeedUnit := 'мкл/с';
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckAcceptsStepMatchingConfiguration;
+var
+  Configurations: TDispenserConfigList;
+  ErrorText: string;
+begin
+  Configurations := CreateConfigurations;
+  try
+    AssertTrue(CheckSyringeStepAgainstConfig(
+      ConfigStep('P1/P2', '2/4', '100/200', '100/50'), Configurations,
+      ErrorText));
+    AssertEquals('', ErrorText);
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckAcceptsMaximumSpeedFromConfiguration;
+var
+  Configurations: TDispenserConfigList;
+  ErrorText: string;
+begin
+  // P1: максимальная скорость 125 мкл/с
+  Configurations := CreateConfigurations;
+  try
+    AssertTrue(ErrorText, CheckSyringeStepAgainstConfig(
+      ConfigStep('P1', '2', '100', '125'), Configurations, ErrorText));
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckAcceptsVolumeAboveSyringe;
+var
+  Configurations: TDispenserConfigList;
+  ErrorText: string;
+begin
+  // P1: шприц 250 мкл, 500 мкл выдаются за несколько проходов
+  Configurations := CreateConfigurations;
+  try
+    AssertTrue(ErrorText, CheckSyringeStepAgainstConfig(
+      ConfigStep('P1', '2', '500', '100'), Configurations, ErrorText));
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckRejectsUnknownDispenser;
+var
+  Configurations: TDispenserConfigList;
+  ErrorText: string;
+begin
+  Configurations := CreateConfigurations;
+  try
+    AssertFalse(CheckSyringeStepAgainstConfig(
+      ConfigStep('Nop', '1', '10', '10'), Configurations, ErrorText));
+    AssertEquals('Дозатор с именем "Nop" не найден в конфигурации.',
+      ErrorText);
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckRejectsValveBeyondChannelCount;
+var
+  Configurations: TDispenserConfigList;
+  ErrorText: string;
+begin
+  // P1 двухканальный, в протоколе канал 10
+  Configurations := CreateConfigurations;
+  try
+    AssertFalse(CheckSyringeStepAgainstConfig(
+      ConfigStep('P1', '10', '100', '100'), Configurations, ErrorText));
+    AssertEquals('Дозатор "P1": недопустимый канал клапана.', ErrorText);
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckRejectsSpeedAboveConfiguredMaximum;
+var
+  Configurations: TDispenserConfigList;
+  ErrorText: string;
+begin
+  Configurations := CreateConfigurations;
+  try
+    AssertFalse(CheckSyringeStepAgainstConfig(
+      ConfigStep('P1', '2', '100', '126'), Configurations, ErrorText));
+    AssertEquals('Дозатор "P1": скорость превышает максимальную из ' +
+      'конфигуратора (125 мкл/с).', ErrorText);
+  finally
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ConfigCheckRejectsMissingConfigurations;
+var
+  ErrorText: string;
+begin
+  AssertFalse(CheckSyringeStepAgainstConfig(
+    ConfigStep('P1', '2', '100', '100'), nil, ErrorText));
+  AssertEquals('Не задан список дозаторов.', ErrorText);
+end;
+
+procedure TAutomationProtocolTests.ScenarioReportIsEmptyForMatchingScenario;
+var
+  Configurations: TDispenserConfigList;
+  Scenarios: TScenarioList;
+begin
+  Configurations := CreateConfigurations;
+  Scenarios := TScenarioList.Create;
+  try
+    Scenarios.Add(MakeSyringe(ConfigStep('P1', '2', '100', '100')));
+    Scenarios.Add(MakePause(5));
+    Scenarios.Add(MakeSyringe(ConfigStep('P2', '3', '300', '50')));
+    AssertEquals('', ScenarioConfigReport(Scenarios, Configurations));
+  finally
+    Scenarios.Free;
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ScenarioReportListsEveryMismatchWithItemNumber;
+var
+  Configurations: TDispenserConfigList;
+  Scenarios: TScenarioList;
+begin
+  Configurations := CreateConfigurations;
+  Scenarios := TScenarioList.Create;
+  try
+    Scenarios.Add(MakeSyringe(ConfigStep('P1', '2', '100', '100')));
+    Scenarios.Add(MakePause(5));
+    Scenarios.Add(MakeSyringe(ConfigStep('Nop', '1', '10', '10')));
+    Scenarios.Add(MakeSyringe(ConfigStep('P1', '10', '100', '100')));
+    AssertEquals(
+      'Операция 3: Дозатор с именем "Nop" не найден в конфигурации.' +
+      LineEnding +
+      'Операция 4: Дозатор "P1": недопустимый канал клапана.',
+      ScenarioConfigReport(Scenarios, Configurations));
+  finally
+    Scenarios.Free;
+    Configurations.Free;
+  end;
+end;
+
+procedure TAutomationProtocolTests.ScenarioReportIsEmptyWithoutScenario;
+var
+  Configurations: TDispenserConfigList;
+begin
+  Configurations := CreateConfigurations;
+  try
+    AssertEquals('', ScenarioConfigReport(nil, Configurations));
+  finally
     Configurations.Free;
   end;
 end;

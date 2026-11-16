@@ -156,6 +156,9 @@ type
     function StartSyringeStep(const AStep: TSyringeStep;
       out ErrorText: string): Boolean;
     procedure StopSyringeStep;
+    // Проверка SyrSt по текущей конфигурации дозаторов (для окон ввода операции).
+    function CheckSyringeStepConfig(const AStep: TSyringeStep;
+      out ErrorText: string): Boolean;
     function SyringeStepStatus(out ErrorText: string): TSyringeStepStatus;
   end;
 
@@ -222,6 +225,7 @@ begin
 
   CreateMainPages;
   FAutomationPage.OnRun := @RunAutomationProtocol;
+  FAutomationPage.OnCheckSyringeStep := @CheckSyringeStepConfig;
 
   FStorage := TDispenserConfigStorage.Create(SettingsFilePath);
   FConfigurations := nil;
@@ -720,6 +724,20 @@ begin
     Exit;
   end;
 
+  // Весь сценарий: показываем все расхождения с конфигурацией сразу,
+  // чтобы пользователь исправил их за один проход.
+  if FAutomationPage.RequestedItemIndex = ALL_BLOCKS then
+  begin
+    ErrorText := ScenarioConfigReport(FAutomationPage.Scenarios,
+      FConfigurations);
+    if ErrorText <> '' then
+    begin
+      ShowOperationWarning('Сценарий не соответствует конфигурации ' +
+        'дозаторов:' + LineEnding + LineEnding + ErrorText);
+      Exit;
+    end;
+  end;
+
   if not BuildScenarioProtocol(FAutomationPage.Scenarios, FConfigurations,
     Protocol, ErrorText, FAutomationPage.RequestedItemIndex) then
   begin
@@ -817,6 +835,12 @@ begin
     Exit;
   FSyringeStep.Start;
   Result := True;
+end;
+
+function TDispenserStationForm.CheckSyringeStepConfig(
+  const AStep: TSyringeStep; out ErrorText: string): Boolean;
+begin
+  Result := CheckSyringeStepAgainstConfig(AStep, FConfigurations, ErrorText);
 end;
 
 procedure TDispenserStationForm.StopSyringeStep;

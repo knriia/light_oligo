@@ -63,6 +63,10 @@ type
   // Состояние шага SyrSt, запущенного из синтеза.
   TSyringeStepStatus = (sssIdle, sssRunning, sssSucceeded, sssFailed);
 
+  // Дополнительная проверка SyrSt снаружи модуля (по конфигурации станции).
+  TSyringeStepCheck = function(const AStep: TSyringeStep;
+    out ErrorText: string): Boolean of object;
+
   TProtocolStepKind = (pskComment, pskSyringe, pskVacuum, pskLaser, pskPause);
 
   TProtocolStep = record

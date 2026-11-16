@@ -40,6 +40,7 @@ type
     FModified: Boolean;    // список менялся после открытия или сохранения
     FRequestedItemIndex: Integer;
     FOnRun: TAutomationRunEvent;
+    FOnCheckSyringeStep: TSyringeStepCheck;
 
     function AddButton(const ACaption, AHint: string;
       AHandler: TNotifyEvent): TButton;
@@ -81,6 +82,9 @@ type
     // Что запускать: ALL_BLOCKS - весь сценарий или номер операции (с нуля).
     property RequestedItemIndex: Integer read FRequestedItemIndex;
     property OnRun: TAutomationRunEvent read FOnRun write FOnRun;
+    // Проверка SyrSt по конфигурации станции при вводе операции.
+    property OnCheckSyringeStep: TSyringeStepCheck
+      read FOnCheckSyringeStep write FOnCheckSyringeStep;
   end;
 
 implementation
@@ -480,7 +484,8 @@ var
   Position: Integer;
 begin
   Step := DefaultOperation(pskSyringe);
-  if not EditOperation('Добавление операции', SCENARIO_KINDS, Step) then
+  if not EditOperation('Добавление операции', SCENARIO_KINDS, Step, nil,
+    FOnCheckSyringeStep) then
     Exit;
   Position := InsertPosition;
   FScenarios.Insert(Position, ScenarioItemFromStep(Step));
@@ -492,7 +497,8 @@ var
   Step: TProtocolStep;
 begin
   Step := ScenarioItemToStep(FScenarios[AIndex]);
-  if not EditOperation('Изменение операции', SCENARIO_KINDS, Step) then
+  if not EditOperation('Изменение операции', SCENARIO_KINDS, Step, nil,
+    FOnCheckSyringeStep) then
     Exit;
   FScenarios.Replace(AIndex, ScenarioItemFromStep(Step));
   ListChanged(AIndex);
