@@ -14,7 +14,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, IniFiles,
   OligoSlices, SynthesisSession, SynthesisWorkspace, SynthesisThread,
-  SynthesisFolder, SynthesisPorts;
+  SynthesisFolder, SynthesisPorts, ProtocolFormat, ProtocolModel;
 
 type
   TSynthesisLogEvent = procedure(const AMsg: string) of object;
@@ -49,8 +49,11 @@ type
     FStation: TSyringeStation;
     FMarker: TLayerMarker;
     FOnLog: TSynthesisLogEvent;
+    FOnCheckSyringeStep: TSyringeStepCheck;
     FOnClearLog: TNotifyEvent;
     function Running: Boolean;
+    // Расхождения SyrSt всех протоколов синтеза с конфигурацией дозаторов.
+    function ProtocolsConfigReport: string;
     procedure ThreadFinished(Sender: TObject);
     procedure RebuildTree;
     function SaveSynthesis: Boolean;
@@ -67,6 +70,9 @@ type
     property Station: TSyringeStation read FStation write FStation;
     property Marker: TLayerMarker read FMarker write FMarker;
     property OnLog: TSynthesisLogEvent read FOnLog write FOnLog;
+    // Сверка SyrSt протоколов с конфигурацией дозаторов при запуске синтеза.
+    property OnCheckSyringeStep: TSyringeStepCheck
+      read FOnCheckSyringeStep write FOnCheckSyringeStep;
     // Перед запуском синтеза владелец очищает журнал.
     property OnClearLog: TNotifyEvent read FOnClearLog write FOnClearLog;
   end;
@@ -344,6 +350,26 @@ begin
   SaveSynthesis;
 end;
 
+function TSynthesisForm.ProtocolsConfigReport: string;
+var
+  Session: TSynthesisSession;
+  Letter, Report: string;
+  I: Integer;
+begin
+  Result := '';
+  Session := FWorkspace.Session;
+  for I := 0 to Session.ProtocolCount - 1 do
+  begin
+    Letter := Session.ProtocolLetters[I];
+    Report := Session.ProtocolOf(Letter).SyringeConfigReport(
+      FOnCheckSyringeStep);
+    if Report <> '' then
+      Result := Result + 'Протокол ' + Letter + ':' + LineEnding + Report +
+        LineEnding + LineEnding;
+  end;
+  Result := TrimRight(Result);
+end;
+
 procedure TSynthesisForm.B_LoadProtToSynthClick(Sender: TObject);
 // Добавить протокол в синтез
 var
@@ -485,6 +511,14 @@ begin
   if Running then
   begin
     ShowMessage('Синтез уже идёт.');
+    Exit;
+  end;
+  // протоколы должны соответствовать конфигурации дозаторов
+  ErrorText := ProtocolsConfigReport;
+  if ErrorText <> '' then
+  begin
+    ShowMessage('Протоколы не соответствуют конфигурации дозаторов:' +
+      LineEnding + LineEnding + ErrorText);
     Exit;
   end;
   if Assigned(FOnClearLog) then

@@ -11,11 +11,20 @@ uses
   ProtocolTestHelpers;
 
 type
+  // Заглушка проверки SyrSt по станции: дозатор Bad не подходит.
+  TFakeStepChecker = class
+  public
+    Calls: Integer;
+    function Check(const AStep: TSyringeStep; out ErrorText: string): Boolean;
+  end;
+
   TProtocolModelTests = class(TTestCase)
   private
     function Names(AModel: TProtocolModel): string;
     function Ops(AModel: TProtocolModel; ABlock: Integer): string;
   published
+    procedure ConfigReportListsFailedSyringeSteps;
+    procedure ConfigReportIsEmptyWithoutChecker;
     procedure NewModelIsEmpty;
     procedure AddInsertRenameDeleteBlocks;
     procedure MoveBlocksKeepsTheirSteps;
@@ -53,6 +62,70 @@ type
   end;
 
 implementation
+
+function TFakeStepChecker.Check(const AStep: TSyringeStep;
+  out ErrorText: string): Boolean;
+begin
+  Inc(Calls);
+  Result := AStep.Dispensers <> 'Bad';
+  if Result then
+    ErrorText := ''
+  else
+    ErrorText := 'нет дозатора Bad';
+end;
+
+function SyringeOperation(const ADispensers: string): TProtocolStep;
+begin
+  Result := Default(TProtocolStep);
+  Result.Kind := pskSyringe;
+  Result.Syringe := MakeStep(ADispensers, '1', '10', '10');
+end;
+
+procedure TProtocolModelTests.ConfigReportListsFailedSyringeSteps;
+var
+  Model: TProtocolModel;
+  Checker: TFakeStepChecker;
+  Pause: TProtocolStep;
+begin
+  Model := TProtocolModel.Create;
+  Checker := TFakeStepChecker.Create;
+  try
+    Pause := Default(TProtocolStep);
+    Pause.Kind := pskPause;
+    Pause.IntValue := 5;
+    Model.AddBlock('One');
+    Model.AddStep(0, SyringeOperation('A'));
+    Model.AddStep(0, Pause);
+    Model.AddBlock('Two');
+    Model.AddStep(1, SyringeOperation('Bad'));
+    Model.AddStep(1, Pause);
+    Model.AddStep(1, SyringeOperation('Bad'));
+
+    AssertEquals(
+      'Блок 2 "Two", операция 1: нет дозатора Bad' + LineEnding +
+      'Блок 2 "Two", операция 3: нет дозатора Bad',
+      Model.SyringeConfigReport(@Checker.Check));
+    // проверяются только три операции SyrSt, пауз среди вызовов нет
+    AssertEquals(3, Checker.Calls);
+  finally
+    Checker.Free;
+    Model.Free;
+  end;
+end;
+
+procedure TProtocolModelTests.ConfigReportIsEmptyWithoutChecker;
+var
+  Model: TProtocolModel;
+begin
+  Model := TProtocolModel.Create;
+  try
+    Model.AddBlock('One');
+    Model.AddStep(0, SyringeOperation('Bad'));
+    AssertEquals('', Model.SyringeConfigReport(nil));
+  finally
+    Model.Free;
+  end;
+end;
 
 function SyrStep: TProtocolStep;
 begin

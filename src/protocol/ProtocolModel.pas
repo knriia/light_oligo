@@ -42,6 +42,10 @@ type
     // Проверка всего протокола перед записью: имена блоков, операции.
     // Ошибка называет блок и номер операции.
     function Check(out AErrorText: string): Boolean;
+    // Сверяет все SyrSt с конфигурацией станции (ACheck). Пустая строка -
+    // всё подходит; иначе по строке на каждую операцию с расхождением:
+    // блок, номер операции и что не совпало.
+    function SyringeConfigReport(ACheck: TSyringeStepCheck): string;
     function ToText: string;
     // Разбор текста протокола. Пустой текст - пустой протокол. При ошибке
     // модель не меняется, а текст ошибки начинается с номера строки.
@@ -266,6 +270,23 @@ begin
       end;
   end;
   Result := True;
+end;
+
+function TProtocolModel.SyringeConfigReport(ACheck: TSyringeStepCheck): string;
+var
+  B, S: Integer;
+  ItemError: string;
+begin
+  Result := '';
+  if not Assigned(ACheck) then
+    Exit;
+  for B := 0 to High(FBlocks) do
+    for S := 0 to High(FBlocks[B].Steps) do
+      if (FBlocks[B].Steps[S].Kind = pskSyringe) and
+        not ACheck(FBlocks[B].Steps[S].Syringe, ItemError) then
+        Result := Result + 'Блок ' + IntToStr(B + 1) + ' "' + FBlocks[B].Name +
+          '", операция ' + IntToStr(S + 1) + ': ' + ItemError + LineEnding;
+  Result := TrimRight(Result);
 end;
 
 function TProtocolModel.ToText: string;

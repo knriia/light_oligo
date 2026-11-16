@@ -47,6 +47,7 @@ type
     FFileName: string;
     FModified: Boolean;           // протокол менялся после открытия или сохранения
     FCaptions: TCustomIniFile;    // подписи окон (не владеем)
+    FOnCheckSyringeStep: TSyringeStepCheck;
     function PositionOfNode(ANode: TTreeNode): TProtocolPosition;
     function SelectedPosition: TProtocolPosition;
     procedure SelectPosition(const APosition: TProtocolPosition);
@@ -65,6 +66,9 @@ type
     function OpenFile(const AFileName: string; out AErrorText: string): Boolean;
     // Вопрос о несохранённых изменениях перед закрытием программы.
     function CanCloseFromHost: Boolean;
+    // Проверка SyrSt по конфигурации станции при вводе операции.
+    property OnCheckSyringeStep: TSyringeStepCheck
+      read FOnCheckSyringeStep write FOnCheckSyringeStep;
   end;
 
 implementation
@@ -230,7 +234,7 @@ begin
   begin
     Step := FModel.Steps[APosition.Block, APosition.Step];
     if not EditOperation('Изменение операции', ALL_OPERATION_KINDS, Step,
-      FCaptions) then
+      FCaptions, FOnCheckSyringeStep) then
       Exit;
     FModel.ReplaceStep(APosition.Block, APosition.Step, Step);
   end;
@@ -270,7 +274,8 @@ begin
     Exit;
   end;
   Step := DefaultOperation(pskSyringe);
-  if not EditOperation('', ALL_OPERATION_KINDS, Step, FCaptions) then
+  if not EditOperation('', ALL_OPERATION_KINDS, Step, FCaptions,
+    FOnCheckSyringeStep) then
     Exit;
   if InsertStepAfter(FModel, SelectedPosition, Step, NewPosition, ErrorText) then
     Changed(NewPosition)

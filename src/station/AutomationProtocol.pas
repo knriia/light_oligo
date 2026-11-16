@@ -66,6 +66,18 @@ function BuildSyringeCommand(const AStep: TSyringeStep;
   AConfigurations: TDispenserConfigList;
   out ACommand: TAutomationProtocolCommand; out ErrorText: string): Boolean;
 
+// Проверяет SyrSt по конфигурации так же, как перед запуском (состояние
+// дозаторов не смотрит): дозатор есть, канал клапана в пределах каналов и не
+// равен каналу забора, скорость не выше максимальной из конфигуратора. Объём
+// может быть больше шприца: тогда набор идёт в несколько проходов.
+function CheckSyringeStepAgainstConfig(const AStep: TSyringeStep;
+  AConfigurations: TDispenserConfigList; out ErrorText: string): Boolean;
+
+// Сверяет все операции станции сценария с конфигурацией. Пустая строка -
+// всё подходит; иначе по строке на операцию с расхождением.
+function ScenarioConfigReport(AScenarios: TScenarioList;
+  AConfigurations: TDispenserConfigList): string;
+
 implementation
 
 uses
@@ -372,6 +384,33 @@ begin
     Channels.Free;
     Names.Free;
   end;
+end;
+
+function CheckSyringeStepAgainstConfig(const AStep: TSyringeStep;
+  AConfigurations: TDispenserConfigList; out ErrorText: string): Boolean;
+var
+  Command: TAutomationProtocolCommand;
+begin
+  Result := BuildSyringeCommand(AStep, AConfigurations, Command, ErrorText);
+  Command.Free;
+end;
+
+function ScenarioConfigReport(AScenarios: TScenarioList;
+  AConfigurations: TDispenserConfigList): string;
+var
+  I: Integer;
+  ItemError: string;
+begin
+  Result := '';
+  if AScenarios = nil then
+    Exit;
+  for I := 0 to AScenarios.Count - 1 do
+    if (AScenarios[I].Kind = sikSyringe) and
+      not CheckSyringeStepAgainstConfig(AScenarios[I].Syringe,
+      AConfigurations, ItemError) then
+      Result := Result + 'Операция ' + IntToStr(I + 1) + ': ' + ItemError +
+        LineEnding;
+  Result := TrimRight(Result);
 end;
 
 function BuildScenarioProtocol(AScenarios: TScenarioList;

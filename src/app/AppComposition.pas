@@ -138,6 +138,7 @@ begin
   FDispenserStation.Align := alClient;
   FDispenserStation.AttachLogSink(FStationLog);
   FDispenserStation.Show;
+  FProtocolForm.OnCheckSyringeStep := @FDispenserStation.CheckSyringeStepConfig;
 
   FSynthesisStation := TStationSyringeAdapter.Create(FDispenserStation);
   FSynthesisMarker := TEzCadLayerMarker.Create(
@@ -150,6 +151,7 @@ begin
   FSynthesisForm.Align := alClient;
   FSynthesisForm.ApplyCaptions(InterfaceIniFile);
   FSynthesisForm.Station := FSynthesisStation;
+  FSynthesisForm.OnCheckSyringeStep := @FDispenserStation.CheckSyringeStepConfig;
   FSynthesisForm.Marker := FSynthesisMarker;
   FSynthesisForm.OnLog := FSynthesisLog;
   FSynthesisForm.OnClearLog := FClearLog;

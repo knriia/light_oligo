@@ -57,6 +57,7 @@ type
     procedure RG_OperatorClick(Sender: TObject);
   private
     FKinds: array of TProtocolStepKind; // тип операции для каждой строки списка
+    FStepCheck: TSyringeStepCheck;      // проверка SyrSt по станции, может быть nil
     function SelectedKind: TProtocolStepKind;
     procedure ShowOperationPanel;
     function EnteredStep: TProtocolStep;
@@ -71,8 +72,11 @@ type
 function DefaultOperation(AKind: TProtocolStepKind = pskSyringe): TProtocolStep;
 // True - пользователь нажал OK и значения проверены; AStep заменяется.
 // ACaption пустой - заголовок из файла подписей или по умолчанию.
+// AStepCheck - проверка SyrSt по конфигурации станции: при ошибке окно
+// остаётся открытым.
 function EditOperation(const ACaption: string; AAllowed: TProtocolStepKinds;
-  var AStep: TProtocolStep; ACaptions: TCustomIniFile = nil): Boolean;
+  var AStep: TProtocolStep; ACaptions: TCustomIniFile = nil;
+  AStepCheck: TSyringeStepCheck = nil): Boolean;
 
 implementation
 
@@ -106,12 +110,14 @@ begin
 end;
 
 function EditOperation(const ACaption: string; AAllowed: TProtocolStepKinds;
-  var AStep: TProtocolStep; ACaptions: TCustomIniFile): Boolean;
+  var AStep: TProtocolStep; ACaptions: TCustomIniFile;
+  AStepCheck: TSyringeStepCheck): Boolean;
 var
   Form: TOperationForm;
 begin
   Form := TOperationForm.Create(Application);
   try
+    Form.FStepCheck := AStepCheck;
     Form.Setup(AAllowed, ACaptions);
     if ACaption <> '' then
       Form.Caption := ACaption;
@@ -308,10 +314,14 @@ end;
 procedure TOperationForm.BB_OkClick(Sender: TObject);
 var
   ErrorText: string;
+  Step: TProtocolStep;
 begin
-  // Имена дозаторов и лимиты проверяет станция при запуске; здесь проверяем,
-  // что запись заполнена и согласована.
-  if not CheckProtocolStep(EnteredStep, ErrorText) then
+  // Запись должна быть заполнена и согласована; SyrSt дополнительно
+  // проверяется по конфигурации станции (имя, каналы, объём, скорость).
+  Step := EnteredStep;
+  if not CheckProtocolStep(Step, ErrorText) or
+    ((Step.Kind = pskSyringe) and Assigned(FStepCheck) and
+    not FStepCheck(Step.Syringe, ErrorText)) then
   begin
     ShowMessage(ErrorText);
     ModalResult := mrNone; // окно остаётся открытым для исправления
