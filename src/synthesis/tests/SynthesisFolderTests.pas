@@ -124,13 +124,16 @@ var
 begin
   T := nil;
   AssertEquals('array', ArrayNameOfLayers(T));
-  AddLayer(T, 1, 'A', 'D:\data\arrays\MyArray\ezd\Layer1.ezd');
+  AddLayer(T, 1, 'A', 'D:\data\projects\MyArray\slice\ezd\Layer1.ezd');
   AssertEquals('MyArray', ArrayNameOfLayers(T));
   T := nil;
-  AddLayer(T, 1, 'A', 'D:\data\arrays\Other\layers\Layer1.ezd');
+  AddLayer(T, 1, 'A', 'D:\data\projects\Custom\my_slice\ezd\Layer1.ezd');
+  AssertEquals('Custom', ArrayNameOfLayers(T));
+  T := nil;
+  AddLayer(T, 1, 'A', 'D:\data\projects\Other\layers\Layer1.ezd');
   AssertEquals('Other', ArrayNameOfLayers(T));
   T := nil;
-  AddLayer(T, 1, 'A', 'D:\data\arrays\Plain\Layer1.ezd');
+  AddLayer(T, 1, 'A', 'D:\data\projects\Plain\Layer1.ezd');
   AssertEquals('Plain', ArrayNameOfLayers(T));
 end;
 

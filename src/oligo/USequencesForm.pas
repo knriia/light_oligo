@@ -27,8 +27,6 @@ type
   { TSequencesForm }
 
   TSequencesForm = class(TForm)
-    B_ClearOligoArr: TButton;
-    B_CloseOligoArr: TButton;
     B_CreateEzd: TButton;
     B_CreateOligoArr: TButton;
     B_Geometry: TButton;
@@ -40,8 +38,6 @@ type
     OD_File: TOpenDialog;
     P_OligoArr: TPanel;
     SG_OligoArr: TStringGrid;
-    procedure B_ClearOligoArrClick(Sender: TObject);
-    procedure B_CloseOligoArrClick(Sender: TObject);
     procedure B_CreateEzdClick(Sender: TObject);
     procedure B_CreateOligoArrClick(Sender: TObject);
     procedure B_GeometryClick(Sender: TObject);
@@ -124,11 +120,9 @@ end;
 procedure TSequencesForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
   GB_OligControl.Caption:=AIni.ReadString('Oligo','GB_OligControl','Control');
-  B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','Create array');
-  B_ClearOligoArr.Caption:=AIni.ReadString('Oligo','B_ClearOligoArr','Clear array');
-  B_CloseOligoArr.Caption:=AIni.ReadString('Oligo','B_CloseOligoArr','Remove array');
-  B_LoadOligoArr.Caption:=AIni.ReadString('Oligo','B_LoadOligoArr','Load array');
-  B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save array');
+  B_CreateOligoArr.Caption:=AIni.ReadString('Oligo','B_CreateOligoArr','Create');
+  B_LoadOligoArr.Caption:=AIni.ReadString('Oligo','B_LoadOligoArr','Load');
+  B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save');
   B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slicing');
   B_LaserParams.Caption:=AIni.ReadString('Oligo','B_LaserParams','Laser parameters');
   B_Geometry.Caption:=AIni.ReadString('Oligo','B_Geometry','Geometry parameters');
@@ -267,7 +261,7 @@ begin
   if not ConfirmSaveIfModified then // загруженный массив заменит текущий
     Exit;
   OD_File.Filter:='CSV Files|*.csv';
-  OD_File.InitialDir:=ArraysDir;
+  OD_File.InitialDir:=ProjectsDir;
   OD_File.FilterIndex:=1;
   if not OD_File.Execute then
     Exit;
@@ -286,18 +280,30 @@ begin
 end;
 
 function TSequencesForm.SaveArray: Boolean;
-// Сохранение массива: место по умолчанию предлагает документ,
-// но можно выбрать любую папку.
+// Сохранение массива в проект <папка проектов>\<имя>\<имя>.csv: место по
+// умолчанию предлагает документ, но можно выбрать любую папку проектов.
+// В папке проекта должен быть ровно один CSV.
 var
-  Folder, FileName, FilePath, ErrorText: String;
+  Folder, ProjectName, ArrayFile, FilePath, ErrorText, OtherCsv: String;
 begin
   Result:=False;
-  FDocument.SuggestSaveLocation(ArraysDir, Now, Folder, FileName);
+  FDocument.SuggestProjectLocation(ProjectsDir, Now, Folder, ProjectName);
+  if FDocument.HasFile then
+    ArrayFile:=ChangeFileExt(ExtractFileName(FDocument.FileName), '')
+  else
+    ArrayFile:=DEFAULT_ARRAY_FILE;
 
-  // спрашиваем, пока не получим согласие на перезапись существующего файла
+  // спрашиваем, пока не получим допустимое место и согласие на перезапись
   repeat
-    if not TArraySaveForm.Execute(Folder, FileName, FilePath) then
+    if not TArraySaveForm.Execute(Folder, ProjectName, ArrayFile, FilePath) then
       Exit;
+    OtherCsv:=FindOtherProjectCsv(ExtractFileDir(FilePath), FilePath);
+    if OtherCsv<>'' then
+    begin
+      ShowMessage('В папке проекта уже есть другой CSV:'+LineEnding+OtherCsv+
+                  LineEnding+'В проекте должен быть один CSV. Выберите другое имя проекта.');
+      Continue;
+    end;
     if FileExists(FilePath) and
        (MessageDlg('Файл уже существует:'+LineEnding+FilePath+LineEnding+
                    'Перезаписать его?', mtConfirmation, [mbYes, mbNo], 0)<>mrYes) then
@@ -339,28 +345,6 @@ begin
   Result:=ConfirmSaveIfModified;
 end;
 
-procedure TSequencesForm.B_ClearOligoArrClick(Sender: TObject);
-// стираем содержимое ячеек, размер массива остаётся
-begin
-  if FDocument.IsEmpty then
-    Exit;
-  if not ConfirmSaveIfModified then
-    Exit;
-  FDocument.ClearCells;
-  DisplayOligoArray;
-end;
-
-procedure TSequencesForm.B_CloseOligoArrClick(Sender: TObject);
-// убираем массив из окна; файлы на диске не трогаем
-begin
-  if FDocument.IsEmpty and not FDocument.HasFile then
-    Exit;
-  if not ConfirmSaveIfModified then
-    Exit;
-  FDocument.Close;
-  DisplayOligoArray;
-end;
-
 procedure TSequencesForm.B_CreateOligoArrClick(Sender: TObject);
 // окно параметров нового массива: пустой, случайный или одна последовательность
 var
@@ -378,8 +362,8 @@ begin
 end;
 
 procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);
-// нарезка массива: файлы матриц слоёв (по умолчанию <папка массива>\layers),
-// статистика Slices.txt рядом с файлом массива и слайс-таблица
+// нарезка массива в папку слайса (по умолчанию <папка проекта>\slice, имя и
+// место можно изменить): Slices.txt и папка layers с матрицами слоёв
 var
   Layers: TOligoLayers;
   Table: TSliceLayers;
@@ -388,21 +372,21 @@ var
 begin
   if not RequireArray then
     Exit;
-  // слои пишутся рядом с файлом массива и должны совпадать с ним,
-  // поэтому без сохранения нарезать нельзя: только "Сохранить" или "Отмена"
+  // папка слайса по умолчанию лежит в папке проекта и должна совпадать с
+  // массивом, поэтому без сохранения нарезать нельзя: только "Сохранить" или "Отмена"
   if not FDocument.HasFile or FDocument.Modified then
   begin
     if MessageDlg('Массив не сохранён. Сохранить его?'+LineEnding+
-                  'Слои записываются рядом с файлом массива.',
+                  'Слайсинг записывается в папку проекта.',
                   mtConfirmation, [mbYes, mbCancel], 0)<>mrYes then
       Exit;
     if not SaveArray then
       Exit;
   end;
 
-  Path:=IncludeTrailingPathDelimiter(FDocument.ArrayDir)+LAYERS_FOLDER;
-  if not ChooseFolderForFiles('Слайсинг', 'Папка для файлов слоёв:',
-       'файлы слоёв', @ListLayerFiles, @DeleteLayerFiles, Path) then
+  Path:=IncludeTrailingPathDelimiter(FDocument.ArrayDir)+SLICE_FOLDER;
+  if not ChooseFolderForFiles('Слайсинг', 'Папка слайсинга (Slices.txt и layers):',
+       'файлы слайсинга', @ListSliceFiles, @DeleteSliceFiles, Path) then
     Exit;
 
   // показываем уникальные буквы массива
@@ -410,13 +394,13 @@ begin
 
   // прежние слои этого массива больше не действительны
   FDocument.ForgetSlicing;
-  if not SliceArrayIntoFolder(FDocument.Arr, Path, FDocument.ArrayDir, Layers,
-       Table, ErrorText) then
+  if not SliceArrayIntoFolder(FDocument.Arr, Path, Layers, Table,
+       ErrorText) then
   begin
     ShowMessage(ErrorText);
     Exit;
   end;
-  FDocument.SetSlicing(Table, FDocument.ArrayDir);
+  FDocument.SetSlicing(Table, Path);
   LayersChanged(Table); // общая таблица слоёв (её использует синтез)
 
   LayerChartForm.LS_CharsInLayers.Clear;

@@ -7,9 +7,9 @@ unit OligoTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, MatrixTypes, OligoArray,
+  Classes, SysUtils, DateUtils, fpcunit, testregistry, MatrixTypes, OligoArray,
   OligoArrayCsv, OligoSlicing, OligoMatrix, MarkGeometry, OligoPaste, OligoArrayDocument,
-  OligoSlices, AppPaths, GridWidthMode;
+  OligoSlices, AppPaths, GridWidthMode, TextFileUtils;
 
 type
   TOligoArrayTests = class(TTestCase)
@@ -67,9 +67,6 @@ type
     procedure SetCellMarksModifiedOnlyOnChange;
     procedure SetCellOutsideArrayIsRejected;
     procedure SaveRemembersFileAndClearsModified;
-    procedure ClearCellsKeepsSizeAndFile;
-    procedure ClearCellsOfEmptyCellsIsNotAChange;
-    procedure CloseForgetsArrayAndFile;
     procedure ListLayerFilesFindsOnlyLayers;
     procedure ListLayerFilesOfMissingFolderIsEmpty;
     procedure DeleteLayerFilesKeepsOtherFiles;
@@ -86,14 +83,14 @@ type
     procedure WriteLayerFilesFailureGivesEmptyTable;
     procedure SliceArrayIntoFolderWritesLayersAndStatistics;
     procedure SliceArrayIntoFolderFailureGivesEmptyTable;
+    procedure ListSliceFilesFindsStatisticsAndLayers;
     procedure DocumentSlicingIsKeptAsCopy;
     procedure DocumentSlicingSurvivesSave;
     procedure DocumentForgetsSlicingWhenArrayIsReplaced;
-    procedure DocumentForgetsSlicingOnClearAndClose;
     procedure DocumentForgetsSlicingWhenCellChanges;
     procedure DocumentForgetsSlicingWhenSavedToOtherFolder;
     procedure DocumentKeepsSlicingWhenSavedToSameFolder;
-    procedure DocumentKeepsSlicingOnClearOfEmptyCells;
+    procedure DocumentKeepsSlicingOutsideProjectWhenSavedToSameFolder;
     procedure GeometryFileMissingGivesDefaults;
     procedure GeometryFileRoundTrip;
     procedure GeometryFileUsesDecimalPoint;
@@ -101,8 +98,9 @@ type
     procedure GeometrySaveKeepsOtherSections;
     procedure GeometrySaveReportsUnwritableFolder;
     procedure GeometryFileKeepsSpotAndSubstrate;
-    procedure NewArrayIsSuggestedIntoDatedFolder;
-    procedure OpenedArrayIsSuggestedIntoItsFile;
+    procedure NewArrayIsSuggestedIntoProjectsFolder;
+    procedure OpenedArrayIsSuggestedIntoItsProject;
+    procedure OtherCsvInProjectFolderIsFound;
   end;
 
   TGridWidthModeTests = class(TTestCase)
@@ -734,64 +732,6 @@ begin
   end;
 end;
 
-procedure TOligoFileTests.ClearCellsKeepsSizeAndFile;
-var
-  Doc: TOligoArrayDocument;
-  Loaded: TOligoArr;
-  ErrorText: string;
-begin
-  Doc := TOligoArrayDocument.Create;
-  try
-    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['AT;G', 'C;']), ErrorText));
-    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
-    Doc.ClearCells;
-    AssertEquals(';|;', ArrToText(Doc.Arr));
-    AssertTrue(Doc.Modified);
-    AssertEquals(FilePath('a.csv'), Doc.FileName);
-    // файл на диске не изменился
-    AssertTrue(ErrorText, LoadOligoArrayFile(FilePath('a.csv'), Loaded, ErrorText));
-    AssertEquals('AT;G|C;', ArrToText(Loaded));
-  finally
-    Doc.Free;
-  end;
-end;
-
-procedure TOligoFileTests.ClearCellsOfEmptyCellsIsNotAChange;
-var
-  Doc: TOligoArrayDocument;
-  ErrorText: string;
-begin
-  Doc := TOligoArrayDocument.Create;
-  try
-    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('e.csv'), Arr([';']), ErrorText));
-    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('e.csv'), ErrorText));
-    Doc.ClearCells;
-    AssertFalse(Doc.Modified);
-  finally
-    Doc.Free;
-  end;
-end;
-
-procedure TOligoFileTests.CloseForgetsArrayAndFile;
-var
-  Doc: TOligoArrayDocument;
-  ErrorText: string;
-begin
-  Doc := TOligoArrayDocument.Create;
-  try
-    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('a.csv'), Arr(['AT;G']), ErrorText));
-    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('a.csv'), ErrorText));
-    AssertTrue(Doc.SetCell(0, 0, 'C'));
-    Doc.Close;
-    AssertTrue(Doc.IsEmpty);
-    AssertFalse(Doc.HasFile);
-    AssertFalse(Doc.Modified);
-    AssertTrue(FileExists(FilePath('a.csv')));
-  finally
-    Doc.Free;
-  end;
-end;
-
 procedure TOligoFileTests.ListLayerFilesFindsOnlyLayers;
 var
   Files: TStringArray;
@@ -1015,14 +955,16 @@ var
   Lines: TStringList;
   ErrorText: string;
 begin
-  AssertTrue(ForceDirectories(FilePath('layers')));
-  AssertTrue(ErrorText, SliceArrayIntoFolder(Arr(['AT;GT']), FilePath('layers'),
-    FDirectory, Layers, Table, ErrorText));
+  // папки слайса и layers в ней ещё нет - создаются
+  AssertTrue(ErrorText, SliceArrayIntoFolder(Arr(['AT;GT']), FilePath('slice'),
+    Layers, Table, ErrorText));
   AssertEquals(Length(Layers), Length(Table));
+  AssertEquals(FilePath('slice' + PathDelim + 'layers' + PathDelim +
+    LayerFileName(Layers[0])), Table[0].MatrixFile);
   AssertTrue(FileExists(Table[0].MatrixFile));
   Lines := TStringList.Create;
   try
-    Lines.LoadFromFile(FilePath('Slices.txt'));
+    Lines.LoadFromFile(FilePath('slice' + PathDelim + 'Slices.txt'));
     AssertEquals(Length(Table) + 1, Lines.Count);
     AssertTrue(Pos('layers' + PathDelim + 'Layer1_', Lines[1]) > 0);
   finally
@@ -1034,14 +976,68 @@ procedure TOligoFileTests.SliceArrayIntoFolderFailureGivesEmptyTable;
 var
   Layers: TOligoLayers;
   Table: TSliceLayers;
+  Blocker: TStringList;
   ErrorText: string;
 begin
-  // папки для слоёв нет - матрицы не записать
-  AssertFalse(SliceArrayIntoFolder(Arr(['AT;GT']), FilePath('missing'),
-    FDirectory, Layers, Table, ErrorText));
+  // вместо папки слайса лежит файл - папку layers в нём не создать
+  Blocker := TStringList.Create;
+  try
+    Blocker.SaveToFile(FilePath('blocked'));
+  finally
+    Blocker.Free;
+  end;
+  AssertFalse(SliceArrayIntoFolder(Arr(['AT;GT']), FilePath('blocked'),
+    Layers, Table, ErrorText));
   AssertEquals(0, Length(Table));
-  AssertTrue(ErrorText <> '');
-  AssertFalse(FileExists(FilePath('Slices.txt')));
+  // путь папки - в конце текста ошибки, после первой строки
+  AssertEquals(LineEnding + FilePath('blocked' + PathDelim + 'layers'),
+    Copy(ErrorText, Pos(LineEnding, ErrorText), MaxInt));
+  AssertFalse(FileExists(FilePath('blocked' + PathDelim + 'Slices.txt')));
+end;
+
+procedure TOligoFileTests.ListSliceFilesFindsStatisticsAndLayers;
+var
+  Layers: TOligoLayers;
+  Table: TSliceLayers;
+  Files: TStringArray;
+  Expected: TStringList;
+  ErrorText, SliceDir: string;
+  I: Integer;
+const
+  Extra: array[0..3] of string = ('Slices.lays', 'ezd' + PathDelim + 'Layer1.ezd',
+    'readme.txt', 'layers' + PathDelim + 'notes.txt');
+begin
+  SliceDir := FilePath('slice');
+  AssertEquals(0, Length(ListSliceFiles(SliceDir)));
+  AssertTrue(ErrorText, SliceArrayIntoFolder(Arr(['AT;GT']), SliceDir,
+    Layers, Table, ErrorText));
+  // кроме результата слайсинга в папке есть чужое и папка EZD
+  AssertTrue(ForceDirectories(SliceDir + PathDelim + 'ezd'));
+  for I := 0 to High(Extra) do
+    AssertTrue(Extra[I], WriteUtf8TextFile(SliceDir + PathDelim + Extra[I], 'x',
+      ErrorText));
+
+  Expected := TStringList.Create;
+  try
+    Expected.Add(SliceDir + PathDelim + 'Slices.txt');
+    Expected.Add(SliceDir + PathDelim + 'Slices.lays');
+    for I := 0 to High(Table) do
+      Expected.Add(Table[I].MatrixFile);
+    Files := ListSliceFiles(SliceDir);
+    AssertEquals(Expected.Count, Length(Files));
+    for I := 0 to High(Files) do
+      AssertTrue(Files[I], Expected.IndexOf(Files[I]) >= 0);
+  finally
+    Expected.Free;
+  end;
+
+  AssertTrue(DeleteSliceFiles(SliceDir, ErrorText));
+  AssertEquals(0, Length(ListSliceFiles(SliceDir)));
+  AssertTrue('EZD не удаляются',
+    FileExists(SliceDir + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'));
+  AssertTrue('чужой файл в корне', FileExists(SliceDir + PathDelim + 'readme.txt'));
+  AssertTrue('чужой файл в layers',
+    FileExists(SliceDir + PathDelim + 'layers' + PathDelim + 'notes.txt'));
 end;
 
 function SliceTableOf(ACount: Integer): TSliceLayers;
@@ -1085,6 +1081,8 @@ var
 begin
   Doc := TOligoArrayDocument.Create;
   try
+    // массив ещё без файла (в программе слайсинг такого не делает): первое
+    // сохранение не считается переездом в другой проект
     Doc.NewArray(Arr(['AT']));
     Doc.SetSlicing(SliceTableOf(1), FDirectory);
     AssertTrue(ErrorText, Doc.SaveToFile(FilePath('a.csv'), ErrorText));
@@ -1116,25 +1114,6 @@ begin
     Doc.SetSlicing(SliceTableOf(1), FDirectory);
     AssertFalse(Doc.LoadFromFile(FilePath('missing.csv'), ErrorText));
     AssertTrue('неудачная загрузка', Doc.HasSlicing);
-  finally
-    Doc.Free;
-  end;
-end;
-
-procedure TOligoFileTests.DocumentForgetsSlicingOnClearAndClose;
-var
-  Doc: TOligoArrayDocument;
-begin
-  Doc := TOligoArrayDocument.Create;
-  try
-    Doc.NewArray(Arr(['AT']));
-    Doc.SetSlicing(SliceTableOf(1), FDirectory);
-    Doc.ClearCells;
-    AssertFalse('очистка', Doc.HasSlicing);
-
-    Doc.SetSlicing(SliceTableOf(1), FDirectory);
-    Doc.Close;
-    AssertFalse('удаление из окна', Doc.HasSlicing);
   finally
     Doc.Free;
   end;
@@ -1175,8 +1154,26 @@ begin
     Doc.SetSlicing(SliceTableOf(1), Doc.ArrayDir);
     AssertTrue(ErrorText, Doc.SaveToFile(
       IncludeTrailingPathDelimiter(OtherDir) + 'a.csv', ErrorText));
-    AssertFalse('слои остались рядом со старым файлом', Doc.HasSlicing);
+    AssertFalse('слайсинг остался в папке старого проекта', Doc.HasSlicing);
     AssertEquals('', Doc.SliceDir);
+  finally
+    Doc.Free;
+  end;
+end;
+
+procedure TOligoFileTests.DocumentKeepsSlicingOutsideProjectWhenSavedToSameFolder;
+var
+  Doc: TOligoArrayDocument;
+  ErrorText: string;
+begin
+  Doc := TOligoArrayDocument.Create;
+  try
+    Doc.NewArray(Arr(['AT']));
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('a.csv'), ErrorText));
+    Doc.SetSlicing(SliceTableOf(1), FilePath('elsewhere'));
+    AssertTrue(ErrorText, Doc.SaveToFile(FilePath('a.csv'), ErrorText));
+    AssertTrue(Doc.HasSlicing);
+    AssertEquals(FilePath('elsewhere'), Doc.SliceDir);
   finally
     Doc.Free;
   end;
@@ -1195,21 +1192,6 @@ begin
     AssertTrue(ErrorText, Doc.SaveToFile(FilePath('renamed.csv'), ErrorText));
     AssertTrue(Doc.HasSlicing);
     AssertEquals(Doc.ArrayDir, Doc.SliceDir);
-  finally
-    Doc.Free;
-  end;
-end;
-
-procedure TOligoFileTests.DocumentKeepsSlicingOnClearOfEmptyCells;
-var
-  Doc: TOligoArrayDocument;
-begin
-  Doc := TOligoArrayDocument.Create;
-  try
-    Doc.NewArray(Arr([';']));
-    Doc.SetSlicing(SliceTableOf(1), FDirectory);
-    Doc.ClearCells;
-    AssertTrue('очищать нечего, слои остаются', Doc.HasSlicing);
   finally
     Doc.Free;
   end;
@@ -1407,38 +1389,56 @@ begin
   AssertTrue(ErrorText <> '');
 end;
 
-procedure TOligoFileTests.NewArrayIsSuggestedIntoDatedFolder;
+procedure TOligoFileTests.NewArrayIsSuggestedIntoProjectsFolder;
 var
   Doc: TOligoArrayDocument;
-  Folder, FileName: string;
+  Folder, ProjectName: string;
 begin
   Doc := TOligoArrayDocument.Create;
   try
     Doc.NewArray(Arr(['AT']));
-    Doc.SuggestSaveLocation('D:\data\arrays', EncodeDate(2026, 11, 3) +
-      EncodeTime(14, 5, 0, 0), Folder, FileName);
-    AssertEquals('array_2026-11-03_1405', FileName);
-    AssertEquals('D:\data\arrays\array_2026-11-03_1405', Folder);
+    Doc.SuggestProjectLocation('D:\data\projects\',
+      EncodeDate(2026, 11, 4) + EncodeTime(14, 30, 5, 0), Folder, ProjectName);
+    AssertEquals('2026-11-04 14-30-05', ProjectName);
+    AssertEquals('D:\data\projects', Folder);
   finally
     Doc.Free;
   end;
 end;
 
-procedure TOligoFileTests.OpenedArrayIsSuggestedIntoItsFile;
+procedure TOligoFileTests.OpenedArrayIsSuggestedIntoItsProject;
+// имя проекта - имя его папки, а CSV внутри может называться иначе
 var
   Doc: TOligoArrayDocument;
-  Folder, FileName, ErrorText: string;
+  Folder, ProjectName, ErrorText, ProjectDir: string;
 begin
+  ProjectDir := FilePath('proj');
+  AssertTrue(ForceDirectories(ProjectDir));
   Doc := TOligoArrayDocument.Create;
   try
-    AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('my.csv'), Arr(['AT']), ErrorText));
-    AssertTrue(ErrorText, Doc.LoadFromFile(FilePath('my.csv'), ErrorText));
-    Doc.SuggestSaveLocation('D:\data\arrays', Now, Folder, FileName);
-    AssertEquals('my', FileName);
+    AssertTrue(ErrorText, SaveOligoArrayFile(ProjectDir + PathDelim + 'my.csv',
+      Arr(['AT']), ErrorText));
+    AssertTrue(ErrorText, Doc.LoadFromFile(ProjectDir + PathDelim + 'my.csv',
+      ErrorText));
+    Doc.SuggestProjectLocation('D:\data\projects', Now, Folder, ProjectName);
+    AssertEquals('proj', ProjectName);
     AssertEquals(ExcludeTrailingPathDelimiter(ExpandFileName(FDirectory)), Folder);
   finally
     Doc.Free;
   end;
+end;
+
+procedure TOligoFileTests.OtherCsvInProjectFolderIsFound;
+var
+  ErrorText: string;
+begin
+  AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('p.csv'), Arr(['AT']), ErrorText));
+  // единственный CSV - это сам проект
+  AssertEquals('', FindOtherProjectCsv(FDirectory, FilePath('p.csv')));
+  AssertTrue(ErrorText, SaveOligoArrayFile(FilePath('other.CSV'), Arr(['GC']), ErrorText));
+  AssertEquals(FilePath('other.CSV'), FindOtherProjectCsv(FDirectory, FilePath('p.csv')));
+  // для другого имени проекта первый файл уже считается чужим
+  AssertEquals(FilePath('p.csv'), FindOtherProjectCsv(FDirectory, FilePath('other.CSV')));
 end;
 
 { TGridWidthModeTests }
@@ -1855,7 +1855,7 @@ var
 begin
   AssertFalse(MakeFilePathInFolder('', 'a', '.csv', FilePath, ErrorText));
   AssertTrue(ErrorText <> '');
-  AssertFalse(MakeFilePathInFolder('data\arrays', 'a', '.csv', FilePath, ErrorText));
+  AssertFalse(MakeFilePathInFolder('data\projects', 'a', '.csv', FilePath, ErrorText));
   AssertTrue(ErrorText <> '');
   AssertEquals('', FilePath);
 end;
@@ -1876,7 +1876,7 @@ procedure TFileNameCheckTests.FolderPathChecksDriveAndParts;
 var
   ErrorText: string;
 begin
-  AssertTrue(ErrorText, CheckFolderPath('D:\data\arrays\a1\layers', ErrorText));
+  AssertTrue(ErrorText, CheckFolderPath('D:\data\projects\a1\layers', ErrorText));
   AssertTrue(ErrorText, CheckFolderPath('D:\', ErrorText));
   AssertFalse(CheckFolderPath('layers', ErrorText));
   AssertFalse(CheckFolderPath('', ErrorText));

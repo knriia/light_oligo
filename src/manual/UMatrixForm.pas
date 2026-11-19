@@ -139,7 +139,6 @@ begin
   try
     Dialog.Filter:='Текстовый файл матрицы|*.txt';
     Dialog.FilterIndex:=1;
-    Dialog.InitialDir:=MatricesDir;
     if not Dialog.Execute then
       Exit;
     FileName:=Dialog.FileName;

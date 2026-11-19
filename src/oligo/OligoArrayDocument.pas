@@ -4,11 +4,19 @@ unit OligoArrayDocument;
 // результат последнего слайсинга этого массива.
 
 {$mode ObjFPC}{$H+}
+{$codepage utf8}
 
 interface
 
 uses
   Classes, SysUtils, OligoArray, OligoSlices;
+
+const
+  // Имя по умолчанию для нового проекта - текущие дата и время
+  // (без двоеточий, т.к. это имя папки).
+  DEFAULT_NAME_FORMAT = 'yyyy-mm-dd hh-nn-ss';
+  // Имя файла последовательностей (без расширения) в новом проекте.
+  DEFAULT_ARRAY_FILE = 'arrays';
 
 type
   TOligoArrayDocument = class
@@ -29,23 +37,21 @@ type
     // значение действительно поменялось.
     function SetCell(ARow, ACol: Integer; const AValue: string): Boolean;
     function Cell(ARow, ACol: Integer): TOlig;
-    // Стирает содержимое всех ячеек, размер массива сохраняется.
-    // Изменённым массив становится, только если что-то было непустым.
-    procedure ClearCells;
-    // Убирает массив: ни массива, ни файла, изменений нет. Файл на диске не трогается.
-    procedure Close;
     function IsEmpty: Boolean;
     function HasFile: Boolean;
     // Папка файла массива; пусто, если массив ещё не сохранялся.
     function ArrayDir: string;
-    // Куда предлагать сохранить массив: открытый из файла - туда же,
-    // новый - в папку array_<дата_время> внутри AArraysDir.
-    procedure SuggestSaveLocation(const AArraysDir: string; ANow: TDateTime;
-      out AFolder, AFileName: string);
+    // Куда предлагать сохранить проект: открытый из файла - туда же
+    // (папка проектов = родитель папки проекта, имя = имя папки проекта),
+    // новый - в AProjectsDir с именем по времени ANow (DEFAULT_NAME_FORMAT).
+    // CSV проекта лежит в <папка проектов>\<имя>\<имя файла>.csv.
+    procedure SuggestProjectLocation(const AProjectsDir: string;
+      ANow: TDateTime; out AParentDir, AName: string);
 
-    // Результат слайсинга: таблица слоёв и папка, рядом с которой лежат
-    // Slices.txt и Slices.lays. Забывается, когда массив меняется,
-    // заменяется, очищается, убирается или сохраняется в другую папку.
+    // Результат слайсинга: таблица слоёв и папка слайса, где лежат Slices.txt,
+    // layers и Slices.lays. Забывается, когда массив меняется, заменяется или
+    // сохраняется в папку другого проекта; сохранение в ту же папку слайсинг
+    // не трогает, где бы ни лежала папка слайса.
     procedure SetSlicing(const ATable: TSliceLayers; const ASliceDir: string);
     procedure ForgetSlicing;
     function HasSlicing: Boolean;
@@ -57,10 +63,39 @@ type
     property Modified: Boolean read FModified;
   end;
 
+// Путь к другому .csv в папке проекта (не AFilePath) или '' - в проекте
+// должен быть ровно один CSV.
+function FindOtherProjectCsv(const AFolder, AFilePath: string): string;
+
 implementation
 
 uses
   OligoArrayCsv;
+
+function FindOtherProjectCsv(const AFolder, AFilePath: string): string;
+var
+  Search: TSearchRec;
+  Path: string;
+begin
+  Result:='';
+  if FindFirst(IncludeTrailingPathDelimiter(AFolder)+'*', faAnyFile and not faDirectory,
+       Search)<>0 then
+    Exit;
+  try
+    repeat
+      if not SameText(ExtractFileExt(Search.Name), '.csv') then
+        Continue;
+      Path:=IncludeTrailingPathDelimiter(AFolder)+Search.Name;
+      if not SameFileName(ExpandFileName(Path), ExpandFileName(AFilePath)) then
+      begin
+        Result:=Path;
+        Exit;
+      end;
+    until FindNext(Search)<>0;
+  finally
+    FindClose(Search);
+  end;
+end;
 
 procedure TOligoArrayDocument.NewArray(const AArr: TOligoArr);
 begin
@@ -86,15 +121,17 @@ end;
 
 function TOligoArrayDocument.SaveToFile(const AFileName: string;
   out AErrorText: string): Boolean;
+var
+  OldDir: string;
 begin
+  OldDir:=ArrayDir;
   Result:=SaveOligoArrayFile(AFileName, FArr, AErrorText);
   if not Result then
     Exit;
   FFileName:=ExpandFileName(AFileName);
   FModified:=False;
-  // слои лежат рядом со старым файлом: рядом с новым их нет
-  if HasSlicing and
-     not SameFileName(ExcludeTrailingPathDelimiter(FSliceDir), ArrayDir) then
+  // слайсинг лежит в папке прежнего проекта: в новом проекте его нет
+  if HasSlicing and (OldDir<>'') and not SameFileName(OldDir, ArrayDir) then
     ForgetSlicing;
 end;
 
@@ -123,28 +160,6 @@ begin
     Result:=FArr[ARow,ACol];
 end;
 
-procedure TOligoArrayDocument.ClearCells;
-var
-  i, j: Integer;
-begin
-  for i:=0 to High(FArr) do
-    for j:=0 to High(FArr[i]) do
-      if FArr[i,j]<>'' then
-      begin
-        FArr[i,j]:='';
-        FModified:=True;
-        ForgetSlicing; // слои нарезаны из прежнего содержимого
-      end;
-end;
-
-procedure TOligoArrayDocument.Close;
-begin
-  FArr:=nil;
-  FFileName:='';
-  FModified:=False;
-  ForgetSlicing;
-end;
-
 function TOligoArrayDocument.IsEmpty: Boolean;
 begin
   Result:=Length(FArr)=0;
@@ -162,18 +177,18 @@ begin
     Result:=ExtractFileDir(FFileName);
 end;
 
-procedure TOligoArrayDocument.SuggestSaveLocation(const AArraysDir: string;
-  ANow: TDateTime; out AFolder, AFileName: string);
+procedure TOligoArrayDocument.SuggestProjectLocation(const AProjectsDir: string;
+  ANow: TDateTime; out AParentDir, AName: string);
 begin
   if HasFile then
   begin
-    AFolder:=ArrayDir;
-    AFileName:=ChangeFileExt(ExtractFileName(FFileName), '');
+    AParentDir:=ExtractFileDir(ArrayDir);
+    AName:=ExtractFileName(ArrayDir);
   end
   else
   begin
-    AFileName:='array_'+FormatDateTime('yyyy-mm-dd_hhnn', ANow);
-    AFolder:=IncludeTrailingPathDelimiter(AArraysDir)+AFileName;
+    AParentDir:=ExcludeTrailingPathDelimiter(AProjectsDir);
+    AName:=FormatDateTime(DEFAULT_NAME_FORMAT, ANow);
   end;
 end;
 

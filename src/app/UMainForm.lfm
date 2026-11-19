@@ -28,17 +28,17 @@ object MainForm: TMainForm
       Height = 598
       Top = 1
       Width = 422
-      ActivePage = TS_Synthesis
+      ActivePage = TS_Sequences
       Align = alClient
       TabIndex = 0
       TabOrder = 0
-      object TS_Synthesis: TTabSheet
-        Caption = 'TS_Synthesis'
+      object TS_Sequences: TTabSheet
+        Caption = 'TS_Sequences'
         ClientHeight = 493
         ClientWidth = 840
       end
-      object TS_Sequences: TTabSheet
-        Caption = 'TS_Sequences'
+      object TS_Synthesis: TTabSheet
+        Caption = 'TS_Synthesis'
         ClientHeight = 493
         ClientWidth = 840
       end
