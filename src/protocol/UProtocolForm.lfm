@@ -90,29 +90,40 @@ object ProtocolForm: TProtocolForm
       OnClick = B_MoveDownClick
     end
   end
-  object L_File: TLabel
-    Left = 193
-    Height = 15
-    Top = 0
-    Width = 639
-    Align = alTop
-    BorderSpacing.Left = 8
-    BorderSpacing.Right = 8
-    BorderSpacing.Bottom = 4
-    Caption = 'L_File'
-    ParentColor = False
-  end
-  object TV_Protocol: TTreeView
+  object GB_ProtTree: TGroupBox
     Left = 185
-    Height = 474
-    Top = 19
+    Height = 493
+    Top = 0
     Width = 655
     Align = alClient
-    HideSelection = False
-    ReadOnly = True
+    Caption = 'GB_ProtTree'
+    ClientHeight = 473
+    ClientWidth = 651
     TabOrder = 1
-    OnDblClick = TV_ProtocolDblClick
-    OnSelectionChanged = TV_ProtocolSelectionChanged
+    object L_File: TLabel
+      Left = 8
+      Height = 15
+      Top = 0
+      Width = 635
+      Align = alTop
+      BorderSpacing.Left = 8
+      BorderSpacing.Right = 8
+      BorderSpacing.Bottom = 4
+      Caption = 'L_File'
+      ParentColor = False
+    end
+    object TV_Protocol: TTreeView
+      Left = 0
+      Height = 454
+      Top = 19
+      Width = 651
+      Align = alClient
+      HideSelection = False
+      ReadOnly = True
+      TabOrder = 0
+      OnDblClick = TV_ProtocolDblClick
+      OnSelectionChanged = TV_ProtocolSelectionChanged
+    end
   end
   object OD_File: TOpenDialog
     Left = 600

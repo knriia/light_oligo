@@ -35,6 +35,9 @@ type
     procedure ReadyWhenEveryLetterHasProtocol;
     procedure ClearRemovesLayersAndProtocols;
     procedure ProtocolIndexOutsideRangeRaises;
+    procedure LetterIsNamePartBeforeUnderscore;
+    procedure ProtocolsWithSameLetterPrefixConflict;
+    procedure ReadyWhenProtocolsNamedWithLetterPrefix;
   end;
 
 implementation
@@ -336,6 +339,48 @@ begin
       Raised := True;
   end;
   AssertTrue(Raised);
+end;
+
+procedure TSynthesisSessionTests.LetterIsNamePartBeforeUnderscore;
+begin
+  AssertEquals('A', TSynthesisSession.LetterOfFile('D:\p\A_test.pro'));
+  AssertEquals('T', TSynthesisSession.LetterOfFile('T_x_y.pro'));
+end;
+
+procedure TSynthesisSessionTests.ProtocolsWithSameLetterPrefixConflict;
+var
+  Letter, ErrorText: string;
+begin
+  WriteProtocol('A_one.pro', 'One');
+  WriteProtocol('A_two.pro', 'Two');
+  AssertTrue(ErrorText, FSession.AddProtocolFile(FilePath('A_one.pro'), Letter,
+    ErrorText));
+  AssertEquals('A', Letter);
+  AssertFalse(FSession.AddProtocolFile(FilePath('A_two.pro'), Letter,
+    ErrorText));
+  AssertTrue(ErrorText, Pos('"A"', ErrorText) > 0);
+  AssertEquals(1, FSession.ProtocolCount);
+  AssertEquals('One', FSession.ProtocolOf('A').BlockNames[0]);
+end;
+
+procedure TSynthesisSessionTests.ReadyWhenProtocolsNamedWithLetterPrefix;
+var
+  Table: TSliceLayers;
+  Letter, ErrorText: string;
+begin
+  SetLength(Table, 2);
+  Table[0] := Layer(1, 'A');
+  Table[1] := Layer(2, 'T');
+  FSession.SetLayers(Table);
+  WriteProtocol('A_test.pro', 'A');
+  WriteProtocol('T_other.pro', 'T');
+  AssertTrue(ErrorText, FSession.AddProtocolFile(FilePath('A_test.pro'), Letter,
+    ErrorText));
+  AssertFalse(FSession.CheckReady(ErrorText));
+  AssertTrue(ErrorText, Pos('Нет протоколов для букв: T.', ErrorText) > 0);
+  AssertTrue(ErrorText, FSession.AddProtocolFile(FilePath('T_other.pro'), Letter,
+    ErrorText));
+  AssertTrue(ErrorText, FSession.CheckReady(ErrorText));
 end;
 
 initialization
