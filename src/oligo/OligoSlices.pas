@@ -2,11 +2,12 @@ unit OligoSlices;
 // Таблица нарезки массива олигов на слои: запись и чтение файла слайсов
 
 {$mode ObjFPC}{$H+}
+{$codepage utf8}
 
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, MatrixTypes;
 
 type
   TSliceLayer = record   // слой после слайсинга
@@ -44,6 +45,21 @@ function LoadSliceLayers(const aSliceFile: String; out aLayers: TSliceLayers;
 // AErrorText и пустая таблица: наполовину прочитанной она не бывает.
 function LoadSliceStatistics(const aSliceFile: String; out aLayers: TSliceLayers;
   out aErrorText: String): Boolean;
+// Занятые ячейки массива по матрицам слоёв: 1, если ячейка занята в любом
+// слое (объединение матриц). Матрицы слоёв читаются по MatrixFile; нет файла,
+// не читается или размер матрицы отличается от первой - False, причина в
+// aErrorText, aMatrix пустая.
+function LoadOccupiedCells(const aLayers: TSliceLayers; out aMatrix: TMatrix;
+  out aErrorText: String): Boolean;
+
+const
+  SLICE_ALGORITHM_BASE = 'base'; // базовый алгоритм слайсинга
+
+// Имя папки слайса в проекте: slice_<алгоритм>.
+function SliceFolderName(const aAlgorithm: String): String;
+// Папки слайсов проекта: имена (без пути) подпапок aProjectDir, которые
+// начинаются со slice и в которых есть Slices.txt, по алфавиту.
+function ListSliceFolders(const aProjectDir: String): TStringArray;
 
 // Файлы слоёв в папке (Layer*.txt и Layer*.ezd), полные пути по алфавиту.
 // Для несуществующей папки - пустой список.
@@ -61,7 +77,7 @@ function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolea
 implementation
 
 uses
-  AppPaths, PathUtils, TextFileUtils;
+  AppPaths, PathUtils, TextFileUtils, OligoMatrix;
 
 function SaveSliceStatistics(const aDir: String;
   const aTable: array of TSliceLayer; aFileType: Word;
@@ -255,6 +271,101 @@ begin
   end;
   aLayers:=Table;
   Result:=True;
+end;
+
+function SameMatrixSize(const aFirst, aSecond: TMatrix): Boolean;
+var
+  r: integer;
+begin
+  Result:=Length(aFirst)=Length(aSecond);
+  if Result then
+    for r:=0 to High(aFirst) do
+      if Length(aFirst[r])<>Length(aSecond[r]) then
+        Exit(False);
+end;
+
+function LoadOccupiedCells(const aLayers: TSliceLayers; out aMatrix: TMatrix;
+  out aErrorText: String): Boolean;
+var
+  Union, Layer: TMatrix;
+  i, r, c: integer;
+begin
+  Result:=False;
+  aMatrix:=nil;
+  aErrorText:='';
+  Union:=nil;
+  for i:=0 to High(aLayers) do
+  begin
+    Layer:=nil;
+    if not LoadMatrixFile(aLayers[i].MatrixFile, Layer, aErrorText) then
+    begin
+      aErrorText:='Слой '+IntToStr(aLayers[i].LayerNumber)+
+                  ': не удалось прочитать матрицу:'+LineEnding+
+                  aLayers[i].MatrixFile+LineEnding+aErrorText;
+      Exit;
+    end;
+    if i=0 then
+    begin
+      SetLength(Union, Length(Layer));
+      for r:=0 to High(Layer) do
+        SetLength(Union[r], Length(Layer[r]));
+    end
+    else if not SameMatrixSize(Layer, Union) then
+    begin
+      aErrorText:='Слой '+IntToStr(aLayers[i].LayerNumber)+
+                  ': размер матрицы отличается от первого слоя:'+LineEnding+
+                  aLayers[i].MatrixFile;
+      Exit;
+    end;
+    for r:=0 to High(Layer) do
+      for c:=0 to High(Layer[r]) do
+        if Layer[r,c]<>0 then
+          Union[r,c]:=1;
+  end;
+  if Length(Union)=0 then
+  begin
+    aErrorText:='Нет слоёв: занятые ячейки не определить.';
+    Exit;
+  end;
+  aMatrix:=Union;
+  Result:=True;
+end;
+
+function SliceFolderName(const aAlgorithm: String): String;
+begin
+  Result:=SLICE_FOLDER+'_'+aAlgorithm;
+end;
+
+function ListSliceFolders(const aProjectDir: String): TStringArray;
+var
+  Names: TStringList;
+  Search: TSearchRec;
+  Dir: String;
+  i: integer;
+begin
+  Result:=nil;
+  Dir:=IncludeTrailingPathDelimiter(aProjectDir);
+  Names:=TStringList.Create;
+  try
+    if FindFirst(Dir+'*', faAnyFile, Search)=0 then
+    try
+      repeat
+        if ((Search.Attr and faDirectory)<>0) and (Search.Name<>'.') and
+           (Search.Name<>'..') and
+           SameText(Copy(Search.Name, 1, Length(SLICE_FOLDER)), SLICE_FOLDER) and
+           FileExists(Dir+Search.Name+PathDelim+'Slices.txt') then
+          Names.Add(Search.Name);
+      until FindNext(Search)<>0;
+    finally
+      FindClose(Search);
+    end;
+    Names.Sort;
+    SetLength(Result, Names.Count);
+    for i:=0 to Names.Count-1 do
+      Result[i]:=Names[i];
+  finally
+    Names.Free;
+  end;
 end;
 
 function ListFilesByMasks(const aDir: String;

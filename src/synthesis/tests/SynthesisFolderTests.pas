@@ -1,14 +1,14 @@
 unit SynthesisFolderTests;
-// Тесты действий над папкой синтеза: имя, копии слоёв и протоколов,
-// synthesis.ini и итог.
+// Тесты действий над папкой синтеза: имя, проект и слайс, файлы слоёв,
+// копии протоколов, synthesis.ini и итог.
 
 {$mode objfpc}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, IniFiles, fpcunit, testregistry, OligoSlices,
-  ProtocolModel, SynthesisFolder;
+  Classes, SysUtils, IniFiles, fpcunit, testregistry, ProtocolModel,
+  SynthesisFolder;
 
 type
   TSynthesisFolderTests = class(TTestCase)
@@ -17,8 +17,6 @@ type
     function Path(const ARelative: string): string;
     procedure WriteText(const AFileName, AText: string);
     function ReadText(const AFileName: string): string;
-    function AddLayer(var ATable: TSliceLayers; ANumber: Integer;
-      const ALetter, AEzdFile: string): Integer;
     function Moment: TDateTime;
     function Later: TDateTime;
     function Ini(const AFolder: string): TMemIniFile;
@@ -26,16 +24,24 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure ArrayNameComesFromArrayFolderNotFromEzdFolder;
-    procedure FolderNameHasDateTimeAndSafeArrayName;
-    procedure FolderNameWithoutArrayIsOnlyDateTime;
-    procedure LayersAreCopiedIntoLayersFolder;
-    procedure SameEzdFileIsCopiedOnce;
-    procedure EzdFilesWithSameNameGetDistinctCopies;
-    procedure MissingLayerFileFailsNamingLayerAndFile;
+    procedure FolderNameIsPrefixAndDate;
+    procedure FreeFolderNameIsPlainWhenNotTaken;
+    procedure FreeFolderNameGetsSuffixWhenTaken;
+    procedure SafeFolderPartReplacesBadCharsAndCutsLength;
+    procedure FolderWithCsvIsProject;
+    procedure FolderWithoutCsvOrMissingIsNotProject;
+    procedure SliceInsideProjectIsAccepted;
+    procedure SliceInProjectRootIsAccepted;
+    procedure SliceOutsideProjectIsRefused;
+    procedure SliceInSiblingFolderWithSamePrefixIsRefused;
+    procedure SliceWithoutStatisticsFileIsRefused;
+    procedure EzdFolderIsInsideSynthesisFolder;
+    procedure RemoveLayerFilesKeepsProtocolsAndInfo;
+    procedure ProtocolCopyFileIsInProtocolsFolder;
     procedure ProtocolCopyIsWrittenAsIs;
     procedure ProtocolCopyFailureNamesFile;
     procedure InfoIsWrittenAndReadBack;
+    procedure RewrittenInfoKeepsCreatedTimeAndStart;
     procedure StartIsAddedToInfo;
     procedure ReadInfoRejectsMissingAndForeignFiles;
     procedure ResultIsAppendedToInfo;
@@ -91,17 +97,6 @@ begin
   end;
 end;
 
-function TSynthesisFolderTests.AddLayer(var ATable: TSliceLayers;
-  ANumber: Integer; const ALetter, AEzdFile: string): Integer;
-begin
-  Result := Length(ATable);
-  SetLength(ATable, Result + 1);
-  ATable[Result] := Default(TSliceLayer);
-  ATable[Result].LayerNumber := ANumber;
-  ATable[Result].Letter := ALetter;
-  ATable[Result].EZDFile := AEzdFile;
-end;
-
 function TSynthesisFolderTests.Moment: TDateTime;
 begin
   Result := EncodeDate(2026, 11, 4) + EncodeTime(14, 30, 5, 0);
@@ -118,104 +113,130 @@ begin
     SYNTHESIS_INFO_FILE);
 end;
 
-procedure TSynthesisFolderTests.ArrayNameComesFromArrayFolderNotFromEzdFolder;
-var
-  T: TSliceLayers;
+procedure TSynthesisFolderTests.FolderNameIsPrefixAndDate;
 begin
-  T := nil;
-  AssertEquals('array', ArrayNameOfLayers(T));
-  AddLayer(T, 1, 'A', 'D:\data\projects\MyArray\slice\ezd\Layer1.ezd');
-  AssertEquals('MyArray', ArrayNameOfLayers(T));
-  T := nil;
-  AddLayer(T, 1, 'A', 'D:\data\projects\Custom\my_slice\ezd\Layer1.ezd');
-  AssertEquals('Custom', ArrayNameOfLayers(T));
-  T := nil;
-  AddLayer(T, 1, 'A', 'D:\data\projects\Other\layers\Layer1.ezd');
-  AssertEquals('Other', ArrayNameOfLayers(T));
-  T := nil;
-  AddLayer(T, 1, 'A', 'D:\data\projects\Plain\Layer1.ezd');
-  AssertEquals('Plain', ArrayNameOfLayers(T));
+  AssertEquals('synthes_2026-11-04', SynthesisFolderName(Moment));
 end;
 
-procedure TSynthesisFolderTests.FolderNameHasDateTimeAndSafeArrayName;
+procedure TSynthesisFolderTests.FreeFolderNameIsPlainWhenNotTaken;
 begin
-  AssertEquals('2026-11-04_143005_MyArray',
-    SynthesisFolderName('MyArray', Moment));
-  AssertEquals('2026-11-04_143005_a_b_c_d',
-    SynthesisFolderName('a/b:c*d', Moment));
+  ForceDirectories(Path('proj'));
+  AssertEquals('synthes_2026-11-04', FreeSynthesisFolderName(Path('proj'),
+    Moment));
+end;
+
+procedure TSynthesisFolderTests.FreeFolderNameGetsSuffixWhenTaken;
+begin
+  ForceDirectories(Path('proj' + PathDelim + 'synthes_2026-11-04'));
+  AssertEquals('synthes_2026-11-04_2', FreeSynthesisFolderName(Path('proj'),
+    Moment));
+  ForceDirectories(Path('proj' + PathDelim + 'synthes_2026-11-04_2'));
+  AssertEquals('synthes_2026-11-04_3', FreeSynthesisFolderName(Path('proj'),
+    Moment));
+end;
+
+procedure TSynthesisFolderTests.SafeFolderPartReplacesBadCharsAndCutsLength;
+begin
+  AssertEquals('a_b_c_d', SafeFolderPart('a/b:c*d'));
   AssertEquals('name', SafeFolderPart('name...'));
   AssertEquals(60, Length(SafeFolderPart(StringOfChar('x', 200))));
+  AssertEquals('array', SafeFolderPart(''));
 end;
 
-procedure TSynthesisFolderTests.FolderNameWithoutArrayIsOnlyDateTime;
+procedure TSynthesisFolderTests.FolderWithCsvIsProject;
 begin
-  AssertEquals('2026-11-04_143005', SynthesisFolderName('', Moment));
+  WriteText(Path('proj' + PathDelim + 'arrays.csv'), 'AT;GC');
+  AssertTrue(IsProjectFolder(Path('proj')));
 end;
 
-procedure TSynthesisFolderTests.LayersAreCopiedIntoLayersFolder;
-var
-  T, Copies: TSliceLayers;
-  ErrorText, Folder: string;
+procedure TSynthesisFolderTests.FolderWithoutCsvOrMissingIsNotProject;
 begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'Layer1.ezd'), 'ezd-one');
-  WriteText(Path('a' + PathDelim + 'Layer2.ezd'), 'ezd-two');
-  AddLayer(T, 7, 'A', Path('a' + PathDelim + 'Layer1.ezd'));
-  AddLayer(T, 8, 'T', Path('a' + PathDelim + 'Layer2.ezd'));
-  Folder := Path('syn');
-  AssertTrue(ErrorText, CopyLayersToFolder(T, Folder, Copies, ErrorText));
-  AssertEquals(2, Length(Copies));
-  AssertEquals(7, Copies[0].LayerNumber);
-  AssertEquals('T', Copies[1].Letter);
-  AssertEquals(LayersFolderOf(Folder) + 'Layer1.ezd', Copies[0].EZDFile);
-  AssertEquals('ezd-one', ReadText(Copies[0].EZDFile));
-  AssertEquals('ezd-two', ReadText(Copies[1].EZDFile));
-  AssertEquals('исходные слои не тронуты', Path('a' + PathDelim + 'Layer1.ezd'),
-    T[0].EZDFile);
+  WriteText(Path('plain' + PathDelim + 'notes.txt'), 'x');
+  AssertFalse(IsProjectFolder(Path('plain')));
+  AssertFalse(IsProjectFolder(Path('missing')));
+  AssertFalse(IsProjectFolder(''));
 end;
 
-procedure TSynthesisFolderTests.SameEzdFileIsCopiedOnce;
+procedure TSynthesisFolderTests.SliceInsideProjectIsAccepted;
 var
-  T, Copies: TSliceLayers;
   ErrorText: string;
 begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'L.ezd'), 'same');
-  AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L.ezd'));
-  AddLayer(T, 2, 'A', Path('a' + PathDelim + 'L.ezd'));
-  AssertTrue(ErrorText, CopyLayersToFolder(T, Path('syn'), Copies, ErrorText));
-  AssertEquals(Copies[0].EZDFile, Copies[1].EZDFile);
-  AssertFalse(FileExists(LayersFolderOf(Path('syn')) + 'L_2.ezd'));
+  WriteText(Path('proj' + PathDelim + 'slice2' + PathDelim + 'Slices.txt'), 'x');
+  AssertTrue(ErrorText, CheckSliceFolder(Path('proj'),
+    Path('proj' + PathDelim + 'slice2'), ErrorText));
+  AssertEquals('', ErrorText);
 end;
 
-procedure TSynthesisFolderTests.EzdFilesWithSameNameGetDistinctCopies;
+procedure TSynthesisFolderTests.SliceInProjectRootIsAccepted;
 var
-  T, Copies: TSliceLayers;
   ErrorText: string;
 begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'L.ezd'), 'from a');
-  WriteText(Path('b' + PathDelim + 'L.ezd'), 'from b');
-  AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L.ezd'));
-  AddLayer(T, 2, 'A', Path('b' + PathDelim + 'L.ezd'));
-  AssertTrue(ErrorText, CopyLayersToFolder(T, Path('syn'), Copies, ErrorText));
-  AssertTrue(Copies[0].EZDFile <> Copies[1].EZDFile);
-  AssertEquals('from a', ReadText(Copies[0].EZDFile));
-  AssertEquals('from b', ReadText(Copies[1].EZDFile));
+  WriteText(Path('proj' + PathDelim + 'Slices.txt'), 'x');
+  AssertTrue(ErrorText, CheckSliceFolder(Path('proj'), Path('proj'), ErrorText));
 end;
 
-procedure TSynthesisFolderTests.MissingLayerFileFailsNamingLayerAndFile;
+procedure TSynthesisFolderTests.SliceOutsideProjectIsRefused;
 var
-  T, Copies: TSliceLayers;
   ErrorText: string;
 begin
-  T := nil;
-  WriteText(Path('a' + PathDelim + 'L1.ezd'), '1');
-  AddLayer(T, 1, 'A', Path('a' + PathDelim + 'L1.ezd'));
-  AddLayer(T, 5, 'A', Path('a' + PathDelim + 'gone.ezd'));
-  AssertFalse(CopyLayersToFolder(T, Path('syn'), Copies, ErrorText));
-  AssertTrue(ErrorText, Pos('gone.ezd', ErrorText) > 0);
-  AssertTrue(ErrorText, Pos('5', ErrorText) > 0);   // номер слоя
+  WriteText(Path('other' + PathDelim + 'slice' + PathDelim + 'Slices.txt'), 'x');
+  ForceDirectories(Path('proj'));
+  AssertFalse(CheckSliceFolder(Path('proj'),
+    Path('other' + PathDelim + 'slice'), ErrorText));
+  AssertTrue(ErrorText, Pos('в папке проекта', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos(Path('proj'), ErrorText) > 0);
+end;
+
+procedure TSynthesisFolderTests.SliceInSiblingFolderWithSamePrefixIsRefused;
+var
+  ErrorText: string;
+begin
+  // proj2 начинается с имени proj, но проектом proj не является
+  WriteText(Path('proj2' + PathDelim + 'slice' + PathDelim + 'Slices.txt'), 'x');
+  ForceDirectories(Path('proj'));
+  AssertFalse(CheckSliceFolder(Path('proj'),
+    Path('proj2' + PathDelim + 'slice'), ErrorText));
+  AssertTrue(ErrorText, Pos('в папке проекта', ErrorText) > 0);
+end;
+
+procedure TSynthesisFolderTests.SliceWithoutStatisticsFileIsRefused;
+var
+  ErrorText: string;
+begin
+  ForceDirectories(Path('proj' + PathDelim + 'empty'));
+  AssertFalse(CheckSliceFolder(Path('proj'), Path('proj' + PathDelim + 'empty'),
+    ErrorText));
+  AssertTrue(ErrorText, Pos('Slices.txt', ErrorText) > 0);
+end;
+
+procedure TSynthesisFolderTests.EzdFolderIsInsideSynthesisFolder;
+begin
+  AssertEquals(Path('syn' + PathDelim + 'ezd') + PathDelim,
+    EzdFolderOf(Path('syn')));
+end;
+
+procedure TSynthesisFolderTests.RemoveLayerFilesKeepsProtocolsAndInfo;
+begin
+  WriteText(Path('syn' + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'), 'e');
+  WriteText(Path('syn' + PathDelim + SYNTHESIS_SLICES_FILE), 's');
+  WriteText(Path('syn' + PathDelim + 'geometry.ini'), 'g');
+  WriteText(Path('syn' + PathDelim + 'laser.ini'), 'l');
+  WriteText(Path('syn' + PathDelim + 'protocols' + PathDelim + 'A.pro'), 'p');
+  WriteText(Path('syn' + PathDelim + SYNTHESIS_INFO_FILE), 'i');
+  RemoveLayerFiles(Path('syn'));
+  AssertFalse(DirectoryExists(Path('syn' + PathDelim + 'ezd')));
+  AssertFalse(FileExists(Path('syn' + PathDelim + SYNTHESIS_SLICES_FILE)));
+  AssertFalse(FileExists(Path('syn' + PathDelim + 'geometry.ini')));
+  AssertFalse(FileExists(Path('syn' + PathDelim + 'laser.ini')));
+  AssertTrue(FileExists(Path('syn' + PathDelim + 'protocols' + PathDelim + 'A.pro')));
+  AssertTrue(FileExists(Path('syn' + PathDelim + SYNTHESIS_INFO_FILE)));
+  RemoveLayerFiles(Path('syn'));   // повторно и без слоёв - не ошибка
+end;
+
+procedure TSynthesisFolderTests.ProtocolCopyFileIsInProtocolsFolder;
+begin
+  AssertEquals(Path('syn' + PathDelim + 'protocols' + PathDelim + 'A.pro'),
+    ProtocolCopyFileName(Path('syn'), 'A'));
 end;
 
 procedure TSynthesisFolderTests.ProtocolCopyIsWrittenAsIs;
@@ -228,7 +249,7 @@ begin
   try
     AssertTrue(ErrorText, Model.LoadFromFile(Path('A.pro'), ErrorText));
     AssertTrue(ErrorText, WriteProtocolCopy(Model, 'A', Path('syn'), ErrorText));
-    AssertEquals(Trim(Model.ToText),
+    AssertEquals(Trim('Block=BlockA;' + LineEnding + #9'Pause=5;'),
       ReadText(Path('syn' + PathDelim + 'protocols' + PathDelim + 'A.pro')));
   finally
     Model.Free;
@@ -273,7 +294,7 @@ begin
   I := Ini(Path('syn'));
   try
     AssertEquals('LightOligo', I.ReadString('Synthesis', 'Program', ''));
-    AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Saved', ''));
+    AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Created', ''));
     AssertEquals('A,T', I.ReadString('Synthesis', 'Letters', ''));
     AssertFalse('запуска ещё не было', I.ValueExists('Synthesis', 'Started'));
   finally
@@ -285,6 +306,37 @@ begin
   AssertEquals('D:\src', Info.SourceFolder);
   AssertEquals(2, Info.LayerCount);
   AssertFalse(Info.Started);
+end;
+
+procedure TSynthesisFolderTests.RewrittenInfoKeepsCreatedTimeAndStart;
+var
+  Letters: TStringList;
+  ErrorText: string;
+  I: TMemIniFile;
+begin
+  ForceDirectories(Path('syn'));
+  Letters := TStringList.Create;
+  try
+    AssertTrue(ErrorText, SaveSynthesisInfo(Path('syn'), 'Arr1', '', 0,
+      Letters, Moment, ErrorText));
+    AssertTrue(ErrorText, SaveSynthesisStart(Path('syn'), Later, ErrorText));
+    Letters.Add('G');
+    AssertTrue(ErrorText, SaveSynthesisInfo(Path('syn'), 'Arr1', 'D:\s', 3,
+      Letters, Later + 1, ErrorText));
+  finally
+    Letters.Free;
+  end;
+  I := Ini(Path('syn'));
+  try
+    AssertEquals('время создания не меняется', '2026-11-04 14:30:05',
+      I.ReadString('Synthesis', 'Created', ''));
+    AssertEquals('запуск не потерян', '2026-11-04 14:40:05',
+      I.ReadString('Synthesis', 'Started', ''));
+    AssertEquals('G', I.ReadString('Synthesis', 'Letters', ''));
+    AssertEquals(3, I.ReadInteger('Synthesis', 'LayerCount', 0));
+  finally
+    I.Free;
+  end;
 end;
 
 procedure TSynthesisFolderTests.StartIsAddedToInfo;

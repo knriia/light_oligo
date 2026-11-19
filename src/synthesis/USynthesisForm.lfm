@@ -56,41 +56,41 @@ object SynthesisForm: TSynthesisForm
       TabOrder = 1
       OnClick = B_OpenSynthesisClick
     end
-    object B_SaveSynthesis: TButton
-      Left = 16
-      Height = 25
-      Top = 80
-      Width = 150
-      Caption = 'B_SaveSynthesis'
-      TabOrder = 2
-      OnClick = B_SaveSynthesisClick
-    end
     object B_LoadProtToSynth: TButton
       Left = 16
       Height = 25
-      Top = 128
+      Top = 96
       Width = 150
       Caption = 'B_LoadProtToSynth'
-      TabOrder = 3
+      TabOrder = 2
       OnClick = B_LoadProtToSynthClick
     end
     object B_LoadLayers: TButton
       Left = 16
       Height = 25
-      Top = 160
+      Top = 128
       Width = 150
       Caption = 'B_LoadLayers'
-      TabOrder = 4
+      TabOrder = 3
       OnClick = B_LoadLayersClick
     end
     object B_RemoveSelected: TButton
       Left = 16
       Height = 25
-      Top = 192
+      Top = 160
       Width = 150
       Caption = 'B_RemoveSelected'
-      TabOrder = 5
+      TabOrder = 4
       OnClick = B_RemoveSelectedClick
+    end
+    object B_Geometry: TButton
+      Left = 16
+      Height = 25
+      Top = 192
+      Width = 150
+      Caption = 'B_Geometry'
+      TabOrder = 5
+      OnClick = B_GeometryClick
     end
     object B_Start: TButton
       Left = 16

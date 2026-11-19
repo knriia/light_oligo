@@ -22,7 +22,6 @@ type
     procedure LayerTakesMostFrequentLastLetter;
     procedure LayerTieGoesToFirstSymbol;
     procedure LayerIgnoresEmptyOligs;
-    procedure OccupiedCellsMarkNonEmptyOligs;
   end;
 
   TOligoSlicingTests = class(TTestCase)
@@ -101,6 +100,13 @@ type
     procedure NewArrayIsSuggestedIntoProjectsFolder;
     procedure OpenedArrayIsSuggestedIntoItsProject;
     procedure OtherCsvInProjectFolderIsFound;
+    procedure OccupiedCellsAreUnionOfLayerMatrices;
+    procedure OccupiedCellsRejectDifferentMatrixSize;
+    procedure OccupiedCellsReportMissingMatrix;
+    procedure OccupiedCellsNeedLayers;
+    procedure SliceFolderNameHasAlgorithmPostfix;
+    procedure SliceFoldersAreFoundByPrefixAndStatistics;
+    procedure SliceFoldersOfMissingProjectAreEmpty;
   end;
 
   TGridWidthModeTests = class(TTestCase)
@@ -315,12 +321,6 @@ begin
   Count := -1;
   CreateMatrixLayerFromOligoArr(A, Symbols, Layer, Letter, Count);
   AssertEquals(0, Count);
-end;
-
-procedure TOligoArrayTests.OccupiedCellsMarkNonEmptyOligs;
-begin
-  AssertEquals('10|01', MatrixToText(OccupiedCellsMatrix(Arr(['AT;', ';G']))));
-  AssertEquals(0, Length(OccupiedCellsMatrix(nil)));
 end;
 
 { TOligoSlicingTests }
@@ -1439,6 +1439,127 @@ begin
   AssertEquals(FilePath('other.CSV'), FindOtherProjectCsv(FDirectory, FilePath('p.csv')));
   // для другого имени проекта первый файл уже считается чужим
   AssertEquals(FilePath('p.csv'), FindOtherProjectCsv(FDirectory, FilePath('other.CSV')));
+end;
+
+function SliceWithMatrices(const AFiles: array of string): TSliceLayers;
+// слои 1.. с матрицами из указанных файлов
+var
+  I: Integer;
+begin
+  Result := nil;
+  SetLength(Result, Length(AFiles));
+  for I := 0 to High(AFiles) do
+  begin
+    Result[I] := Default(TSliceLayer);
+    Result[I].LayerNumber := I + 1;
+    Result[I].MatrixFile := AFiles[I];
+  end;
+end;
+
+procedure TOligoFileTests.OccupiedCellsAreUnionOfLayerMatrices;
+var
+  M: TMatrix;
+  ErrorText: string;
+begin
+  AssertTrue(SaveMatrixAsFile(Matrix(['1000', '0100']), FilePath('l1.txt')));
+  AssertTrue(SaveMatrixAsFile(Matrix(['0010', '0100']), FilePath('l2.txt')));
+  M := nil;
+  AssertTrue(ErrorText, LoadOccupiedCells(
+    SliceWithMatrices([FilePath('l1.txt'), FilePath('l2.txt')]), M, ErrorText));
+  AssertEquals('1010|0100', MatrixToText(M));
+end;
+
+procedure TOligoFileTests.OccupiedCellsRejectDifferentMatrixSize;
+var
+  M: TMatrix;
+  ErrorText: string;
+begin
+  AssertTrue(SaveMatrixAsFile(Matrix(['1000', '0100']), FilePath('l1.txt')));
+  AssertTrue(SaveMatrixAsFile(Matrix(['10', '01']), FilePath('l2.txt')));
+  M := nil;
+  AssertFalse(LoadOccupiedCells(
+    SliceWithMatrices([FilePath('l1.txt'), FilePath('l2.txt')]), M, ErrorText));
+  AssertTrue(ErrorText, Pos('размер', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('l2.txt', ErrorText) > 0);
+  AssertEquals(0, Length(M));
+end;
+
+procedure TOligoFileTests.OccupiedCellsReportMissingMatrix;
+var
+  M: TMatrix;
+  ErrorText: string;
+begin
+  AssertTrue(SaveMatrixAsFile(Matrix(['1000']), FilePath('l1.txt')));
+  M := nil;
+  AssertFalse(LoadOccupiedCells(
+    SliceWithMatrices([FilePath('l1.txt'), FilePath('none.txt')]), M,
+    ErrorText));
+  AssertTrue(ErrorText, Pos('none.txt', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Слой 2', ErrorText) > 0);
+  AssertEquals(0, Length(M));
+end;
+
+procedure TOligoFileTests.SliceFolderNameHasAlgorithmPostfix;
+begin
+  AssertEquals('base', SLICE_ALGORITHM_BASE);
+  AssertEquals('slice_base', SliceFolderName(SLICE_ALGORITHM_BASE));
+  AssertEquals('slice_other', SliceFolderName('other'));
+end;
+
+procedure TOligoFileTests.SliceFoldersAreFoundByPrefixAndStatistics;
+var
+  Folders: TStringArray;
+  Names: array of string;
+  i: Integer;
+  F: TStringList;
+begin
+  Names:=nil;
+  SetLength(Names, 5);
+  Names[0]:='slice';
+  Names[1]:='slice_zeta';
+  Names[2]:='slice_base';
+  Names[3]:='other';          // не slice*, хотя Slices.txt есть
+  Names[4]:='myslice';        // slice не в начале имени
+  F:=TStringList.Create;
+  try
+    F.Text:='Layer';
+    for i:=0 to High(Names) do
+    begin
+      ForceDirectories(FilePath(Names[i]));
+      F.SaveToFile(FilePath(Names[i]+PathDelim+'Slices.txt'));
+    end;
+  finally
+    F.Free;
+  end;
+  ForceDirectories(FilePath('slice_empty'));   // slice*, но без Slices.txt
+  F:=TStringList.Create;
+  try
+    F.Text:='file';
+    F.SaveToFile(FilePath('slice_file'));      // файл, а не папка
+  finally
+    F.Free;
+  end;
+  Folders:=ListSliceFolders(FDirectory);
+  AssertEquals(3, Length(Folders));
+  AssertEquals('slice', Folders[0]);
+  AssertEquals('slice_base', Folders[1]);
+  AssertEquals('slice_zeta', Folders[2]);
+end;
+
+procedure TOligoFileTests.SliceFoldersOfMissingProjectAreEmpty;
+begin
+  AssertEquals(0, Length(ListSliceFolders(FilePath('no_such_project'))));
+end;
+
+procedure TOligoFileTests.OccupiedCellsNeedLayers;
+var
+  M: TMatrix;
+  ErrorText: string;
+begin
+  M := nil;
+  AssertFalse(LoadOccupiedCells(nil, M, ErrorText));
+  AssertTrue(ErrorText, Pos('Нет слоёв', ErrorText) > 0);
+  AssertEquals(0, Length(M));
 end;
 
 { TGridWidthModeTests }

@@ -449,6 +449,10 @@
         <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
+        <Filename Value="src\platform\UChoiceForm.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src\laser\LayerEzd.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -473,10 +477,6 @@
       </Unit>
       <Unit>
         <Filename Value="src\laser\LaserPen.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="src\laser\LaserActions.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>

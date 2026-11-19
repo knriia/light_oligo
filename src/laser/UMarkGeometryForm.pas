@@ -53,6 +53,9 @@ type
     procedure RefreshTimerTick(Sender: TObject);
     procedure UpdateBiasEnabled;
     function EnteredGeometry: TMarkGeometry;
+    procedure SetReadOnly;
+    class function Run(const ACaption: string; var AGeometry: TMarkGeometry;
+      const AArrayMatrix: TMatrix; AReadOnly: Boolean): Boolean;
   public
     constructor Create(TheOwner: TComponent); override;
     // True - нажали OK, AGeometry - введённые значения.
@@ -60,6 +63,9 @@ type
     // массива для превью справа (пустая - в превью только подложка).
     class function Execute(const ACaption: string;
       var AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix): Boolean;
+    // Только просмотр: параметры изменить нельзя, окно закрывается кнопкой.
+    class procedure View(const ACaption: string;
+      const AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix);
   end;
 
 implementation
@@ -183,8 +189,25 @@ begin
   FDrawnSubstrate:=Geometry.SubstrateDiameter;
 end;
 
-class function TMarkGeometryForm.Execute(const ACaption: string;
-  var AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix): Boolean;
+procedure TMarkGeometryForm.SetReadOnly;
+begin
+  FSE_Step.Enabled:=False;
+  SE_Group.Enabled:=False;
+  FSE_GroupStep.Enabled:=False;
+  CB_AutoCenter.Enabled:=False;
+  FSE_BiasX.Enabled:=False;
+  FSE_BiasY.Enabled:=False;
+  FSE_SpotSize.Enabled:=False;
+  FSE_Substrate.Enabled:=False;
+  B_Cancel.Visible:=False;
+  B_Cancel.Cancel:=False;
+  B_OK.Cancel:=True; // Esc закрывает окно просмотра
+  B_OK.Caption:='Закрыть';
+end;
+
+class function TMarkGeometryForm.Run(const ACaption: string;
+  var AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix;
+  AReadOnly: Boolean): Boolean;
 var
   Form: TMarkGeometryForm;
 begin
@@ -202,14 +225,31 @@ begin
     Form.FSE_SpotSize.Value:=AGeometry.SpotSize;
     Form.FSE_Substrate.Value:=AGeometry.SubstrateDiameter;
     Form.UpdateBiasEnabled;
+    if AReadOnly then
+      Form.SetReadOnly;
     Form.FLoading:=False;
     Form.RefreshPreview; // первый раз сразу, без ожидания таймера
     Result:=Form.ShowModal=mrOK;
-    if Result then
+    if Result and not AReadOnly then
       AGeometry:=Form.EnteredGeometry;
   finally
     Form.Free;
   end;
+end;
+
+class function TMarkGeometryForm.Execute(const ACaption: string;
+  var AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix): Boolean;
+begin
+  Result:=Run(ACaption, AGeometry, AArrayMatrix, False);
+end;
+
+class procedure TMarkGeometryForm.View(const ACaption: string;
+  const AGeometry: TMarkGeometry; const AArrayMatrix: TMatrix);
+var
+  Shown: TMarkGeometry;
+begin
+  Shown:=AGeometry;
+  Run(ACaption, Shown, AArrayMatrix, True);
 end;
 
 end.

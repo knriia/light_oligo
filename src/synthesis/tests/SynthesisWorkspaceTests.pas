@@ -1,6 +1,7 @@
 unit SynthesisWorkspaceTests;
-// Тесты собираемого синтеза: файлы копируются в папку только при сохранении,
-// сохранённый синтез открывается, запуск требует сохранённого и неизменённого.
+// Тесты собираемого синтеза: папка создаётся сразу, протоколы и слои пишутся в
+// неё по мере добавления, сохранённый синтез открывается, запуск требует
+// созданного синтеза со слоями и протоколами, запущенный синтез не меняется.
 
 {$mode objfpc}{$H+}
 
@@ -8,59 +9,158 @@ interface
 
 uses
   Classes, SysUtils, IniFiles, fpcunit, testregistry, OligoSlices,
-  SynthesisFolder, SynthesisWorkspace;
+  SynthesisPorts, SynthesisFolder, SynthesisWorkspace;
 
 type
+  // Подставной порт слоёв: пишет файлы слоёв в папку синтеза так же, как
+  // настоящий (ezd\, Slices.lays, geometry.ini, laser.ini), и запоминает вызовы.
+  TFakeLayersBuilder = class(TLayersBuilder)
+  public
+    Status: TLayersBuildStatus;
+    LayerCount: Integer;
+    BuildCalls: Integer;
+    LastSlice: string;
+    LastSynthesis: string;
+    ShowCalls: Integer;
+    ShownSlice: string;
+    ShownSynthesis: string;
+    function Build(const ASliceFolder, ASynthesisFolder: string;
+      out ALayers: TSliceLayers;
+      out AErrorText: string): TLayersBuildStatus; override;
+    function ShowGeometry(const ASliceFolder, ASynthesisFolder: string;
+      out AErrorText: string): Boolean; override;
+  end;
+
   TSynthesisWorkspaceTests = class(TTestCase)
   private
     FRoot: string;
+    FProject: string;       // <корень>\projects\Arr1, в нём arrays.csv и slice\
+    FSlice: string;         // <проект>\slice со Slices.txt
+    FSynth: string;         // <проект>\synthes_2026-11-04
     FWs: TSynthesisWorkspace;
+    FBuilder: TFakeLayersBuilder;
     function Path(const ARelative: string): string;
     procedure WriteText(const AFileName, AText: string);
     function ReadText(const AFileName: string): string;
     function Moment: TDateTime;
     function Later: TDateTime;
-    function MakeLayers(const AArray, ALetter: string; ACount: Integer): TSliceLayers;
+    function ProtocolFile(const ALetter: string): string;
+    procedure CreateSynthesis;
     procedure AddProtocol(const ALetter: string);
-    procedure LoadLayers(const AArray, ALetter: string; ACount: Integer);
-    function SaveTo(const AName: string): string;
+    procedure BuildLayers(ACount: Integer);
+    function InfoOf(const AFolder: string): TSynthesisInfo;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure LoadingCopiesNothingUntilSaved;
+    procedure CreateNewMakesFolderAndInfoFile;
+    procedure CreateNewRefusesExistingFolder;
+    procedure CreateNewRefusesEmptyFolderName;
+    procedure CreateNewReplacesPreviousSynthesis;
+    procedure ChangesNeedCreatedSynthesis;
+    procedure ProtocolIsCopiedIntoFolderImmediately;
     procedure InvalidProtocolIsRefusedAndNothingChanges;
     procedure DuplicateLetterIsRefused;
-    procedure LayersFileLoadsFromOriginalPlace;
-    procedure SaveCopiesLayersProtocolsAndWritesSynthesisFile;
-    procedure SessionUsesCopiesAfterSave;
-    procedure SaveNeedsSomethingToSave;
-    procedure SaveRefusesNonEmptyForeignFolder;
-    procedure SaveFailureRemovesNewFolderAndKeepsSession;
-    procedure SaveAgainToSameFolderReplacesLayers;
-    procedure SaveAgainKeepsStoredLayers;
-    procedure ChangeAfterSaveNeedsSaveAgain;
-    procedure OpenLoadsSavedSynthesis;
+    procedure RemoveProtocolRemovesCopyAndLetter;
+    procedure RemoveMissingProtocolChangesNothing;
+    procedure AddLayersBuildsLayersInSynthesisFolder;
+    procedure SliceOutsideProjectIsRefusedWithoutBuilding;
+    procedure SliceWithoutStatisticsIsRefusedWithoutBuilding;
+    procedure CancelledBuildLeavesSynthesisEmpty;
+    procedure FailedBuildRemovesPartialFiles;
+    procedure SecondAddLayersIsRefused;
+    procedure RemoveLayersDeletesLayerFilesAndKeepsProtocols;
+    procedure ShowGeometryWithoutLayersSaysSo;
+    procedure ShowGeometryPassesSliceAndSynthesisFolders;
+    procedure OpenLoadsCreatedSynthesis;
     procedure OpenRejectsForeignFileAndMissingLayers;
-    procedure StartRequiresSaveAndNoChanges;
+    procedure StartRequiresCreatedSynthesis;
+    procedure StartRequiresLayersAndProtocols;
     procedure StartWritesStartedAndGivesSnapshot;
-    procedure StartedSynthesisIsNotStartedOrSavedOverAgain;
-    procedure StartedSynthesisCanBeSavedElsewhereAndStartedAgain;
+    procedure StartRefusesWhenLayerEzdFileIsGone;
+    procedure StartedSynthesisIsNotStartedAgain;
+    procedure StartedSynthesisRefusesAnyChange;
     procedure OpenedStartedSynthesisKnowsItWasStarted;
     procedure NewSynthesisClearsSessionButKeepsFiles;
-    procedure RemoveProtocolRemovesOnlyThatLetter;
-    procedure RemoveMissingProtocolChangesNothing;
-    procedure RemoveLayersKeepsProtocols;
-    procedure SaveAfterRemoveProtocolDropsItsFile;
-    procedure SaveAfterRemoveLayersDropsLayersFiles;
-    procedure RemovingEverythingFromSavedSynthesisNeedsSave;
-    procedure RemovingEverythingFromUnsavedSynthesisNeedsNoSave;
-    procedure RemoveFromStartedSynthesisNeedsOtherFolder;
     procedure RemovedProtocolOfLayersMakesStartRefuse;
-    procedure RemoveLayersThenLoadOtherArrayTakesItsName;
   end;
 
 implementation
+
+{ TFakeLayersBuilder }
+
+function TFakeLayersBuilder.Build(const ASliceFolder,
+  ASynthesisFolder: string; out ALayers: TSliceLayers;
+  out AErrorText: string): TLayersBuildStatus;
+
+  procedure PutFile(const AFileName, AText: string);
+  var
+    F: TStringList;
+  begin
+    ForceDirectories(ExtractFileDir(AFileName));
+    F := TStringList.Create;
+    try
+      F.Text := AText;
+      F.SaveToFile(AFileName);
+    finally
+      F.Free;
+    end;
+  end;
+
+var
+  I: Integer;
+  FileName: string;
+begin
+  Inc(BuildCalls);
+  LastSlice := ASliceFolder;
+  LastSynthesis := ASynthesisFolder;
+  ALayers := nil;
+  AErrorText := '';
+  Result := Status;
+  case Status of
+    lbsBuilt:
+      begin
+        SetLength(ALayers, LayerCount);
+        for I := 0 to LayerCount - 1 do
+        begin
+          FileName := EzdFolderOf(ASynthesisFolder) + 'Layer' +
+            IntToStr(I + 1) + '.ezd';
+          PutFile(FileName, 'ezd ' + IntToStr(I + 1));
+          ALayers[I] := Default(TSliceLayer);
+          ALayers[I].LayerNumber := I + 1;
+          ALayers[I].Letter := 'A';
+          ALayers[I].EZDFile := FileName;
+        end;
+        if not SaveSliceStatistics(ASynthesisFolder, ALayers, SLICES_EZD_FILE,
+          AErrorText) then
+          Result := lbsFailed;
+        PutFile(IncludeTrailingPathDelimiter(ASynthesisFolder) + 'geometry.ini',
+          '[Geometry]');
+        PutFile(IncludeTrailingPathDelimiter(ASynthesisFolder) + 'laser.ini',
+          '[Laser]');
+      end;
+    lbsFailed:
+      begin
+        // часть слоёв успела записаться
+        PutFile(EzdFolderOf(ASynthesisFolder) + 'Layer1.ezd', 'partial');
+        AErrorText := 'builder failed';
+      end;
+    lbsCancelled:
+      ;
+  end;
+end;
+
+function TFakeLayersBuilder.ShowGeometry(const ASliceFolder,
+  ASynthesisFolder: string; out AErrorText: string): Boolean;
+begin
+  Inc(ShowCalls);
+  ShownSlice := ASliceFolder;
+  ShownSynthesis := ASynthesisFolder;
+  AErrorText := '';
+  Result := True;
+end;
+
+{ TSynthesisWorkspaceTests }
 
 procedure TSynthesisWorkspaceTests.SetUp;
 begin
@@ -68,11 +168,20 @@ begin
   FRoot := IncludeTrailingPathDelimiter(GetTempDir(False)) +
     'light_oligo_workspace_' + IntToStr(GetTickCount64);
   AssertTrue(ForceDirectories(FRoot));
+  FProject := Path('projects' + PathDelim + 'Arr1');
+  FSlice := FProject + PathDelim + 'slice';
+  FSynth := FProject + PathDelim + 'synthes_2026-11-04';
+  WriteText(FProject + PathDelim + 'arrays.csv', 'AT;GC');
+  WriteText(FSlice + PathDelim + 'Slices.txt', 'Layer');
   FWs := TSynthesisWorkspace.Create;
+  FBuilder := TFakeLayersBuilder.Create;
+  FBuilder.Status := lbsBuilt;
+  FBuilder.LayerCount := 2;
 end;
 
 procedure TSynthesisWorkspaceTests.TearDown;
 begin
+  FBuilder.Free;
   FWs.Free;
   RemoveDirectoryTree(FRoot);
   inherited TearDown;
@@ -120,24 +229,16 @@ begin
   Result := Moment + EncodeTime(0, 10, 0, 0);
 end;
 
-function TSynthesisWorkspaceTests.MakeLayers(const AArray, ALetter: string;
-  ACount: Integer): TSliceLayers;
-var
-  I: Integer;
-  FileName: string;
+function TSynthesisWorkspaceTests.ProtocolFile(const ALetter: string): string;
 begin
-  Result := nil;
-  SetLength(Result, ACount);
-  for I := 0 to ACount - 1 do
-  begin
-    FileName := Path('projects' + PathDelim + AArray + PathDelim + 'slice' +
-      PathDelim + 'ezd' + PathDelim + 'Layer' + IntToStr(I + 1) + '.ezd');
-    WriteText(FileName, AArray + ' layer ' + IntToStr(I + 1));
-    Result[I] := Default(TSliceLayer);
-    Result[I].LayerNumber := I + 1;
-    Result[I].Letter := ALetter;
-    Result[I].EZDFile := FileName;
-  end;
+  Result := FSynth + PathDelim + 'protocols' + PathDelim + ALetter + '.pro';
+end;
+
+procedure TSynthesisWorkspaceTests.CreateSynthesis;
+var
+  ErrorText: string;
+begin
+  AssertTrue(ErrorText, FWs.CreateNew(FSynth, Moment, ErrorText));
 end;
 
 procedure TSynthesisWorkspaceTests.AddProtocol(const ALetter: string);
@@ -148,211 +249,318 @@ begin
     'Block=Block' + ALetter + ';' + LineEnding + #9'Pause=5;');
   AssertTrue(ErrorText, FWs.AddProtocolFile(
     Path('protocols' + PathDelim + ALetter + '.pro'), Letter, ErrorText));
+  AssertEquals(ALetter, Letter);
 end;
 
-procedure TSynthesisWorkspaceTests.LoadLayers(const AArray, ALetter: string;
-  ACount: Integer);
-begin
-  FWs.ReplaceLayers(MakeLayers(AArray, ALetter, ACount));
-end;
-
-function TSynthesisWorkspaceTests.SaveTo(const AName: string): string;
+procedure TSynthesisWorkspaceTests.BuildLayers(ACount: Integer);
 var
   ErrorText: string;
 begin
-  Result := Path('syntheses' + PathDelim + AName);
-  AssertTrue(ErrorText, FWs.Save(Result, Moment, ErrorText));
+  FBuilder.Status := lbsBuilt;
+  FBuilder.LayerCount := ACount;
+  AssertTrue(ErrorText, FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsBuilt);
 end;
 
-procedure TSynthesisWorkspaceTests.LoadingCopiesNothingUntilSaved;
+function TSynthesisWorkspaceTests.InfoOf(const AFolder: string): TSynthesisInfo;
+var
+  ErrorText: string;
 begin
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 2);
+  AssertTrue(ErrorText, ReadSynthesisInfo(AFolder + PathDelim +
+    SYNTHESIS_INFO_FILE, Result, ErrorText));
+end;
+
+procedure TSynthesisWorkspaceTests.CreateNewMakesFolderAndInfoFile;
+var
+  I: TMemIniFile;
+begin
+  CreateSynthesis;
+  AssertEquals(FSynth, FWs.Folder);
+  AssertEquals(FProject, FWs.ProjectDir);
+  AssertTrue(DirectoryExists(FSynth));
+  I := TMemIniFile.Create(FSynth + PathDelim + SYNTHESIS_INFO_FILE);
+  try
+    AssertEquals('Arr1', I.ReadString('Synthesis', 'ArrayName', ''));
+    AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Created', ''));
+    AssertEquals(0, I.ReadInteger('Synthesis', 'LayerCount', -1));
+    AssertEquals('', I.ReadString('Synthesis', 'Letters', ''));
+  finally
+    I.Free;
+  end;
+  AssertEquals(0, FWs.Session.LayerCount);
+  AssertEquals(0, FWs.Session.ProtocolCount);
+  AssertFalse(FWs.Started);
+end;
+
+procedure TSynthesisWorkspaceTests.CreateNewRefusesExistingFolder;
+var
+  ErrorText: string;
+begin
+  WriteText(FSynth + PathDelim + 'busy.txt', 'x');
+  AssertFalse(FWs.CreateNew(FSynth, Moment, ErrorText));
+  AssertTrue(ErrorText, Pos('уже существует', ErrorText) > 0);
+  AssertTrue('чужие файлы целы', FileExists(FSynth + PathDelim + 'busy.txt'));
+  AssertFalse(FileExists(FSynth + PathDelim + SYNTHESIS_INFO_FILE));
   AssertEquals('', FWs.Folder);
-  AssertTrue(FWs.NeedsSave);
-  AssertFalse(DirectoryExists(Path('syntheses')));
-  AssertEquals('слои пока исходные',
-    Path('projects' + PathDelim + 'Arr1' + PathDelim + 'slice' + PathDelim +
-      'ezd' + PathDelim + 'Layer1.ezd'),
-    FWs.Session.Layers[0].EZDFile);
+end;
+
+procedure TSynthesisWorkspaceTests.CreateNewRefusesEmptyFolderName;
+var
+  ErrorText: string;
+begin
+  AssertFalse(FWs.CreateNew('', Moment, ErrorText));
+  AssertTrue(ErrorText, Pos('Не указана папка', ErrorText) > 0);
+  AssertEquals('', FWs.Folder);
+end;
+
+procedure TSynthesisWorkspaceTests.CreateNewReplacesPreviousSynthesis;
+var
+  Second, ErrorText: string;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  Second := FProject + PathDelim + 'synthes_2026-11-04_2';
+  AssertTrue(ErrorText, FWs.CreateNew(Second, Later, ErrorText));
+  AssertEquals(Second, FWs.Folder);
+  AssertEquals(0, FWs.Session.ProtocolCount);
+  AssertTrue('прежний синтез остался на диске', FileExists(ProtocolFile('A')));
+end;
+
+procedure TSynthesisWorkspaceTests.ChangesNeedCreatedSynthesis;
+var
+  Letter, ErrorText: string;
+begin
+  WriteText(Path('A.pro'), 'Block=BlockA;' + LineEnding + #9'Pause=5;');
+  AssertFalse(FWs.AddProtocolFile(Path('A.pro'), Letter, ErrorText));
+  AssertTrue(ErrorText, Pos('Создать синтез', ErrorText) > 0);
+  AssertEquals(0, FWs.Session.ProtocolCount);
+  AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsFailed);
+  AssertTrue(ErrorText, Pos('Создать синтез', ErrorText) > 0);
+  AssertEquals('слои не создавались', 0, FBuilder.BuildCalls);
+  AssertFalse(FWs.RemoveProtocol('A', ErrorText));
+  AssertFalse(FWs.RemoveLayers(ErrorText));
+  AssertFalse(DirectoryExists(FSynth));
+end;
+
+procedure TSynthesisWorkspaceTests.ProtocolIsCopiedIntoFolderImmediately;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  AssertEquals(Trim('Block=BlockA;' + LineEnding + #9'Pause=5;'),
+    ReadText(ProtocolFile('A')));
+  AssertEquals(1, FWs.Session.ProtocolCount);
+  AddProtocol('G');
+  AssertTrue(FileExists(ProtocolFile('G')));
+  AssertTrue(FileExists(ProtocolFile('A')));
 end;
 
 procedure TSynthesisWorkspaceTests.InvalidProtocolIsRefusedAndNothingChanges;
 var
   Letter, ErrorText: string;
 begin
+  CreateSynthesis;
   AssertFalse(FWs.AddProtocolFile(Path('nothing.pro'), Letter, ErrorText));
   AssertTrue(ErrorText <> '');
   AssertEquals(0, FWs.Session.ProtocolCount);
-  AssertFalse(FWs.NeedsSave);
+  AssertFalse(DirectoryExists(FSynth + PathDelim + 'protocols'));
 end;
 
 procedure TSynthesisWorkspaceTests.DuplicateLetterIsRefused;
 var
   Letter, ErrorText: string;
 begin
+  CreateSynthesis;
   AddProtocol('A');
   WriteText(Path('other' + PathDelim + 'A.pro'),
     'Block=Other;' + LineEnding + #9'Pause=9;');
   AssertFalse(FWs.AddProtocolFile(Path('other' + PathDelim + 'A.pro'), Letter,
     ErrorText));
   AssertEquals(1, FWs.Session.ProtocolCount);
+  AssertTrue('копия первого протокола не затёрта',
+    Pos('BlockA', ReadText(ProtocolFile('A'))) > 0);
 end;
 
-procedure TSynthesisWorkspaceTests.LayersFileLoadsFromOriginalPlace;
+procedure TSynthesisWorkspaceTests.RemoveProtocolRemovesCopyAndLetter;
 var
-  Layers: TSliceLayers;
   ErrorText: string;
+  Info: TMemIniFile;
 begin
-  Layers := MakeLayers('Arr1', 'A', 2);
-  AssertTrue(ErrorText, SaveSliceStatistics(Path('projects' + PathDelim + 'Arr1' + PathDelim + 'slice'),
-    Layers, SLICES_EZD_FILE, ErrorText));
-  AssertTrue(ErrorText, FWs.AddLayersFile(Path('projects' + PathDelim + 'Arr1' +
-    PathDelim + 'slice' + PathDelim + 'Slices.lays'), ErrorText));
-  AssertEquals(2, FWs.Session.LayerCount);
-  AssertEquals(Layers[1].EZDFile, FWs.Session.Layers[1].EZDFile);
-  AssertFalse(FWs.AddLayersFile(Path('projects' + PathDelim + 'none.lays'), ErrorText));
-  AssertTrue(ErrorText <> '');
-  AssertEquals('прежние слои на месте', 2, FWs.Session.LayerCount);
-end;
-
-procedure TSynthesisWorkspaceTests.SaveCopiesLayersProtocolsAndWritesSynthesisFile;
-var
-  Folder: string;
-  I: TMemIniFile;
-begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 2);
-  Folder := SaveTo('first');
-  AssertEquals(Folder, FWs.Folder);
-  AssertEquals('Arr1 layer 1', ReadText(Folder + PathDelim + 'layers' + PathDelim + 'Layer1.ezd'));
-  AssertEquals('Arr1 layer 2', ReadText(Folder + PathDelim + 'layers' + PathDelim + 'Layer2.ezd'));
-  AssertEquals(Trim(FWs.Session.ProtocolOf('A').ToText),
-    ReadText(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
-  AssertTrue(FileExists(Folder + PathDelim + SYNTHESIS_SLICES_FILE));
-  I := TMemIniFile.Create(Folder + PathDelim + SYNTHESIS_INFO_FILE);
+  AddProtocol('C');
+  AddProtocol('G');
+  AssertTrue(ErrorText, FWs.RemoveProtocol('C', ErrorText));
+  AssertEquals(2, FWs.Session.ProtocolCount);
+  AssertFalse(FWs.Session.HasProtocol('C'));
+  AssertEquals('A', FWs.Session.ProtocolLetters[0]);
+  AssertEquals('G', FWs.Session.ProtocolLetters[1]);
+  AssertFalse(FileExists(ProtocolFile('C')));
+  AssertTrue(FileExists(ProtocolFile('A')));
+  AssertTrue(FileExists(ProtocolFile('G')));
+  Info := TMemIniFile.Create(FSynth + PathDelim + SYNTHESIS_INFO_FILE);
   try
-    AssertEquals('Arr1', I.ReadString('Synthesis', 'ArrayName', ''));
-    AssertEquals(2, I.ReadInteger('Synthesis', 'LayerCount', 0));
-    AssertEquals('A', I.ReadString('Synthesis', 'Letters', ''));
-    AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Saved', ''));
-    AssertEquals(Path('projects' + PathDelim + 'Arr1' + PathDelim + 'slice' +
-      PathDelim + 'ezd'),
-      I.ReadString('Synthesis', 'SourceFolder', ''));
+    AssertEquals('A,G', Info.ReadString('Synthesis', 'Letters', ''));
   finally
-    I.Free;
+    Info.Free;
   end;
-  AssertFalse(FWs.NeedsSave);
 end;
 
-procedure TSynthesisWorkspaceTests.SessionUsesCopiesAfterSave;
-var
-  Folder: string;
-  Original: string;
-begin
-  LoadLayers('Arr1', 'A', 1);
-  Original := FWs.Session.Layers[0].EZDFile;
-  Folder := SaveTo('first');
-  AssertEquals(Folder + PathDelim + 'layers' + PathDelim + 'Layer1.ezd',
-    FWs.Session.Layers[0].EZDFile);
-  AssertTrue('исходный файл не тронут', FileExists(Original));
-end;
-
-procedure TSynthesisWorkspaceTests.SaveNeedsSomethingToSave;
+procedure TSynthesisWorkspaceTests.RemoveMissingProtocolChangesNothing;
 var
   ErrorText: string;
 begin
-  AssertFalse(FWs.Save(Path('syn'), Moment, ErrorText));
-  AssertTrue(ErrorText, ErrorText <> '');
-  AssertFalse(DirectoryExists(Path('syn')));
-end;
-
-procedure TSynthesisWorkspaceTests.SaveRefusesNonEmptyForeignFolder;
-var
-  ErrorText: string;
-begin
+  CreateSynthesis;
   AddProtocol('A');
-  WriteText(Path('busy' + PathDelim + 'something.txt'), 'x');
-  AssertFalse(FWs.Save(Path('busy'), Moment, ErrorText));
-  AssertTrue(ErrorText, Pos('busy', ErrorText) > 0);
-  AssertTrue('чужие файлы целы', FileExists(Path('busy' + PathDelim + 'something.txt')));
-  AssertEquals('', FWs.Folder);
+  AssertFalse(FWs.RemoveProtocol('T', ErrorText));
+  AssertTrue(ErrorText, Pos('Протокол T не найден', ErrorText) > 0);
+  AssertEquals(1, FWs.Session.ProtocolCount);
+  AssertTrue(FileExists(ProtocolFile('A')));
 end;
 
-procedure TSynthesisWorkspaceTests.SaveFailureRemovesNewFolderAndKeepsSession;
-var
-  Layers: TSliceLayers;
-  ErrorText: string;
+procedure TSynthesisWorkspaceTests.AddLayersBuildsLayersInSynthesisFolder;
 begin
-  Layers := MakeLayers('Arr1', 'A', 2);
-  DeleteFile(Layers[1].EZDFile);
-  FWs.ReplaceLayers(Layers);
-  AssertFalse(FWs.Save(Path('syn'), Moment, ErrorText));
-  AssertTrue(ErrorText, Pos('Layer2.ezd', ErrorText) > 0);
-  AssertFalse(DirectoryExists(Path('syn')));
-  AssertEquals('', FWs.Folder);
+  CreateSynthesis;
+  BuildLayers(2);
+  AssertEquals(FSlice, FBuilder.LastSlice);
+  AssertEquals(FSynth, FBuilder.LastSynthesis);
   AssertEquals(2, FWs.Session.LayerCount);
-  AssertEquals(Layers[0].EZDFile, FWs.Session.Layers[0].EZDFile);
-  AssertTrue(FWs.NeedsSave);
+  AssertEquals(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd',
+    FWs.Session.Layers[0].EZDFile);
+  AssertEquals('ezd 2', ReadText(FWs.Session.Layers[1].EZDFile));
+  AssertTrue(FileExists(FSynth + PathDelim + SYNTHESIS_SLICES_FILE));
+  AssertEquals(FSlice, FWs.SourceFolder);
+  AssertEquals(2, InfoOf(FSynth).LayerCount);
+  AssertEquals(FSlice, InfoOf(FSynth).SourceFolder);
 end;
 
-procedure TSynthesisWorkspaceTests.SaveAgainToSameFolderReplacesLayers;
+procedure TSynthesisWorkspaceTests.SliceOutsideProjectIsRefusedWithoutBuilding;
 var
-  Folder, ErrorText: string;
+  Other, ErrorText: string;
 begin
-  LoadLayers('Arr1', 'A', 3);
-  Folder := SaveTo('first');
-  LoadLayers('Arr2', 'A', 1);
-  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
-  AssertEquals(1, FWs.Session.LayerCount);
-  AssertEquals('Arr2 layer 1', ReadText(FWs.Session.Layers[0].EZDFile));
-  AssertFalse('лишняя копия убрана',
-    FileExists(Folder + PathDelim + 'layers' + PathDelim + 'Layer3.ezd'));
+  CreateSynthesis;
+  Other := Path('projects' + PathDelim + 'Other' + PathDelim + 'slice');
+  WriteText(Other + PathDelim + 'Slices.txt', 'Layer');
+  AssertTrue(FWs.AddLayers(FBuilder, Other, ErrorText) = lbsFailed);
+  AssertTrue(ErrorText, Pos('в папке проекта', ErrorText) > 0);
+  AssertEquals(0, FBuilder.BuildCalls);
+  AssertEquals(0, FWs.Session.LayerCount);
 end;
 
-procedure TSynthesisWorkspaceTests.SaveAgainKeepsStoredLayers;
+procedure TSynthesisWorkspaceTests.SliceWithoutStatisticsIsRefusedWithoutBuilding;
 var
-  Folder, ErrorText: string;
+  Empty, ErrorText: string;
 begin
+  CreateSynthesis;
+  Empty := FProject + PathDelim + 'empty';
+  ForceDirectories(Empty);
+  AssertTrue(FWs.AddLayers(FBuilder, Empty, ErrorText) = lbsFailed);
+  AssertTrue(ErrorText, Pos('Slices.txt', ErrorText) > 0);
+  AssertEquals(0, FBuilder.BuildCalls);
+end;
+
+procedure TSynthesisWorkspaceTests.CancelledBuildLeavesSynthesisEmpty;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  FBuilder.Status := lbsCancelled;
+  AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsCancelled);
+  AssertEquals(1, FBuilder.BuildCalls);
+  AssertEquals(0, FWs.Session.LayerCount);
+  AssertEquals('', FWs.SourceFolder);
+  AssertFalse(DirectoryExists(FSynth + PathDelim + 'ezd'));
+  AssertEquals(0, InfoOf(FSynth).LayerCount);
+end;
+
+procedure TSynthesisWorkspaceTests.FailedBuildRemovesPartialFiles;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  FBuilder.Status := lbsFailed;
+  AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsFailed);
+  AssertEquals('builder failed', ErrorText);
+  AssertEquals(0, FWs.Session.LayerCount);
+  AssertFalse('недозаписанные EZD убраны',
+    DirectoryExists(FSynth + PathDelim + 'ezd'));
+  AssertFalse(FileExists(FSynth + PathDelim + SYNTHESIS_SLICES_FILE));
+  AssertEquals(0, InfoOf(FSynth).LayerCount);
+end;
+
+procedure TSynthesisWorkspaceTests.SecondAddLayersIsRefused;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  BuildLayers(2);
+  AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsFailed);
+  AssertTrue(ErrorText, Pos('уже загружены', ErrorText) > 0);
+  AssertEquals(1, FBuilder.BuildCalls);
+  AssertEquals(2, FWs.Session.LayerCount);
+end;
+
+procedure TSynthesisWorkspaceTests.RemoveLayersDeletesLayerFilesAndKeepsProtocols;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 2);
-  Folder := SaveTo('first');
-  AddProtocol('G');
-  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
-  AssertEquals('Arr1 layer 2', ReadText(FWs.Session.Layers[1].EZDFile));
-  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'G.pro'));
-  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
+  BuildLayers(2);
+  AssertTrue(ErrorText, FWs.RemoveLayers(ErrorText));
+  AssertEquals(0, FWs.Session.LayerCount);
+  AssertEquals(1, FWs.Session.ProtocolCount);
+  AssertFalse(DirectoryExists(FSynth + PathDelim + 'ezd'));
+  AssertFalse(FileExists(FSynth + PathDelim + SYNTHESIS_SLICES_FILE));
+  AssertFalse(FileExists(FSynth + PathDelim + 'geometry.ini'));
+  AssertFalse(FileExists(FSynth + PathDelim + 'laser.ini'));
+  AssertTrue(FileExists(ProtocolFile('A')));
+  AssertEquals(0, InfoOf(FSynth).LayerCount);
+  AssertEquals('', InfoOf(FSynth).SourceFolder);
+  AssertEquals('', FWs.SourceFolder);
 end;
 
-procedure TSynthesisWorkspaceTests.ChangeAfterSaveNeedsSaveAgain;
-begin
-  AddProtocol('A');
-  SaveTo('first');
-  AssertFalse(FWs.NeedsSave);
-  AddProtocol('G');
-  AssertTrue(FWs.NeedsSave);
-end;
-
-procedure TSynthesisWorkspaceTests.OpenLoadsSavedSynthesis;
+procedure TSynthesisWorkspaceTests.ShowGeometryWithoutLayersSaysSo;
 var
-  Folder, ErrorText: string;
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AssertFalse(FWs.ShowGeometry(FBuilder, ErrorText));
+  AssertEquals('Нет загруженных слоёв для просмотра геометрии.', ErrorText);
+  AssertEquals(0, FBuilder.ShowCalls);
+end;
+
+procedure TSynthesisWorkspaceTests.ShowGeometryPassesSliceAndSynthesisFolders;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  BuildLayers(1);
+  AssertTrue(ErrorText, FWs.ShowGeometry(FBuilder, ErrorText));
+  AssertEquals(1, FBuilder.ShowCalls);
+  AssertEquals(FSlice, FBuilder.ShownSlice);
+  AssertEquals(FSynth, FBuilder.ShownSynthesis);
+end;
+
+procedure TSynthesisWorkspaceTests.OpenLoadsCreatedSynthesis;
+var
+  ErrorText: string;
   Other: TSynthesisWorkspace;
 begin
+  CreateSynthesis;
   AddProtocol('A');
   AddProtocol('T');
-  LoadLayers('Arr1', 'A', 2);
-  Folder := SaveTo('first');
+  BuildLayers(2);
   Other := TSynthesisWorkspace.Create;
   try
-    AssertTrue(ErrorText, Other.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+    AssertTrue(ErrorText, Other.Open(FSynth + PathDelim + SYNTHESIS_INFO_FILE,
       ErrorText));
-    AssertEquals(Folder, Other.Folder);
+    AssertEquals(FSynth, Other.Folder);
+    AssertEquals(FProject, Other.ProjectDir);
+    AssertEquals(FSlice, Other.SourceFolder);
     AssertEquals(2, Other.Session.LayerCount);
     AssertEquals(2, Other.Session.ProtocolCount);
     AssertTrue(Other.Session.HasProtocol('T'));
-    AssertEquals(Folder + PathDelim + 'layers' + PathDelim + 'Layer2.ezd',
+    AssertEquals(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer2.ezd',
       Other.Session.Layers[1].EZDFile);
-    AssertFalse(Other.NeedsSave);
     AssertFalse(Other.Started);
   finally
     Other.Free;
@@ -361,113 +569,144 @@ end;
 
 procedure TSynthesisWorkspaceTests.OpenRejectsForeignFileAndMissingLayers;
 var
-  Folder, ErrorText: string;
+  ErrorText: string;
 begin
-  LoadLayers('Arr1', 'A', 1);
-  Folder := SaveTo('first');
+  CreateSynthesis;
+  BuildLayers(1);
   AddProtocol('Z');
   WriteText(Path('other.ini'), '[Laser]' + LineEnding + 'A=1');
   AssertFalse(FWs.Open(Path('other.ini'), ErrorText));
   AssertTrue(ErrorText, ErrorText <> '');
   AssertEquals('прежнее загруженное не тронуто', 1, FWs.Session.ProtocolCount);
 
-  DeleteFile(Folder + PathDelim + SYNTHESIS_SLICES_FILE);
-  AssertFalse(FWs.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE, ErrorText));
+  DeleteFile(FSynth + PathDelim + SYNTHESIS_SLICES_FILE);
+  AssertFalse(FWs.Open(FSynth + PathDelim + SYNTHESIS_INFO_FILE, ErrorText));
   AssertTrue(ErrorText, Pos('Slices.lays', ErrorText) > 0);
   AssertEquals('после неудачи пусто', 0, FWs.Session.LayerCount);
   AssertEquals('', FWs.Folder);
 end;
 
-procedure TSynthesisWorkspaceTests.StartRequiresSaveAndNoChanges;
+procedure TSynthesisWorkspaceTests.StartRequiresCreatedSynthesis;
 var
   Snap: TSynthesisSnapshot;
   ErrorText: string;
 begin
+  AssertFalse(FWs.PrepareStart(Moment, Snap, ErrorText));
+  AssertTrue(ErrorText, Pos('Создать синтез', ErrorText) > 0);
+  AssertFalse(FWs.Started);
+end;
+
+procedure TSynthesisWorkspaceTests.StartRequiresLayersAndProtocols;
+var
+  Snap: TSynthesisSnapshot;
+  ErrorText: string;
+begin
+  CreateSynthesis;
   AssertFalse('нет слоёв', FWs.PrepareStart(Moment, Snap, ErrorText));
   AssertTrue(ErrorText, Pos('слои', ErrorText) > 0);
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  AssertFalse('не сохранён', FWs.PrepareStart(Moment, Snap, ErrorText));
-  AssertTrue(ErrorText, Pos('Сохранить', ErrorText) > 0);
-  SaveTo('first');
-  AddProtocol('G');
-  AssertFalse('изменён после сохранения', FWs.PrepareStart(Moment, Snap, ErrorText));
-  AssertTrue(ErrorText, Pos('Сохранить', ErrorText) > 0);
+  BuildLayers(1);
+  AssertFalse('нет протокола буквы слоя', FWs.PrepareStart(Moment, Snap, ErrorText));
+  AssertTrue(ErrorText, Pos('Нет протоколов для букв: A', ErrorText) > 0);
   AssertFalse(FWs.Started);
+  AssertFalse('запуск не записан',
+    InfoOf(FSynth).Started);
 end;
 
 procedure TSynthesisWorkspaceTests.StartWritesStartedAndGivesSnapshot;
 var
   Snap: TSynthesisSnapshot;
-  ErrorText, Folder: string;
-  Info: TSynthesisInfo;
+  ErrorText: string;
 begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 2);
-  Folder := SaveTo('first');
+  BuildLayers(2);
   AssertTrue(ErrorText, FWs.PrepareStart(Later, Snap, ErrorText));
   AssertTrue(FWs.Started);
-  AssertEquals(Folder, Snap.Folder);
-  AssertEquals(Folder + PathDelim + SYNTHESIS_LOG_FILE, Snap.LogFile);
+  AssertEquals(FSynth, Snap.Folder);
+  AssertEquals(FSynth + PathDelim + SYNTHESIS_LOG_FILE, Snap.LogFile);
   AssertEquals(2, Length(Snap.Layers));
-  AssertEquals(Folder + PathDelim + 'layers' + PathDelim + 'Layer1.ezd',
+  AssertEquals(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd',
     Snap.Layers[0].EZDFile);
-  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-    Info, ErrorText));
-  AssertTrue(Info.Started);
+  AssertTrue(InfoOf(FSynth).Started);
 end;
 
-procedure TSynthesisWorkspaceTests.StartedSynthesisIsNotStartedOrSavedOverAgain;
+procedure TSynthesisWorkspaceTests.StartRefusesWhenLayerEzdFileIsGone;
 var
   Snap: TSynthesisSnapshot;
-  ErrorText, Folder: string;
+  ErrorText: string;
 begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  Folder := SaveTo('first');
-  AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
+  BuildLayers(2);
+  DeleteFile(FWs.Session.Layers[1].EZDFile);
   AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
-  AssertTrue(ErrorText, Pos('в другую папку', ErrorText) > 0);
-  AssertFalse(FWs.Save(Folder, Later, ErrorText));
-  AssertTrue(ErrorText, Pos('не перезаписывается', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Слой 2', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Layer2.ezd', ErrorText) > 0);
+  AssertFalse('запуск не записан', FWs.Started);
+  AssertFalse(InfoOf(FSynth).Started);
 end;
 
-procedure TSynthesisWorkspaceTests.StartedSynthesisCanBeSavedElsewhereAndStartedAgain;
+procedure TSynthesisWorkspaceTests.StartedSynthesisIsNotStartedAgain;
 var
-  First, Second: TSynthesisSnapshot;
-  ErrorText, Folder: string;
+  Snap: TSynthesisSnapshot;
+  ErrorText: string;
 begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 2);
-  SaveTo('first');
-  AssertTrue(ErrorText, FWs.PrepareStart(Moment, First, ErrorText));
-  Folder := SaveTo('second');
-  AssertFalse(FWs.Started);
-  AssertTrue(ErrorText, FWs.PrepareStart(Later, Second, ErrorText));
-  AssertTrue(First.Folder <> Second.Folder);
-  AssertEquals(Folder, Second.Folder);
-  AssertEquals('Arr1 layer 2', ReadText(Second.Layers[1].EZDFile));
-  AssertTrue(Pos(Folder, Second.Layers[1].EZDFile) = 1);
-  AssertTrue('первая запись цела',
-    FileExists(First.Folder + PathDelim + 'layers' + PathDelim + 'Layer2.ezd'));
+  BuildLayers(1);
+  AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
+  AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
+  AssertTrue(ErrorText, Pos('уже запускался', ErrorText) > 0);
+end;
+
+procedure TSynthesisWorkspaceTests.StartedSynthesisRefusesAnyChange;
+var
+  Snap: TSynthesisSnapshot;
+  Letter, ErrorText: string;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  BuildLayers(1);
+  AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
+
+  WriteText(Path('G.pro'), 'Block=BlockG;' + LineEnding + #9'Pause=5;');
+  AssertFalse(FWs.AddProtocolFile(Path('G.pro'), Letter, ErrorText));
+  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertFalse(FileExists(ProtocolFile('G')));
+  AssertEquals(1, FWs.Session.ProtocolCount);
+
+  AssertFalse(FWs.RemoveProtocol('A', ErrorText));
+  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertTrue(FileExists(ProtocolFile('A')));
+  AssertTrue(FWs.Session.HasProtocol('A'));
+
+  AssertFalse(FWs.RemoveLayers(ErrorText));
+  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertEquals(1, FWs.Session.LayerCount);
+  AssertTrue(FileExists(FWs.Session.Layers[0].EZDFile));
+
+  AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsFailed);
+  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertEquals(1, FBuilder.BuildCalls);
 end;
 
 procedure TSynthesisWorkspaceTests.OpenedStartedSynthesisKnowsItWasStarted;
 var
   Snap: TSynthesisSnapshot;
-  ErrorText, Folder: string;
+  ErrorText: string;
   Other: TSynthesisWorkspace;
 begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  Folder := SaveTo('first');
+  BuildLayers(1);
   AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
   Other := TSynthesisWorkspace.Create;
   try
-    AssertTrue(ErrorText, Other.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE,
+    AssertTrue(ErrorText, Other.Open(FSynth + PathDelim + SYNTHESIS_INFO_FILE,
       ErrorText));
     AssertTrue(Other.Started);
     AssertFalse(Other.PrepareStart(Later, Snap, ErrorText));
+    AssertTrue(ErrorText, Pos('уже запускался', ErrorText) > 0);
   finally
     Other.Free;
   end;
@@ -475,160 +714,22 @@ end;
 
 procedure TSynthesisWorkspaceTests.NewSynthesisClearsSessionButKeepsFiles;
 var
-  Folder: string;
+  Letter, ErrorText: string;
 begin
+  CreateSynthesis;
   AddProtocol('A');
-  Folder := SaveTo('first');
+  BuildLayers(1);
   FWs.NewSynthesis;
   AssertEquals(0, FWs.Session.ProtocolCount);
-  AssertEquals('', FWs.Folder);
-  AssertFalse(FWs.NeedsSave);
-  AssertFalse(FWs.Started);
-  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
-  AddProtocol('A');   // та же буква снова допустима
-end;
-
-procedure TSynthesisWorkspaceTests.RemoveProtocolRemovesOnlyThatLetter;
-begin
-  AddProtocol('A');
-  AddProtocol('C');
-  AddProtocol('G');
-  AssertTrue(FWs.RemoveProtocol('C'));
-  AssertEquals(2, FWs.Session.ProtocolCount);
-  AssertFalse(FWs.Session.HasProtocol('C'));
-  AssertEquals('A', FWs.Session.ProtocolLetters[0]);
-  AssertEquals('G', FWs.Session.ProtocolLetters[1]);
-  AssertTrue(FWs.NeedsSave);
-end;
-
-procedure TSynthesisWorkspaceTests.RemoveMissingProtocolChangesNothing;
-begin
-  AddProtocol('A');
-  SaveTo('first');
-  AssertFalse(FWs.RemoveProtocol('T'));
-  AssertEquals(1, FWs.Session.ProtocolCount);
-  AssertFalse('синтез не изменён', FWs.NeedsSave);
-end;
-
-procedure TSynthesisWorkspaceTests.RemoveLayersKeepsProtocols;
-begin
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 3);
-  FWs.RemoveLayers;
   AssertEquals(0, FWs.Session.LayerCount);
-  AssertEquals(1, FWs.Session.ProtocolCount);
-  AssertTrue(FWs.NeedsSave);
-end;
-
-procedure TSynthesisWorkspaceTests.SaveAfterRemoveProtocolDropsItsFile;
-var
-  Folder, ErrorText: string;
-  Info: TSynthesisInfo;
-begin
-  AddProtocol('A');
-  AddProtocol('C');
-  LoadLayers('Arr1', 'A', 2);
-  Folder := SaveTo('first');
-  AssertTrue(FWs.RemoveProtocol('C'));
-  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
-  AssertFalse(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'C.pro'));
-  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
-  AssertTrue(FileExists(Folder + PathDelim + 'layers' + PathDelim + 'Layer2.ezd'));
-  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-    Info, ErrorText));
-  AssertEquals(2, Info.LayerCount);
-  AssertFalse(FWs.NeedsSave);
-end;
-
-procedure TSynthesisWorkspaceTests.SaveAfterRemoveLayersDropsLayersFiles;
-var
-  Folder, ErrorText: string;
-  Info: TSynthesisInfo;
-  Other: TSynthesisWorkspace;
-begin
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 2);
-  Folder := SaveTo('first');
-  FWs.RemoveLayers;
-  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
-  AssertFalse(DirectoryExists(Folder + PathDelim + 'layers'));
-  AssertFalse(FileExists(Folder + PathDelim + SYNTHESIS_SLICES_FILE));
-  AssertTrue(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
-  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-    Info, ErrorText));
-  AssertEquals(0, Info.LayerCount);
-  Other := TSynthesisWorkspace.Create;
-  try
-    AssertTrue(ErrorText, Other.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-      ErrorText));
-    AssertEquals(0, Other.Session.LayerCount);
-    AssertEquals(1, Other.Session.ProtocolCount);
-    AssertEquals('A', Other.Session.ProtocolLetters[0]);
-  finally
-    Other.Free;
-  end;
-end;
-
-procedure TSynthesisWorkspaceTests.RemovingEverythingFromSavedSynthesisNeedsSave;
-var
-  Folder, ErrorText: string;
-  Info: TSynthesisInfo;
-  Other: TSynthesisWorkspace;
-begin
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  Folder := SaveTo('first');
-  FWs.RemoveLayers;
-  AssertTrue(FWs.RemoveProtocol('A'));
-  AssertTrue('на диске прежний состав', FWs.NeedsSave);
-  AssertTrue(ErrorText, FWs.Save(Folder, Later, ErrorText));
-  AssertFalse(FWs.NeedsSave);
-  AssertFalse(FileExists(Folder + PathDelim + 'protocols' + PathDelim + 'A.pro'));
-  AssertFalse(DirectoryExists(Folder + PathDelim + 'layers'));
-  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-    Info, ErrorText));
-  AssertEquals(0, Info.LayerCount);
-  Other := TSynthesisWorkspace.Create;
-  try
-    AssertTrue(ErrorText, Other.Open(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-      ErrorText));
-    AssertEquals(0, Other.Session.LayerCount);
-    AssertEquals(0, Other.Session.ProtocolCount);
-  finally
-    Other.Free;
-  end;
-end;
-
-procedure TSynthesisWorkspaceTests.RemovingEverythingFromUnsavedSynthesisNeedsNoSave;
-begin
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  FWs.RemoveLayers;
-  AssertTrue(FWs.RemoveProtocol('A'));
-  AssertFalse('сохранять нечего, на диске ничего нет', FWs.NeedsSave);
-end;
-
-procedure TSynthesisWorkspaceTests.RemoveFromStartedSynthesisNeedsOtherFolder;
-var
-  Snap: TSynthesisSnapshot;
-  ErrorText, First, Second: string;
-begin
-  AddProtocol('A');
-  AddProtocol('C');
-  LoadLayers('Arr1', 'A', 1);
-  First := SaveTo('first');
-  AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
-  AssertTrue(FWs.RemoveProtocol('C'));
-  AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
-  AssertTrue(ErrorText, Pos('изменён после сохранения', ErrorText) > 0);
-  AssertFalse(FWs.Save(First, Later, ErrorText));
-  AssertTrue(ErrorText, Pos('не перезаписывается', ErrorText) > 0);
-  AssertTrue('запись выполненного цела',
-    FileExists(First + PathDelim + 'protocols' + PathDelim + 'C.pro'));
-  Second := SaveTo('second');
+  AssertEquals('', FWs.Folder);
+  AssertEquals('', FWs.SourceFolder);
   AssertFalse(FWs.Started);
-  AssertFalse(FileExists(Second + PathDelim + 'protocols' + PathDelim + 'C.pro'));
-  AssertTrue(ErrorText, FWs.PrepareStart(Later, Snap, ErrorText));
+  AssertTrue(FileExists(ProtocolFile('A')));
+  AssertTrue(FileExists(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'));
+  AssertFalse('без синтеза менять нечего',
+    FWs.AddProtocolFile(Path('protocols' + PathDelim + 'A.pro'), Letter,
+      ErrorText));
 end;
 
 procedure TSynthesisWorkspaceTests.RemovedProtocolOfLayersMakesStartRefuse;
@@ -636,30 +737,12 @@ var
   Snap: TSynthesisSnapshot;
   ErrorText: string;
 begin
+  CreateSynthesis;
   AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  SaveTo('first');
-  AssertTrue(FWs.RemoveProtocol('A'));
+  BuildLayers(1);
+  AssertTrue(ErrorText, FWs.RemoveProtocol('A', ErrorText));
   AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
   AssertTrue(ErrorText, Pos('Нет протоколов для букв: A', ErrorText) > 0);
-end;
-
-procedure TSynthesisWorkspaceTests.RemoveLayersThenLoadOtherArrayTakesItsName;
-var
-  Folder, ErrorText: string;
-  Info: TSynthesisInfo;
-begin
-  AddProtocol('A');
-  LoadLayers('Arr1', 'A', 1);
-  FWs.RemoveLayers;
-  LoadLayers('Arr2', 'A', 1);
-  Folder := SaveTo('first');
-  AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
-    Info, ErrorText));
-  AssertEquals('Arr2', Info.ArrayName);
-  AssertEquals(Path('projects' + PathDelim + 'Arr2' + PathDelim + 'slice' +
-    PathDelim + 'ezd'),
-    Info.SourceFolder);
 end;
 
 initialization

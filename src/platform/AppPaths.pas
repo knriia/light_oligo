@@ -16,7 +16,6 @@ const
   PROJECTS_FOLDER = 'projects';      // проекты: папка проекта с одним CSV массива
   PROTOCOLS_FOLDER = 'protocols';    // протоколы синтеза (.pro)
   AUTOMATION_FOLDER = 'automation';  // сценарии шприцевой станции
-  SYNTHESES_FOLDER = 'syntheses';    // папки запусков синтеза
   SETTINGS_FOLDER = 'settings';      // старое место настроек станции (data\settings)
   EZD_FOLDER = 'ezd';                // файлы EzCAD, созданные вручную
   SETTINGS_FILE = 'syringe_pump.ini';
@@ -38,8 +37,6 @@ function DataSubDir(const AFolderName: string;
 function ProjectsDir: string;
 function ProtocolsDir: string;
 function AutomationDir(const AExecutableFileName: string = ''): string;
-// Папки запусков синтеза: в каждой копии слоёв и протоколов, журнал и итог.
-function SynthesesDir(const AExecutableFileName: string = ''): string;
 function EzdDir: string;
 // Папка настроек (configs рядом с exe) и файлы в ней.
 function ConfigsDir(const AExecutableFileName: string = ''): string;
@@ -112,11 +109,6 @@ end;
 function AutomationDir(const AExecutableFileName: string): string;
 begin
   Result := DataSubDir(AUTOMATION_FOLDER, AExecutableFileName);
-end;
-
-function SynthesesDir(const AExecutableFileName: string): string;
-begin
-  Result := DataSubDir(SYNTHESES_FOLDER, AExecutableFileName);
 end;
 
 function ConfigsDir(const AExecutableFileName: string): string;

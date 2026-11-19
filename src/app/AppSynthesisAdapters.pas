@@ -7,8 +7,8 @@ unit AppSynthesisAdapters;
 interface
 
 uses
-  Classes, SysUtils, ProtocolFormat, SynthesisPorts, LaserMarking, EzCadApp,
-  UDispenserStationHost;
+  Classes, SysUtils, ProtocolFormat, OligoSlices, SynthesisPorts, LaserMarking,
+  EzCadApp, ULaserActions, UDispenserStationHost;
 
 type
   // Драйвер EzCAD использует контекст для маршалинга наблюдателя в UI.
@@ -36,6 +36,19 @@ type
     constructor Create(AOpenDelayMs: Integer; AOnOpening: TThreadMethod);
     function MarkLayer(const AEzdFile: string; ARepeats: Integer;
       ATimeSeconds: Double; out AErrorText: string): TPortResult; override;
+  end;
+
+  // Слои синтеза создаёт и показывает модуль лазера (геометрия, EZD).
+  TLaserLayersBuilder = class(TLayersBuilder)
+  private
+    FLaser: TLaserActions;
+  public
+    constructor Create(ALaser: TLaserActions);
+    function Build(const ASliceFolder, ASynthesisFolder: string;
+      out ALayers: TSliceLayers;
+      out AErrorText: string): TLayersBuildStatus; override;
+    function ShowGeometry(const ASliceFolder, ASynthesisFolder: string;
+      out AErrorText: string): Boolean; override;
   end;
 
   // Адаптер формы станции к порту synthesis.
@@ -123,6 +136,36 @@ begin
   finally
     Driver.Free;
   end;
+end;
+
+{ TLaserLayersBuilder }
+
+constructor TLaserLayersBuilder.Create(ALaser: TLaserActions);
+begin
+  inherited Create;
+  FLaser := ALaser;
+end;
+
+function TLaserLayersBuilder.Build(const ASliceFolder,
+  ASynthesisFolder: string; out ALayers: TSliceLayers;
+  out AErrorText: string): TLayersBuildStatus;
+var
+  Cancelled: Boolean;
+begin
+  if FLaser.BuildSynthesisLayers(ASliceFolder, ASynthesisFolder, ALayers,
+    Cancelled, AErrorText) then
+    Result := lbsBuilt
+  else if Cancelled then
+    Result := lbsCancelled
+  else
+    Result := lbsFailed;
+end;
+
+function TLaserLayersBuilder.ShowGeometry(const ASliceFolder,
+  ASynthesisFolder: string; out AErrorText: string): Boolean;
+begin
+  Result := FLaser.ViewSynthesisGeometry(ASliceFolder, ASynthesisFolder,
+    AErrorText);
 end;
 
 { TStationSyringeAdapter }

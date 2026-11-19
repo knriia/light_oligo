@@ -1,12 +1,13 @@
 unit SynthesisFolder;
-// Папка одного синтеза: data\syntheses\<имя>\. В неё копируются слои
-// (EZD-файлы, layers\), протоколы букв (protocols\) и Slices.lays с путями к
-// копиям, а файл синтеза synthesis.ini хранит, когда синтез сохранён, какой
-// массив, сколько слоёв и какие буквы. При запуске в него дописывается время
-// запуска, рядом пишется журнал log.txt, а при завершении - итог (завершён,
-// остановлен или ошибка). Синтез идёт по копиям, поэтому папка - точная запись
-// того, что выполнялось, даже если исходные файлы потом изменятся. Здесь
-// отдельные действия над папкой; когда и что копировать, решает
+// Папка одного синтеза: <папка проекта>\synthes_<дата>\. В ней лежат EZD-файлы
+// слоёв (ezd\), Slices.lays с путями к ним, геометрия и перо лазера, с которыми
+// созданы EZD (geometry.ini, laser.ini), протоколы букв (protocols\), а файл
+// синтеза synthesis.ini хранит, когда синтез изменён, какой проект, из какого
+// слайса слои, сколько слоёв и какие буквы. При запуске в него дописывается
+// время запуска, рядом пишется журнал log.txt, а при завершении - итог
+// (завершён, остановлен или ошибка). Синтез идёт по файлам своей папки, поэтому
+// папка - точная запись того, что выполнялось, даже если слайс потом изменится.
+// Здесь отдельные действия над папкой; когда и что делать, решает
 // SynthesisWorkspace.
 
 {$mode ObjFPC}{$H+}
@@ -14,57 +15,73 @@ unit SynthesisFolder;
 interface
 
 uses
-  Classes, SysUtils, IniFiles, OligoSlices, ProtocolModel;
+  Classes, SysUtils, IniFiles, OligoSlices, ProtocolModel, AppPaths;
 
 const
   SYNTHESIS_INFO_FILE = 'synthesis.ini';
   SYNTHESIS_LOG_FILE = 'log.txt';
-  SYNTHESIS_LAYERS_FOLDER = 'layers';
+  SYNTHESIS_FOLDER_PREFIX = 'synthes_';
+  SYNTHESIS_EZD_FOLDER = EZD_FOLDER;       // EZD-файлы слоёв (то же имя пишет лазер)
   SYNTHESIS_PROTOCOLS_FOLDER = 'protocols';
-  SYNTHESIS_SLICES_FILE = 'Slices.lays';   // таблица слоёв с путями к копиям
+  SYNTHESIS_SLICES_FILE = 'Slices.lays';   // таблица слоёв с путями к EZD
+  // Перо лазера, с которым созданы EZD (то же имя, что у LASER_PEN_FILE в
+  // модуле laser: synthesis с ним не связан и только стирает файл вместе со
+  // слоями).
+  SYNTHESIS_LASER_FILE = 'laser.ini';
+  SLICE_STATISTICS_FILE = 'Slices.txt';    // слайс: слои и пути к матрицам
 
 type
   TSynthesisSnapshot = record
     Folder: string;
     LogFile: string;
-    Layers: TSliceLayers;   // слои с путями к копиям EZD внутри папки
+    Layers: TSliceLayers;   // слои с путями к EZD внутри папки
   end;
 
   TSynthesisResult = (srCompleted, srStopped, srFailed);
 
   // Что записано о синтезе в synthesis.ini (файл синтеза).
   TSynthesisInfo = record
-    ArrayName: string;
-    SourceFolder: string;   // откуда взяты слои
+    ArrayName: string;      // имя проекта (папки проекта)
+    SourceFolder: string;   // папка слайса, из которого взяты слои
     LayerCount: Integer;
     Started: Boolean;       // синтез уже запускался
   end;
 
-// Имя массива по папке слоёв: папка ezd или layers внутри папки массива -
-// имя берётся от папки массива. Пусто - 'array'.
-function ArrayNameOfLayers(const ALayers: TSliceLayers): string;
 // Часть имени папки без символов, недопустимых в Windows, не длиннее 60.
 function SafeFolderPart(const AText: string): string;
-// <гггг-мм-дд>_<ччммсс>_<массив>; без массива - только дата и время
-function SynthesisFolderName(const AArrayName: string; ANow: TDateTime): string;
+// Имя папки синтеза по умолчанию: synthes_<гггг-мм-дд>
+function SynthesisFolderName(ANow: TDateTime): string;
+// То же, но свободное в папке проекта: если такая папка есть, добавляется
+// _2, _3...
+function FreeSynthesisFolderName(const AProjectDir: string;
+  ANow: TDateTime): string;
+
+// Папка проекта: в ней есть файл массива (*.csv).
+function IsProjectFolder(const AFolder: string): Boolean;
+// Слайс синтеза: папка со Slices.txt внутри папки проекта (или сама папка
+// проекта). Иначе - False, текст объясняет почему.
+function CheckSliceFolder(const AProjectDir, ASliceDir: string;
+  out AErrorText: string): Boolean;
 
 // Удаляет папку со всем содержимым (нет папки - ничего не делает).
 procedure RemoveDirectoryTree(const ADirectory: string);
 
-// Папка с EZD-копиями слоёв внутри папки синтеза (с разделителем на конце).
-function LayersFolderOf(const AFolder: string): string;
+// Папка с EZD-файлами слоёв внутри папки синтеза (с разделителем на конце).
+function EzdFolderOf(const AFolder: string): string;
 
-// Копирует EZD каждого слоя в AFolder\layers, один исходный файл - один раз.
-// ACopies - те же слои с путями к копиям. Нет файла, не копируется, нет места -
-// False, текст называет слой и файл.
-function CopyLayersToFolder(const ALayers: TSliceLayers; const AFolder: string;
-  out ACopies: TSliceLayers; out AErrorText: string): Boolean;
+// Удаляет из папки синтеза всё, что относится к слоям: ezd\, Slices.lays,
+// geometry.ini и laser.ini. Протоколы и synthesis.ini остаются.
+procedure RemoveLayerFiles(const AFolder: string);
+
+// Файл копии протокола буквы: AFolder\protocols\<буква>.pro
+function ProtocolCopyFileName(const AFolder, ALetter: string): string;
 
 // Записывает протокол буквы в AFolder\protocols\<буква>.pro как есть.
 function WriteProtocolCopy(AProtocol: TProtocolModel; const ALetter,
   AFolder: string; out AErrorText: string): Boolean;
 
-// Записывает файл синтеза synthesis.ini: когда сохранён, массив, слои, буквы.
+// Записывает файл синтеза synthesis.ini: проект, слайс, слои, буквы. Время
+// создания (Created) пишется один раз, при повторной записи остаётся прежним.
 function SaveSynthesisInfo(const AFolder, AArrayName, ASourceFolder: string;
   ALayerCount: Integer; ALetters: TStringList; ANow: TDateTime;
   out AErrorText: string): Boolean;
@@ -84,33 +101,12 @@ function SaveSynthesisResult(const AFolder: string; AResult: TSynthesisResult;
 implementation
 
 uses
-  TextFileUtils;
+  TextFileUtils, MarkGeometry;
 
 const
   INFO_SECTION = 'Synthesis';
   RESULT_SECTION = 'Result';
   DATE_TIME_FORMAT = 'yyyy-mm-dd hh:nn:ss';
-
-function ArrayNameOfLayers(const ALayers: TSliceLayers): string;
-var
-  Dir, Leaf: string;
-begin
-  Result := 'array';
-  if Length(ALayers) = 0 then
-    Exit;
-  Dir := ExcludeTrailingPathDelimiter(ExtractFilePath(ALayers[0].EZDFile));
-  Leaf := ExtractFileName(Dir);
-  // EZD лежат в <проект>\<папка слайса>\ezd - имя массива это папка проекта
-  if SameText(Leaf, 'ezd') then
-  begin
-    Dir := ExcludeTrailingPathDelimiter(ExtractFilePath(Dir));
-    Leaf := ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(Dir)));
-  end
-  else if SameText(Leaf, SYNTHESIS_LAYERS_FOLDER) then
-    Leaf := ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(Dir)));
-  if Leaf <> '' then
-    Result := Leaf;
-end;
 
 function SafeFolderPart(const AText: string): string;
 var
@@ -131,11 +127,65 @@ begin
     Result := 'array';
 end;
 
-function SynthesisFolderName(const AArrayName: string; ANow: TDateTime): string;
+function SynthesisFolderName(ANow: TDateTime): string;
 begin
-  Result := FormatDateTime('yyyy-mm-dd"_"hhnnss', ANow);
-  if AArrayName <> '' then
-    Result := Result + '_' + SafeFolderPart(AArrayName);
+  Result := SYNTHESIS_FOLDER_PREFIX + FormatDateTime('yyyy-mm-dd', ANow);
+end;
+
+function FreeSynthesisFolderName(const AProjectDir: string;
+  ANow: TDateTime): string;
+var
+  Dir, Base: string;
+  N: Integer;
+begin
+  Dir := IncludeTrailingPathDelimiter(AProjectDir);
+  Base := SynthesisFolderName(ANow);
+  Result := Base;
+  N := 2;
+  while DirectoryExists(Dir + Result) or FileExists(Dir + Result) do
+  begin
+    Result := Base + '_' + IntToStr(N);
+    Inc(N);
+  end;
+end;
+
+function IsProjectFolder(const AFolder: string): Boolean;
+var
+  Search: TSearchRec;
+begin
+  Result := False;
+  if (AFolder = '') or not DirectoryExists(AFolder) then
+    Exit;
+  if FindFirst(IncludeTrailingPathDelimiter(AFolder) + '*.csv',
+    faAnyFile and not faDirectory, Search) = 0 then
+  begin
+    Result := True;
+    FindClose(Search);
+  end;
+end;
+
+function CheckSliceFolder(const AProjectDir, ASliceDir: string;
+  out AErrorText: string): Boolean;
+var
+  Project, Slice: string;
+begin
+  Result := False;
+  AErrorText := '';
+  Project := IncludeTrailingPathDelimiter(ExpandFileName(AProjectDir));
+  Slice := IncludeTrailingPathDelimiter(ExpandFileName(ASliceDir));
+  if not SameText(Copy(Slice, 1, Length(Project)), Project) then
+  begin
+    AErrorText := 'Слайс должен лежать в папке проекта синтеза:' + LineEnding +
+      ExcludeTrailingPathDelimiter(Project);
+    Exit;
+  end;
+  if not FileExists(Slice + SLICE_STATISTICS_FILE) then
+  begin
+    AErrorText := 'В выбранной папке нет файла ' + SLICE_STATISTICS_FILE +
+      ': это не папка слайса.';
+    Exit;
+  end;
+  Result := True;
 end;
 
 procedure RemoveDirectoryTree(const ADirectory: string);
@@ -160,107 +210,27 @@ begin
   RemoveDir(ADirectory);
 end;
 
-function CopyOneFile(const ASource, ADest: string; out AErrorText: string): Boolean;
-var
-  Source, Dest: TFileStream;
+function EzdFolderOf(const AFolder: string): string;
 begin
-  Result := False;
-  AErrorText := '';
-  try
-    Source := TFileStream.Create(ASource, fmOpenRead or fmShareDenyNone);
-    try
-      Dest := TFileStream.Create(ADest, fmCreate);
-      try
-        Dest.CopyFrom(Source, 0);
-      finally
-        Dest.Free;
-      end;
-    finally
-      Source.Free;
-    end;
-    Result := True;
-  except
-    on E: Exception do
-      AErrorText := E.Message;
-  end;
-end;
-
-// Свободное имя файла в папке: при совпадении добавляется _2, _3...
-function FreeFileName(const ADir, AName: string): string;
-var
-  Base, Ext: string;
-  N: Integer;
-begin
-  Result := AName;
-  if not FileExists(ADir + Result) then
-    Exit;
-  Ext := ExtractFileExt(AName);
-  Base := ChangeFileExt(AName, '');
-  N := 2;
-  repeat
-    Result := Base + '_' + IntToStr(N) + Ext;
-    Inc(N);
-  until not FileExists(ADir + Result);
-end;
-
-function LayersFolderOf(const AFolder: string): string;
-begin
-  Result := IncludeTrailingPathDelimiter(AFolder) + SYNTHESIS_LAYERS_FOLDER +
+  Result := IncludeTrailingPathDelimiter(AFolder) + SYNTHESIS_EZD_FOLDER +
     PathDelim;
 end;
 
-function CopyLayersToFolder(const ALayers: TSliceLayers; const AFolder: string;
-  out ACopies: TSliceLayers; out AErrorText: string): Boolean;
+procedure RemoveLayerFiles(const AFolder: string);
 var
-  LayersDir, DestName, CopyError: string;
-  Sources, Dests: TStringList;
-  I, Index: Integer;
+  Dir: string;
 begin
-  Result := False;
-  ACopies := nil;
-  AErrorText := '';
-  LayersDir := LayersFolderOf(AFolder);
-  if not ForceDirectories(LayersDir) then
-  begin
-    AErrorText := 'Не удалось создать папку для слоёв:' + LineEnding + LayersDir;
-    Exit;
-  end;
-  SetLength(ACopies, Length(ALayers));
-  Sources := TStringList.Create;
-  Dests := TStringList.Create;
-  try
-    for I := 0 to High(ALayers) do
-    begin
-      ACopies[I] := ALayers[I];
-      Index := Sources.IndexOf(ALayers[I].EZDFile);
-      if Index >= 0 then
-      begin
-        ACopies[I].EZDFile := Dests[Index]; // тот же файл уже скопирован
-        Continue;
-      end;
-      if not FileExists(ALayers[I].EZDFile) then
-      begin
-        AErrorText := 'Слой ' + IntToStr(ALayers[I].LayerNumber) +
-          ': файл EZD не найден:' + LineEnding + ALayers[I].EZDFile;
-        Exit;
-      end;
-      DestName := FreeFileName(LayersDir, ExtractFileName(ALayers[I].EZDFile));
-      if not CopyOneFile(ALayers[I].EZDFile, LayersDir + DestName, CopyError) then
-      begin
-        AErrorText := 'Слой ' + IntToStr(ALayers[I].LayerNumber) +
-          ': не удалось скопировать файл EZD:' + LineEnding +
-          ALayers[I].EZDFile + LineEnding + CopyError;
-        Exit;
-      end;
-      Sources.Add(ALayers[I].EZDFile);
-      Dests.Add(LayersDir + DestName);
-      ACopies[I].EZDFile := LayersDir + DestName;
-    end;
-  finally
-    Dests.Free;
-    Sources.Free;
-  end;
-  Result := True;
+  Dir := IncludeTrailingPathDelimiter(AFolder);
+  RemoveDirectoryTree(ExcludeTrailingPathDelimiter(EzdFolderOf(AFolder)));
+  DeleteFile(Dir + SYNTHESIS_SLICES_FILE);
+  DeleteFile(Dir + GEOMETRY_FILE);
+  DeleteFile(Dir + SYNTHESIS_LASER_FILE);
+end;
+
+function ProtocolCopyFileName(const AFolder, ALetter: string): string;
+begin
+  Result := IncludeTrailingPathDelimiter(AFolder) +
+    SYNTHESIS_PROTOCOLS_FOLDER + PathDelim + SafeFolderPart(ALetter) + '.pro';
 end;
 
 function WriteProtocolCopy(AProtocol: TProtocolModel; const ALetter,
@@ -278,7 +248,7 @@ begin
     Exit;
   end;
   // это запись того, что выполнялось: пишем как есть, без новой проверки
-  FileName := Dir + SafeFolderPart(ALetter) + '.pro';
+  FileName := ProtocolCopyFileName(AFolder, ALetter);
   if not WriteUtf8TextFile(FileName, AProtocol.ToText, WriteError) then
   begin
     AErrorText := 'Не удалось записать протокол буквы "' + ALetter + '":' +
@@ -301,7 +271,9 @@ begin
       SYNTHESIS_INFO_FILE);
     try
       Ini.WriteString(INFO_SECTION, 'Program', 'LightOligo');
-      Ini.WriteString(INFO_SECTION, 'Saved', FormatDateTime(DATE_TIME_FORMAT, ANow));
+      if not Ini.ValueExists(INFO_SECTION, 'Created') then
+        Ini.WriteString(INFO_SECTION, 'Created',
+          FormatDateTime(DATE_TIME_FORMAT, ANow));
       Ini.WriteString(INFO_SECTION, 'ArrayName', AArrayName);
       Ini.WriteString(INFO_SECTION, 'SourceFolder', ASourceFolder);
       Ini.WriteInteger(INFO_SECTION, 'LayerCount', ALayerCount);

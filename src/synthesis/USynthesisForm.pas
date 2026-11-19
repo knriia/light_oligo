@@ -1,10 +1,10 @@
 unit USynthesisForm;
-// Вкладка «Синтез»: загрузка слоёв и протоколов, запуск и остановка синтеза.
-// Что загружено - в синтезе (SynthesisWorkspace: сессия и папка на диске, куда
-// слои и протоколы копируются кнопкой «Сохранить»), ход синтеза - в потоке
-// (SynthesisThread и SynthesisRunner). Вкладка ничего не знает о главном окне:
-// журнал, шприцевую станцию и запуск наблюдателя за окнами EzCAD ей передаёт
-// владелец.
+// Вкладка «Синтез»: создание синтеза в проекте, загрузка слоёв и протоколов,
+// запуск и остановка синтеза. Что загружено - в синтезе (SynthesisWorkspace:
+// сессия и папка синтеза в проекте, куда всё пишется сразу), ход синтеза - в
+// потоке (SynthesisThread и SynthesisRunner). Вкладка ничего не знает о
+// главном окне: журнал, шприцевую станцию, создание слоёв (геометрия и EZD),
+// текущий проект и запуск наблюдателя за окнами EzCAD ей передаёт владелец.
 
 {$mode ObjFPC}{$H+}
 {$codepage utf8}
@@ -18,13 +18,16 @@ uses
 
 type
   TSynthesisLogEvent = procedure(const AMsg: string) of object;
+  // Папка открытого проекта (проект, открытый на вкладке последовательностей);
+  // пусто - проект не открыт.
+  TSynthesisProjectEvent = function: string of object;
 
   { TSynthesisForm }
 
   TSynthesisForm = class(TForm)
     B_NewSynthesis: TButton;
     B_OpenSynthesis: TButton;
-    B_SaveSynthesis: TButton;
+    B_Geometry: TButton;
     B_LoadLayers: TButton;
     B_RemoveSelected: TButton;
     B_LoadProtToSynth: TButton;
@@ -38,7 +41,7 @@ type
     procedure B_RemoveSelectedClick(Sender: TObject);
     procedure B_NewSynthesisClick(Sender: TObject);
     procedure B_OpenSynthesisClick(Sender: TObject);
-    procedure B_SaveSynthesisClick(Sender: TObject);
+    procedure B_GeometryClick(Sender: TObject);
     procedure B_LoadProtToSynthClick(Sender: TObject);
     procedure B_PauseClick(Sender: TObject);
     procedure B_StartClick(Sender: TObject);
@@ -48,6 +51,8 @@ type
     FHost: TSynthesisHost;                // связь потока с окнами
     FStation: TSyringeStation;
     FMarker: TLayerMarker;
+    FLayersBuilder: TLayersBuilder;
+    FOnGetProjectDir: TSynthesisProjectEvent;
     FOnLog: TSynthesisLogEvent;
     FOnCheckSyringeStep: TSyringeStepCheck;
     FOnClearLog: TNotifyEvent;
@@ -56,19 +61,27 @@ type
     function ProtocolsConfigReport: string;
     procedure ThreadFinished(Sender: TObject);
     procedure RebuildTree;
-    function SaveSynthesis: Boolean;
-    function AskSaveIfNeeded: Boolean;
+    // Папка открытого проекта или пусто.
+    function OpenProjectDir: string;
+    // Выбор проекта в корне projects; пусто - отказ или это не проект.
+    function ChooseProjectDir: string;
+    // Выбор слайса в проекте синтеза и создание слоёв синтеза.
+    procedure LoadLayersFromSlice;
     procedure Log(const AText: string);
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
     procedure ApplyCaptions(AIni: TCustomIniFile);
-    // Слои нового массива (после слайсинга) или пустая таблица (массив сброшен).
-    procedure SetLayers(const ALayers: TSliceLayers);
     // Перед закрытием программы: идущий синтез останавливаем только с согласия.
     function CanCloseFromHost: Boolean;
     property Station: TSyringeStation read FStation write FStation;
     property Marker: TLayerMarker read FMarker write FMarker;
+    // Геометрия и EZD слоёв; без него слои создать и показать нельзя.
+    property LayersBuilder: TLayersBuilder read FLayersBuilder
+      write FLayersBuilder;
+    // Открытый проект: синтез создаётся в нём; нет события - проект выбирают.
+    property OnGetProjectDir: TSynthesisProjectEvent read FOnGetProjectDir
+      write FOnGetProjectDir;
     property OnLog: TSynthesisLogEvent read FOnLog write FOnLog;
     // Сверка SyrSt протоколов с конфигурацией дозаторов при запуске синтеза.
     property OnCheckSyringeStep: TSyringeStepCheck
@@ -82,7 +95,7 @@ implementation
 {$R *.lfm}
 
 uses
-  AppPaths;
+  AppPaths, UChoiceForm;
 
 const
   // Node.Data узла дерева: протокол - его номер + 1, слои - эта метка
@@ -153,7 +166,7 @@ begin
   B_RemoveSelected.Caption := AIni.ReadString('Synthesis', 'B_RemoveSelected', 'Remove Selected');
   B_NewSynthesis.Caption := AIni.ReadString('Synthesis', 'B_NewSynthesis', 'New Synthesis');
   B_OpenSynthesis.Caption := AIni.ReadString('Synthesis', 'B_OpenSynthesis', 'Open');
-  B_SaveSynthesis.Caption := AIni.ReadString('Synthesis', 'B_SaveSynthesis', 'Save');
+  B_Geometry.Caption := AIni.ReadString('Synthesis', 'B_Geometry', 'Geometry');
   B_Start.Caption := AIni.ReadString('Synthesis', 'B_Start', 'Start');
   B_Pause.Caption := AIni.ReadString('Synthesis', 'B_Pause', 'Pause');
 end;
@@ -175,18 +188,6 @@ begin
   FThread := nil;
 end;
 
-procedure TSynthesisForm.SetLayers(const ALayers: TSliceLayers);
-begin
-  if Running then
-  begin
-    Log('WARNING: слои массива изменились во время синтеза, в синтез они ' +
-      'не добавлены');
-    Exit;
-  end;
-  FWorkspace.ReplaceLayers(ALayers);
-  RebuildTree;
-end;
-
 function TSynthesisForm.CanCloseFromHost: Boolean;
 begin
   Result := True;
@@ -195,8 +196,6 @@ begin
       mtConfirmation, [mbYes, mbNo], 0) = mrYes;
   if Result and Running then
     FThread.Terminate;
-  if Result and not Running then
-    Result := AskSaveIfNeeded;
 end;
 
 procedure TSynthesisForm.RebuildTree;
@@ -213,12 +212,9 @@ begin
   TV_Synthesis.Items.BeginUpdate;
   try
     TV_Synthesis.Items.Clear;
-    if (Session.ProtocolCount = 0) and (Session.LayerCount = 0) then
-      Exit;
     if FWorkspace.Folder = '' then
-      Root := TV_Synthesis.Items.Add(nil, 'Синтез не сохранён')
-    else
-      Root := TV_Synthesis.Items.Add(nil, 'Синтез: ' + FWorkspace.Folder);
+      Exit;
+    Root := TV_Synthesis.Items.Add(nil, 'Синтез: ' + FWorkspace.Folder);
     for I := 0 to Session.ProtocolCount - 1 do
     begin
       Letter := Session.ProtocolLetters[I];
@@ -246,50 +242,147 @@ begin
   end;
 end;
 
-function TSynthesisForm.AskSaveIfNeeded: Boolean;
-// True - можно продолжать (сохранили или отказались сохранять); False - отмена
+function TSynthesisForm.OpenProjectDir: string;
 begin
-  Result := True;
-  if not FWorkspace.NeedsSave then
-    Exit;
-  case QuestionDlg('Синтез не сохранён', 'Сохранить синтез?', mtConfirmation,
-    [mrYes, AnsiString('Сохранить'), mrNo, AnsiString('Нет'),
-     mrCancel, AnsiString('Отмена')], 0) of
-    mrYes: Result := SaveSynthesis;
-    mrNo: Result := True;
-  else
-    Result := False;
+  Result := '';
+  if Assigned(FOnGetProjectDir) then
+    Result := FOnGetProjectDir();
+end;
+
+function TSynthesisForm.ChooseProjectDir: string;
+// Диалог открывается в корне projects; проектом считается любая выбранная
+// папка с файлом массива (.csv)
+var
+  Dialog: TSelectDirectoryDialog;
+begin
+  Result := '';
+  ForceDirectories(ProjectsDir);
+  Dialog := TSelectDirectoryDialog.Create(nil);
+  try
+    Dialog.Title := 'Проект, для которого создаётся синтез';
+    Dialog.InitialDir := ProjectsDir;
+    if not Dialog.Execute then
+      Exit;
+    Result := ExcludeTrailingPathDelimiter(Dialog.FileName);
+  finally
+    Dialog.Free;
+  end;
+  if not IsProjectFolder(Result) then
+  begin
+    ShowMessage('Это не папка проекта: в ней нет файла массива (.csv).' +
+      LineEnding + Result);
+    Result := '';
   end;
 end;
 
+procedure TSynthesisForm.LoadLayersFromSlice;
+// Слайс выбирают из папок slice* проекта синтеза; отказ оставляет слои как были
+var
+  Folders: TStringArray;
+  Items: TStringList;
+  Index, I: Integer;
+  SliceFolder, ErrorText: string;
+begin
+  if FLayersBuilder = nil then
+  begin
+    ShowMessage('Создание слоёв не подключено.');
+    Exit;
+  end;
+  Folders := ListSliceFolders(FWorkspace.ProjectDir);
+  if Length(Folders) = 0 then
+  begin
+    ShowMessage('В проекте нет слайса (папки slice со Slices.txt).' +
+      LineEnding + 'Сначала выполните слайсинг массива на вкладке ' +
+      '«Последовательности».');
+    Exit;
+  end;
+  Items := TStringList.Create;
+  try
+    for I := 0 to High(Folders) do
+      Items.Add(Folders[I]);
+    Index := 0;
+    if not ChooseFromList('Слайс для синтеза', 'Слайс в проекте:', Items,
+      Index) then
+      Exit;
+    SliceFolder := IncludeTrailingPathDelimiter(FWorkspace.ProjectDir) +
+      Folders[Index];
+  finally
+    Items.Free;
+  end;
+  case FWorkspace.AddLayers(FLayersBuilder, SliceFolder, ErrorText) of
+    lbsBuilt:
+      Log('Слои созданы: ' + IntToStr(FWorkspace.Session.LayerCount) +
+        ', слайс ' + SliceFolder);
+    lbsFailed:
+      begin
+        Log('ERROR: ' + ErrorText);
+        ShowMessage(ErrorText);
+      end;
+  end;
+  RebuildTree;
+end;
+
 procedure TSynthesisForm.B_NewSynthesisClick(Sender: TObject);
-// Новый пустой синтез; сохранённые файлы остаются в своих папках
+// Новый синтез в папке проекта; затем выбор слоёв, отказ оставляет его пустым
+var
+  ProjectDir, FolderName, ErrorText: string;
+  NameOk: Boolean;
 begin
   if Running then
   begin
     ShowMessage('Синтез идёт. Остановите его, чтобы создать новый.');
     Exit;
   end;
-  if not AskSaveIfNeeded then
+  ProjectDir := OpenProjectDir;
+  if ProjectDir = '' then
+    ProjectDir := ChooseProjectDir;
+  if ProjectDir = '' then
     Exit;
-  FWorkspace.NewSynthesis;
+  FolderName := FreeSynthesisFolderName(ProjectDir, Now);
+  repeat
+    if not InputQuery('Создать синтез', 'Папка синтеза в проекте' +
+      LineEnding + ProjectDir + LineEnding + 'Имя папки:', FolderName) then
+      Exit;
+    FolderName := Trim(FolderName);
+    NameOk := CheckFileNamePart(FolderName, 'Имя папки', ErrorText);
+    if NameOk and (DirectoryExists(IncludeTrailingPathDelimiter(ProjectDir) +
+      FolderName) or FileExists(IncludeTrailingPathDelimiter(ProjectDir) + FolderName)) then
+    begin
+      NameOk := False;
+      ErrorText := 'Такая папка уже есть в проекте: ' + FolderName;
+    end;
+    if not NameOk then
+      ShowMessage(ErrorText);
+  until NameOk;
+  if not FWorkspace.CreateNew(IncludeTrailingPathDelimiter(ProjectDir) + FolderName,
+    Now, ErrorText) then
+  begin
+    ShowMessage(ErrorText);
+    RebuildTree;
+    Exit;
+  end;
+  Log('Синтез создан: ' + FWorkspace.Folder);
   RebuildTree;
+  LoadLayersFromSlice;
 end;
 
 procedure TSynthesisForm.B_OpenSynthesisClick(Sender: TObject);
 // Открыть сохранённый синтез по его файлу synthesis.ini
 var
-  ErrorText: string;
+  ErrorText, StartDir: string;
 begin
   if Running then
   begin
     ShowMessage('Синтез идёт. Остановите его, чтобы открыть другой.');
     Exit;
   end;
-  if not AskSaveIfNeeded then
-    Exit;
+  StartDir := OpenProjectDir;
+  if StartDir = '' then
+    StartDir := FWorkspace.ProjectDir;
+  if StartDir = '' then
+    StartDir := ProjectsDir;
   OD_File.Filter := 'Файл синтеза|' + SYNTHESIS_INFO_FILE;
-  OD_File.InitialDir := SynthesesDir;
+  OD_File.InitialDir := StartDir;
   OD_File.FileName := '';
   if not OD_File.Execute then
     Exit;
@@ -300,54 +393,18 @@ begin
   RebuildTree;
 end;
 
-function TSynthesisForm.SaveSynthesis: Boolean;
-// Сохранить синтез: слои и протоколы копируются в папку синтеза.
-// True - сохранён; False - не сохранён (отмена, ошибка, идёт синтез).
+procedure TSynthesisForm.B_GeometryClick(Sender: TObject);
+// Геометрия слоёв синтеза - только просмотр
 var
-  Dialog: TSaveDialog;
-  Target, ErrorText, ArrayName: string;
+  ErrorText: string;
 begin
-  Result := False;
-  if Running then
+  if (FLayersBuilder = nil) and (FWorkspace.Session.LayerCount > 0) then
   begin
-    ShowMessage('Синтез идёт. Сохранять можно после остановки.');
+    ShowMessage('Просмотр геометрии не подключён.');
     Exit;
   end;
-  if FWorkspace.Folder <> '' then
-    Target := FWorkspace.Folder
-  else
-    Target := '';
-  // сохранённый и не запускавшийся синтез сохраняется на месте, иначе
-  // спрашиваем, где создать папку
-  if (Target = '') or FWorkspace.Started then
-  begin
-    ForceDirectories(SynthesesDir);
-    ArrayName := '';
-    if FWorkspace.Session.LayerCount > 0 then
-      ArrayName := ArrayNameOfLayers(FWorkspace.Session.Layers);
-    Dialog := TSaveDialog.Create(nil);
-    try
-      Dialog.Title := 'Сохранить синтез: имя папки синтеза';
-      Dialog.InitialDir := SynthesesDir;
-      Dialog.FileName := SynthesisFolderName(ArrayName, Now);
-      if not Dialog.Execute then
-        Exit;
-      Target := Dialog.FileName;
-    finally
-      Dialog.Free;
-    end;
-  end;
-  Result := FWorkspace.Save(Target, Now, ErrorText);
-  if Result then
-    Log('Синтез сохранён: ' + FWorkspace.Folder)
-  else
+  if not FWorkspace.ShowGeometry(FLayersBuilder, ErrorText) then
     ShowMessage(ErrorText);
-  RebuildTree;
-end;
-
-procedure TSynthesisForm.B_SaveSynthesisClick(Sender: TObject);
-begin
-  SaveSynthesis;
 end;
 
 function TSynthesisForm.ProtocolsConfigReport: string;
@@ -380,6 +437,11 @@ begin
   if Running then
   begin
     ShowMessage('Синтез идёт. Остановите его, чтобы менять протоколы.');
+    Exit;
+  end;
+  if not FWorkspace.CheckEditable(ErrorText) then
+  begin
+    ShowMessage(ErrorText);
     Exit;
   end;
   OD_File.Filter := 'Протокол|*.pro';
@@ -415,13 +477,18 @@ procedure TSynthesisForm.B_RemoveSelectedClick(Sender: TObject);
 var
   Node: TTreeNode;
   Mark: PtrInt;
-  Letter, Question: string;
+  Letter, Question, ErrorText: string;
   I: Integer;
   HasLayersOfLetter: Boolean;
 begin
   if Running then
   begin
     ShowMessage('Синтез идёт. Остановите его, чтобы менять состав синтеза.');
+    Exit;
+  end;
+  if not FWorkspace.CheckEditable(ErrorText) then
+  begin
+    ShowMessage(ErrorText);
     Exit;
   end;
   Node := TV_Synthesis.Selected;
@@ -435,14 +502,14 @@ begin
   Mark := PtrInt(Node.Data);
   if Mark = TREE_LAYERS_MARK then
   begin
-    Question := 'Убрать из синтеза все слои?';
-    if FWorkspace.Started then
-      Question := Question + LineEnding + 'Папка запущенного синтеза не ' +
-        'изменится: сохранять придётся в другую папку.';
+    Question := 'Убрать из синтеза все слои? EZD-файлы слоёв будут удалены ' +
+      'из папки синтеза.';
     if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
       Exit;
-    FWorkspace.RemoveLayers;
-    Log('Слои убраны из синтеза');
+    if not FWorkspace.RemoveLayers(ErrorText) then
+      ShowMessage(ErrorText)
+    else
+      Log('Слои убраны из синтеза');
   end
   else
   begin
@@ -457,14 +524,11 @@ begin
     if HasLayersOfLetter then
       Question := Question + LineEnding + 'Слои с буквой ' + Letter +
         ' останутся без протокола, синтез нельзя будет запустить.';
-    if FWorkspace.Started then
-      Question := Question + LineEnding + 'Папка запущенного синтеза не ' +
-        'изменится: сохранять придётся в другую папку.';
     if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
       Exit;
-    if not FWorkspace.RemoveProtocol(Letter) then
+    if not FWorkspace.RemoveProtocol(Letter, ErrorText) then
     begin
-      ShowMessage('Протокол ' + Letter + ' не найден в синтезе.');
+      ShowMessage(ErrorText);
       RebuildTree;
       Exit;
     end;
@@ -474,7 +538,7 @@ begin
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
-// Добавить слои в синтез: файл Slices.lays лежит в папке массива
+// Слои в созданный синтез: слайс из папки проекта, геометрия, EZD
 var
   ErrorText: string;
 begin
@@ -483,25 +547,22 @@ begin
     ShowMessage('Синтез идёт. Остановите его, чтобы менять слои.');
     Exit;
   end;
-  if FWorkspace.Session.LayerCount > 0 then
+  if not FWorkspace.CheckEditable(ErrorText) then
   begin
-    ShowMessage('Слои уже загружены. Чтобы загрузить другие, нажмите ' +
-      '«Создать синтез».');
+    ShowMessage(ErrorText);
     Exit;
   end;
-  OD_File.Filter := 'Слои|*.lays';
-  OD_File.InitialDir := ProjectsDir;
-  OD_File.FileName := '';
-  if not OD_File.Execute then
+  if FWorkspace.Session.LayerCount > 0 then
+  begin
+    ShowMessage('Слои уже загружены. Чтобы загрузить другие, сначала ' +
+      'уберите слои из синтеза.');
     Exit;
-  if FWorkspace.AddLayersFile(OD_File.FileName, ErrorText) then
-    RebuildTree
-  else
-    ShowMessage(ErrorText);
+  end;
+  LoadLayersFromSlice;
 end;
 
 procedure TSynthesisForm.B_StartClick(Sender: TObject);
-// Запуск синтеза: только сохранённого и неизменённого
+// Запуск синтеза: только созданного, со слоями и протоколами
 var
   I: Integer;
   ErrorText: string;
@@ -521,15 +582,14 @@ begin
       LineEnding + LineEnding + ErrorText);
     Exit;
   end;
-  if Assigned(FOnClearLog) then
-    FOnClearLog(Self);
-
-  // проверка, что синтез сохранён, есть слои и протоколы на все буквы
+  // проверка, что синтез создан, есть слои и протоколы на все буквы
   if not FWorkspace.PrepareStart(Now, Snapshot, ErrorText) then
   begin
     ShowMessage(ErrorText);
     Exit;
   end;
+  if Assigned(FOnClearLog) then
+    FOnClearLog(Self);
   Session := FWorkspace.Session;
   for I := 0 to Session.ProtocolCount - 1 do
     Log(Session.ProtocolLetters[I]);

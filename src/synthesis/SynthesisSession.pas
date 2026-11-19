@@ -216,8 +216,8 @@ begin
   AErrorText := '';
   if Length(FLayers) = 0 then
   begin
-    AErrorText := 'Не загружены слои. Загрузите файл слоёв (Slices.lays) ' +
-      'или выполните слайсинг массива.';
+    AErrorText := 'Не загружены слои. Нажмите «Слои» и выберите слайс ' +
+      'проекта.';
     Exit;
   end;
   Missing := MissingLetters;

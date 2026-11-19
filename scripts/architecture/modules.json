@@ -32,6 +32,7 @@
     "MatrixTypes": "shared",
     "PathUtils": "platform",
     "TextFileUtils": "platform",
+    "UChoiceForm": "platform",
     "UFolderForm": "platform",
     "WinProcessUtils": "laser",
 
