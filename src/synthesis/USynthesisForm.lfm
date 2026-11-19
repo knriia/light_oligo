@@ -92,22 +92,31 @@ object SynthesisForm: TSynthesisForm
       TabOrder = 5
       OnClick = B_GeometryClick
     end
+    object B_LaserParams: TButton
+      Left = 16
+      Height = 25
+      Top = 224
+      Width = 150
+      Caption = 'B_LaserParams'
+      TabOrder = 6
+      OnClick = B_LaserParamsClick
+    end
     object B_Start: TButton
       Left = 16
       Height = 25
-      Top = 240
+      Top = 272
       Width = 150
       Caption = 'B_Start'
-      TabOrder = 6
+      TabOrder = 7
       OnClick = B_StartClick
     end
     object B_Pause: TButton
       Left = 16
       Height = 25
-      Top = 272
+      Top = 304
       Width = 150
       Caption = 'B_Pause'
-      TabOrder = 7
+      TabOrder = 8
       OnClick = B_PauseClick
     end
   end

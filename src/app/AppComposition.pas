@@ -161,6 +161,9 @@ begin
   FSynthesisForm.OnCheckSyringeStep := @FDispenserStation.CheckSyringeStepConfig;
   FSynthesisForm.Marker := FSynthesisMarker;
   FSynthesisForm.LayersBuilder := FSynthesisLayers;
+  // кнопка параметров лазера на вкладке синтеза: форма про лазер не знает,
+  // действие подключается здесь
+  FSynthesisForm.OnEditLaserParams := @FLaserActions.EditLaserParams;
   FSynthesisForm.OnLog := FSynthesisLog;
   FSynthesisForm.OnClearLog := FClearLog;
   FSynthesisForm.Show;
@@ -172,9 +175,6 @@ begin
   FSequencesForm.ApplyCaptions(InterfaceIniFile);
   FSequencesForm.OnLog := FSequencesLog;
 
-  // кнопка лазера на вкладке последовательностей: форма про лазер не знает,
-  // действие подключается здесь
-  FSequencesForm.OnEditLaserParams := @FLaserActions.EditLaserParams;
   FSequencesForm.Show;
 
   // синтез создаётся в проекте, открытом на вкладке последовательностей

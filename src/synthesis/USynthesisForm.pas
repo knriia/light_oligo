@@ -28,6 +28,7 @@ type
     B_NewSynthesis: TButton;
     B_OpenSynthesis: TButton;
     B_Geometry: TButton;
+    B_LaserParams: TButton;
     B_LoadLayers: TButton;
     B_RemoveSelected: TButton;
     B_LoadProtToSynth: TButton;
@@ -42,6 +43,7 @@ type
     procedure B_NewSynthesisClick(Sender: TObject);
     procedure B_OpenSynthesisClick(Sender: TObject);
     procedure B_GeometryClick(Sender: TObject);
+    procedure B_LaserParamsClick(Sender: TObject);
     procedure B_LoadProtToSynthClick(Sender: TObject);
     procedure B_PauseClick(Sender: TObject);
     procedure B_StartClick(Sender: TObject);
@@ -53,6 +55,7 @@ type
     FMarker: TLayerMarker;
     FLayersBuilder: TLayersBuilder;
     FOnGetProjectDir: TSynthesisProjectEvent;
+    FOnEditLaserParams: TNotifyEvent;
     FOnLog: TSynthesisLogEvent;
     FOnCheckSyringeStep: TSyringeStepCheck;
     FOnClearLog: TNotifyEvent;
@@ -68,6 +71,7 @@ type
     // Выбор слайса в проекте синтеза и создание слоёв синтеза.
     procedure LoadLayersFromSlice;
     procedure Log(const AText: string);
+    procedure SetOnEditLaserParams(AValue: TNotifyEvent);
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -82,6 +86,10 @@ type
     // Открытый проект: синтез создаётся в нём; нет события - проект выбирают.
     property OnGetProjectDir: TSynthesisProjectEvent read FOnGetProjectDir
       write FOnGetProjectDir;
+    // Параметры лазера (перо), с которыми создаются EZD; без события кнопка
+    // недоступна.
+    property OnEditLaserParams: TNotifyEvent read FOnEditLaserParams
+      write SetOnEditLaserParams;
     property OnLog: TSynthesisLogEvent read FOnLog write FOnLog;
     // Сверка SyrSt протоколов с конфигурацией дозаторов при запуске синтеза.
     property OnCheckSyringeStep: TSyringeStepCheck
@@ -139,6 +147,7 @@ end;
 constructor TSynthesisForm.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
+  B_LaserParams.Enabled := False;
   FWorkspace := TSynthesisWorkspace.Create;
   FHost := TFormHost.Create(Self);
 end;
@@ -167,6 +176,7 @@ begin
   B_NewSynthesis.Caption := AIni.ReadString('Synthesis', 'B_NewSynthesis', 'New Synthesis');
   B_OpenSynthesis.Caption := AIni.ReadString('Synthesis', 'B_OpenSynthesis', 'Open');
   B_Geometry.Caption := AIni.ReadString('Synthesis', 'B_Geometry', 'Geometry');
+  B_LaserParams.Caption := AIni.ReadString('Synthesis', 'B_LaserParams', 'Laser parameters');
   B_Start.Caption := AIni.ReadString('Synthesis', 'B_Start', 'Start');
   B_Pause.Caption := AIni.ReadString('Synthesis', 'B_Pause', 'Pause');
 end;
@@ -604,6 +614,24 @@ begin
   FThread := TSynthesisThread.Create(Session, FHost, Snapshot);
   FThread.OnTerminate := @ThreadFinished;
   FThread.Start;
+end;
+
+procedure TSynthesisForm.SetOnEditLaserParams(AValue: TNotifyEvent);
+begin
+  FOnEditLaserParams := AValue;
+  B_LaserParams.Enabled := Assigned(FOnEditLaserParams);
+end;
+
+procedure TSynthesisForm.B_LaserParamsClick(Sender: TObject);
+// Параметры лазера - только когда синтез не идёт: с ними создаются EZD
+begin
+  if Running then
+  begin
+    ShowMessage('Синтез идёт. Остановите его, чтобы менять параметры лазера.');
+    Exit;
+  end;
+  if Assigned(FOnEditLaserParams) then
+    FOnEditLaserParams(Self);
 end;
 
 procedure TSynthesisForm.B_PauseClick(Sender: TObject);
