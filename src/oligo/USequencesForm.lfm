@@ -53,15 +53,6 @@ object SequencesForm: TSequencesForm
       TabOrder = 3
       OnClick = B_SliceOligoArrClick
     end
-    object B_LaserParams: TButton
-      Left = 16
-      Height = 25
-      Top = 176
-      Width = 150
-      Caption = 'B_LaserParams'
-      TabOrder = 4
-      OnClick = B_LaserParamsClick
-    end
   end
   object P_OligoArr: TPanel
     Left = 185

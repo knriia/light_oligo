@@ -1,9 +1,7 @@
 unit USequencesForm;
-// Вкладка «Последовательности»: массив олигов, слайсинг, параметры лазера.
-// Форма встраивается во вкладку главного окна. Журнал и действие лазера
-// (параметры пера) она получает от главного окна через события и про модуль
-// лазера ничего не знает. Слои синтеза она не отдаёт: синтез сам берёт слайс
-// из папки проекта.
+// Вкладка «Последовательности»: массив олигов, слайсинг. Форма встраивается во
+// вкладку главного окна, журнал получает от него через событие. Слои синтеза
+// она не отдаёт: синтез сам берёт слайс из папки проекта.
 
 {$mode ObjFPC}{$H+}
 
@@ -20,7 +18,6 @@ type
 
   TSequencesForm = class(TForm)
     B_CreateOligoArr: TButton;
-    B_LaserParams: TButton;
     B_LoadOligoArr: TButton;
     B_SaveOligoArr: TButton;
     B_SliceOligoArr: TButton;
@@ -29,7 +26,6 @@ type
     P_OligoArr: TPanel;
     SG_OligoArr: TStringGrid;
     procedure B_CreateOligoArrClick(Sender: TObject);
-    procedure B_LaserParamsClick(Sender: TObject);
     procedure B_LoadOligoArrClick(Sender: TObject);
     procedure B_SaveOligoArrClick(Sender: TObject);
     procedure B_SliceOligoArrClick(Sender: TObject);
@@ -46,7 +42,6 @@ type
     FDocument: TOligoArrayDocument;
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
-    FOnEditLaserParams: TNotifyEvent;
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
     procedure ApplyWidthMode;
@@ -54,8 +49,6 @@ type
     function SaveArray: Boolean;
     function ConfirmSaveIfModified: Boolean;
     function RequireArray: Boolean;
-    procedure UpdateLaserButtons;
-    procedure SetOnEditLaserParams(AValue: TNotifyEvent);
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -68,9 +61,6 @@ type
     // Папка открытого проекта (там лежит файл массива); пусто - массив ещё
     // не сохранён в проект.
     function ProjectDir: string;
-    // Кнопка лазера доступна, только когда назначено её событие.
-    property OnEditLaserParams: TNotifyEvent read FOnEditLaserParams
-      write SetOnEditLaserParams;
   end;
 
 implementation
@@ -87,7 +77,6 @@ constructor TSequencesForm.Create(TheOwner: TComponent);
 begin
   FDocument:=TOligoArrayDocument.Create;
   inherited Create(TheOwner);
-  UpdateLaserButtons;
 end;
 
 destructor TSequencesForm.Destroy;
@@ -103,18 +92,6 @@ begin
   B_LoadOligoArr.Caption:=AIni.ReadString('Oligo','B_LoadOligoArr','Load');
   B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save');
   B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slicing');
-  B_LaserParams.Caption:=AIni.ReadString('Oligo','B_LaserParams','Laser parameters');
-end;
-
-procedure TSequencesForm.UpdateLaserButtons;
-begin
-  B_LaserParams.Enabled:=Assigned(FOnEditLaserParams);
-end;
-
-procedure TSequencesForm.SetOnEditLaserParams(AValue: TNotifyEvent);
-begin
-  FOnEditLaserParams:=AValue;
-  UpdateLaserButtons;
 end;
 
 function TSequencesForm.RequireArray: Boolean;
@@ -400,12 +377,6 @@ begin
     LayerChartForm.LS_CharsInLayers.AddXY(Layers[i].Number, Layers[i].Count,
                                           Layers[i].Letter);
   LayerChartForm.ShowModal;
-end;
-
-procedure TSequencesForm.B_LaserParamsClick(Sender: TObject);
-begin
-  if Assigned(FOnEditLaserParams) then
-    FOnEditLaserParams(Self);
 end;
 
 end.
