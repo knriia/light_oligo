@@ -1,75 +1,87 @@
 unit SynthesisWorkspace;
-// Синтез, который собирает оператор: сессия (что загружено) и его папка на
-// диске. Пока синтез не сохранён, файлы только загружены из исходных мест.
-// «Сохранить» копирует слои и протоколы в папку синтеза и записывает файл
-// синтеза synthesis.ini; дальше сессия работает с копиями, поэтому синтез не
-// зависит от исходных файлов. «Открыть» загружает сохранённый синтез. Запуск
-// возможен только для сохранённого и неизменённого синтеза; после запуска его
-// папка - запись того, что выполнялось, и не перезаписывается: изменённый или
-// повторно запускаемый синтез сохраняется в другую папку.
+// Синтез, который собирает оператор: сессия (что загружено) и его папка в
+// проекте. Папка создаётся вместе с синтезом, и всё, что оператор добавляет,
+// сразу пишется в неё: протокол копируется в protocols\, слои создаются в
+// ezd\ вместе с Slices.lays, геометрией и пером лазера, а synthesis.ini хранит
+// состав. Поэтому состояние на диске всегда равно состоянию в окне, а синтез
+// не зависит от исходных протоколов и слайса. «Открыть» загружает сохранённый
+// синтез. Запуск возможен только для созданного синтеза; после запуска его
+// папка - запись того, что выполнялось, и не изменяется.
 
 {$mode ObjFPC}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, OligoSlices, SynthesisSession, SynthesisFolder;
+  Classes, SysUtils, OligoSlices, SynthesisSession, SynthesisFolder,
+  SynthesisPorts;
 
 type
   TSynthesisWorkspace = class
   private
     FSession: TSynthesisSession;
-    FFolder: string;          // пусто, пока синтез не сохранён и не открыт
-    FArrayName: string;       // по исходным слоям, не по копиям
-    FSourceFolder: string;
-    FLayersStored: Boolean;   // слои сессии - копии в папке синтеза
-    FDirty: Boolean;          // изменён после сохранения (или не сохранён)
+    FFolder: string;          // пусто, пока синтез не создан и не открыт
+    FSourceFolder: string;    // папка слайса, из которого созданы слои
+    FCreated: TDateTime;
     FStarted: Boolean;
-    function GetNeedsSave: Boolean;
-    function StoreFiles(const ATarget: string; ASameFolder: Boolean;
-      ANow: TDateTime; out ACopies: TSliceLayers;
-      out AErrorText: string): Boolean;
+    function GetProjectDir: string;
+    function SaveInfo(out AErrorText: string): Boolean;
   public
     constructor Create;
     destructor Destroy; override;
 
-    // Добавляет протокол в сессию (проверяет его). Ошибка - False, текст
-    // объясняет, что не сделано; ничего не меняется.
+    // Можно ли менять синтез: он создан и не запускался. Иначе False и текст.
+    function CheckEditable(out AErrorText: string): Boolean;
+    // Создаёт пустой синтез в новой папке AFolder (внутри папки проекта):
+    // папка и synthesis.ini. Папка не должна существовать. Ошибка - False,
+    // текст объясняет, что не сделано. Прежний синтез из окна убирается.
+    function CreateNew(const AFolder: string; ANow: TDateTime;
+      out AErrorText: string): Boolean;
+    // Добавляет протокол в синтез (проверяет его) и сразу копирует в папку.
+    // Ошибка - False, текст объясняет, что не сделано; ничего не меняется.
     function AddProtocolFile(const AFileName: string; out ALetter,
       AErrorText: string): Boolean;
-    // Слои из файла Slices.lays; уже загруженные заменяются.
-    function AddLayersFile(const AFileName: string;
+    // Убирает протокол буквы из синтеза и его копию из папки.
+    function RemoveProtocol(const ALetter: string;
       out AErrorText: string): Boolean;
-    // Убирает протокол буквы из синтеза; False - такого протокола нет.
-    function RemoveProtocol(const ALetter: string): Boolean;
-    // Убирает все слои из синтеза (протоколы остаются).
-    procedure RemoveLayers;
-    // Слои после нарезки массива (пустая таблица - массив сброшен).
-    procedure ReplaceLayers(const ALayers: TSliceLayers);
+    // Создаёт слои синтеза по слайсу ASliceFolder: геометрия и EZD в папке
+    // синтеза. Слайс должен лежать в проекте синтеза. lbsBuilt - слои в
+    // синтезе; lbsCancelled - оператор отказался, синтез не изменился;
+    // lbsFailed - причина в AErrorText, файлы слоёв в папке убраны.
+    function AddLayers(ABuilder: TLayersBuilder; const ASliceFolder: string;
+      out AErrorText: string): TLayersBuildStatus;
+    // Убирает все слои из синтеза и их файлы из папки (протоколы остаются).
+    function RemoveLayers(out AErrorText: string): Boolean;
+    // Показывает геометрию слоёв синтеза; нет слоёв - False и текст.
+    function ShowGeometry(ABuilder: TLayersBuilder;
+      out AErrorText: string): Boolean;
 
-    // Копирует слои и протоколы в AFolder и пишет файл синтеза. Папка должна
-    // быть новой или пустой; свою прежнюю папку можно сохранить поверх, если
-    // синтез не запускался. Ошибка - False, текст объясняет, что не сделано.
-    function Save(const AFolder: string; ANow: TDateTime;
-      out AErrorText: string): Boolean;
     // Загружает сохранённый синтез по его файлу synthesis.ini.
     function Open(const AIniFile: string; out AErrorText: string): Boolean;
-    // Готовит запуск: синтез сохранён, не менялся, не запускался, слои и
-    // протоколы на месте. ASnapshot - папка и слои-копии для хода синтеза.
+    // Готовит запуск: синтез создан, не запускался, слои и протоколы на
+    // месте, EZD-файлы слоёв есть на диске. ASnapshot - папка и слои для хода синтеза.
     function PrepareStart(ANow: TDateTime; out ASnapshot: TSynthesisSnapshot;
       out AErrorText: string): Boolean;
-    // Очищает загруженное; сохранённые файлы остаются на диске.
+    // Закрывает синтез в окне; файлы остаются на диске.
     procedure NewSynthesis;
 
     property Session: TSynthesisSession read FSession;
-    // Папка сохранённого синтеза; пусто, пока он не сохранён.
+    // Папка синтеза; пусто, пока синтез не создан и не открыт.
     property Folder: string read FFolder;
+    // Папка проекта синтеза (родитель папки синтеза).
+    property ProjectDir: string read GetProjectDir;
+    // Папка слайса, из которого созданы слои; пусто, пока слоёв нет.
+    property SourceFolder: string read FSourceFolder;
     property Started: Boolean read FStarted;
-    // Есть загруженное, чего нет в сохранённой папке.
-    property NeedsSave: Boolean read GetNeedsSave;
   end;
 
 implementation
+
+const
+  NO_SYNTHESIS_TEXT = 'Синтез не создан. Нажмите «Создать синтез» или ' +
+    '«Открыть».';
+  STARTED_TEXT = 'Синтез уже запускался, его папка - запись выполненного и ' +
+    'не изменяется. Создайте новый синтез.';
 
 constructor TSynthesisWorkspace.Create;
 begin
@@ -83,183 +95,185 @@ begin
   inherited Destroy;
 end;
 
-function TSynthesisWorkspace.GetNeedsSave: Boolean;
+function TSynthesisWorkspace.GetProjectDir: string;
 begin
-  // пустой, но уже сохранённый синтез тоже нужно сохранить: на диске остался
-  // прежний состав
-  Result := FDirty and ((FFolder <> '') or (FSession.LayerCount > 0) or
-    (FSession.ProtocolCount > 0));
-end;
-
-function TSynthesisWorkspace.AddProtocolFile(const AFileName: string;
-  out ALetter, AErrorText: string): Boolean;
-begin
-  Result := FSession.AddProtocolFile(AFileName, ALetter, AErrorText);
-  if Result then
-    FDirty := True;
-end;
-
-function TSynthesisWorkspace.AddLayersFile(const AFileName: string;
-  out AErrorText: string): Boolean;
-var
-  Loaded: TSliceLayers;
-begin
-  Result := LoadSliceLayers(AFileName, Loaded, AErrorText);
-  if Result then
-    ReplaceLayers(Loaded);
-end;
-
-function TSynthesisWorkspace.RemoveProtocol(const ALetter: string): Boolean;
-begin
-  Result := FSession.RemoveProtocol(ALetter);
-  if Result then
-    FDirty := True;
-end;
-
-procedure TSynthesisWorkspace.RemoveLayers;
-begin
-  ReplaceLayers(nil);
-end;
-
-procedure TSynthesisWorkspace.ReplaceLayers(const ALayers: TSliceLayers);
-begin
-  FSession.SetLayers(ALayers);
-  FLayersStored := False;
-  FDirty := True;
-  if Length(ALayers) > 0 then
-  begin
-    FArrayName := ArrayNameOfLayers(ALayers);
-    FSourceFolder := ExtractFileDir(ALayers[0].EZDFile);
-  end
+  if FFolder = '' then
+    Result := ''
   else
-  begin
-    FArrayName := '';
-    FSourceFolder := '';
-  end;
+    Result := ExtractFileDir(FFolder);
 end;
 
-function TSynthesisWorkspace.StoreFiles(const ATarget: string;
-  ASameFolder: Boolean; ANow: TDateTime; out ACopies: TSliceLayers;
-  out AErrorText: string): Boolean;
-// Слои, протоколы и файл синтеза - в папку ATarget
+function TSynthesisWorkspace.CheckEditable(out AErrorText: string): Boolean;
+begin
+  AErrorText := '';
+  Result := False;
+  if FFolder = '' then
+    AErrorText := NO_SYNTHESIS_TEXT
+  else if FStarted then
+    AErrorText := STARTED_TEXT
+  else
+    Result := True;
+end;
+
+function TSynthesisWorkspace.SaveInfo(out AErrorText: string): Boolean;
 var
   Letters: TStringList;
   I: Integer;
-  Letter, SlicesFile: string;
 begin
-  Result := False;
-  ACopies := nil;
-  SlicesFile := IncludeTrailingPathDelimiter(ATarget) + SYNTHESIS_SLICES_FILE;
-  if FSession.LayerCount > 0 then
-  begin
-    if ASameFolder and FLayersStored then
-      ACopies := Copy(FSession.Layers)       // уже лежат в этой папке
-    else
-    begin
-      if ASameFolder then
-        RemoveDirectoryTree(LayersFolderOf(ATarget));
-      if not CopyLayersToFolder(FSession.Layers, ATarget, ACopies,
-        AErrorText) then
-        Exit;
-    end;
-    if not SaveSliceStatistics(ATarget, ACopies, SLICES_EZD_FILE,
-      AErrorText) then
-      Exit;
-  end
-  else
-  begin
-    RemoveDirectoryTree(LayersFolderOf(ATarget));
-    DeleteFile(SlicesFile);
-  end;
-
-  RemoveDirectoryTree(IncludeTrailingPathDelimiter(ATarget) +
-    SYNTHESIS_PROTOCOLS_FOLDER);
   Letters := TStringList.Create;
   try
     for I := 0 to FSession.ProtocolCount - 1 do
-    begin
-      Letter := FSession.ProtocolLetters[I];
-      if not WriteProtocolCopy(FSession.ProtocolOf(Letter), Letter, ATarget,
-        AErrorText) then
-        Exit;
-      Letters.Add(Letter);
-    end;
-    Result := SaveSynthesisInfo(ATarget, FArrayName, FSourceFolder,
-      FSession.LayerCount, Letters, ANow, AErrorText);
+      Letters.Add(FSession.ProtocolLetters[I]);
+    Result := SaveSynthesisInfo(FFolder, ExtractFileName(GetProjectDir),
+      FSourceFolder, FSession.LayerCount, Letters, FCreated, AErrorText);
   finally
     Letters.Free;
   end;
 end;
 
-function TSynthesisWorkspace.Save(const AFolder: string; ANow: TDateTime;
+function TSynthesisWorkspace.CreateNew(const AFolder: string; ANow: TDateTime;
   out AErrorText: string): Boolean;
 var
   Target: string;
-  Copies: TSliceLayers;
-  SameFolder, CreatedNew: Boolean;
-  Search: TSearchRec;
-  NotEmpty: Boolean;
 begin
   Result := False;
   AErrorText := '';
   Target := ExcludeTrailingPathDelimiter(AFolder);
-  if (FSession.LayerCount = 0) and (FSession.ProtocolCount = 0) and
-    (FFolder = '') then
-  begin
-    AErrorText := 'Нечего сохранять: загрузите слои или протоколы.';
-    Exit;
-  end;
   if Target = '' then
   begin
     AErrorText := 'Не указана папка синтеза.';
     Exit;
   end;
-  SameFolder := (FFolder <> '') and SameText(Target, FFolder);
-  if SameFolder and FStarted then
+  if DirectoryExists(Target) or FileExists(Target) then
   begin
-    AErrorText := 'Синтез уже запускался, его папка - запись выполненного и ' +
-      'не перезаписывается. Сохраните синтез в другую папку.';
+    AErrorText := 'Папка уже существует, синтез не создан:' + LineEnding +
+      Target;
     Exit;
   end;
-  if not SameFolder and DirectoryExists(Target) then
-  begin
-    NotEmpty := False;
-    if FindFirst(Target + PathDelim + '*', faAnyFile, Search) = 0 then
-    try
-      repeat
-        if (Search.Name <> '.') and (Search.Name <> '..') then
-          NotEmpty := True;
-      until NotEmpty or (FindNext(Search) <> 0);
-    finally
-      FindClose(Search);
-    end;
-    if NotEmpty then
-    begin
-      AErrorText := 'Папка уже существует и не пуста, синтез не сохранён:' +
-        LineEnding + Target;
-      Exit;
-    end;
-  end;
-  CreatedNew := not DirectoryExists(Target);
   if not ForceDirectories(Target) then
   begin
     AErrorText := 'Не удалось создать папку синтеза:' + LineEnding + Target;
     Exit;
   end;
-  if not StoreFiles(Target, SameFolder, ANow, Copies, AErrorText) then
+  NewSynthesis;
+  FFolder := Target;
+  FCreated := ANow;
+  if not SaveInfo(AErrorText) then
   begin
-    AErrorText := 'Синтез не сохранён.' + LineEnding + AErrorText;
-    if CreatedNew then
-      RemoveDirectoryTree(Target);
+    RemoveDirectoryTree(Target);
+    NewSynthesis;
+    AErrorText := 'Синтез не создан.' + LineEnding + AErrorText;
     Exit;
   end;
-  if FSession.LayerCount > 0 then
-    FSession.SetLayers(Copies);
-  FFolder := Target;
-  FLayersStored := True;
-  FDirty := False;
-  FStarted := False;
   Result := True;
+end;
+
+function TSynthesisWorkspace.AddProtocolFile(const AFileName: string;
+  out ALetter, AErrorText: string): Boolean;
+var
+  Stored: Boolean;
+begin
+  Result := False;
+  ALetter := '';
+  if not CheckEditable(AErrorText) then
+    Exit;
+  if not FSession.AddProtocolFile(AFileName, ALetter, AErrorText) then
+    Exit;
+  // протокол в синтезе только вместе с копией в папке
+  Stored := WriteProtocolCopy(FSession.ProtocolOf(ALetter), ALetter, FFolder,
+    AErrorText);
+  if Stored then
+    Stored := SaveInfo(AErrorText);
+  if not Stored then
+  begin
+    FSession.RemoveProtocol(ALetter);
+    DeleteFile(ProtocolCopyFileName(FFolder, ALetter));
+    ALetter := '';
+    Exit;
+  end;
+  Result := True;
+end;
+
+function TSynthesisWorkspace.RemoveProtocol(const ALetter: string;
+  out AErrorText: string): Boolean;
+var
+  CopyFile: string;
+begin
+  Result := False;
+  if not CheckEditable(AErrorText) then
+    Exit;
+  if not FSession.HasProtocol(ALetter) then
+  begin
+    AErrorText := 'Протокол ' + ALetter + ' не найден в синтезе.';
+    Exit;
+  end;
+  CopyFile := ProtocolCopyFileName(FFolder, ALetter);
+  if FileExists(CopyFile) and not DeleteFile(CopyFile) then
+  begin
+    AErrorText := 'Не удалось удалить копию протокола:' + LineEnding + CopyFile;
+    Exit;
+  end;
+  FSession.RemoveProtocol(ALetter);
+  Result := SaveInfo(AErrorText);
+end;
+
+function TSynthesisWorkspace.AddLayers(ABuilder: TLayersBuilder;
+  const ASliceFolder: string; out AErrorText: string): TLayersBuildStatus;
+var
+  Layers: TSliceLayers;
+  InfoError: string;
+begin
+  Result := lbsFailed;
+  if not CheckEditable(AErrorText) then
+    Exit;
+  if FSession.LayerCount > 0 then
+  begin
+    AErrorText := 'Слои уже загружены. Чтобы загрузить другие, сначала ' +
+      'уберите слои из синтеза.';
+    Exit;
+  end;
+  if not CheckSliceFolder(GetProjectDir, ASliceFolder, AErrorText) then
+    Exit;
+  Layers := nil;
+  Result := ABuilder.Build(ASliceFolder, FFolder, Layers, AErrorText);
+  if Result <> lbsBuilt then
+  begin
+    RemoveLayerFiles(FFolder);   // часть EZD могла быть создана
+    Exit;
+  end;
+  FSession.SetLayers(Layers);
+  FSourceFolder := ExcludeTrailingPathDelimiter(ASliceFolder);
+  if not SaveInfo(InfoError) then
+  begin
+    FSession.ClearLayers;
+    FSourceFolder := '';
+    RemoveLayerFiles(FFolder);
+    AErrorText := InfoError;
+    Result := lbsFailed;
+  end;
+end;
+
+function TSynthesisWorkspace.RemoveLayers(out AErrorText: string): Boolean;
+begin
+  Result := False;
+  if not CheckEditable(AErrorText) then
+    Exit;
+  RemoveLayerFiles(FFolder);
+  FSession.ClearLayers;
+  FSourceFolder := '';
+  Result := SaveInfo(AErrorText);
+end;
+
+function TSynthesisWorkspace.ShowGeometry(ABuilder: TLayersBuilder;
+  out AErrorText: string): Boolean;
+begin
+  AErrorText := '';
+  if FSession.LayerCount = 0 then
+  begin
+    AErrorText := 'Нет загруженных слоёв для просмотра геометрии.';
+    Exit(False);
+  end;
+  Result := ABuilder.ShowGeometry(FSourceFolder, FFolder, AErrorText);
 end;
 
 function TSynthesisWorkspace.Open(const AIniFile: string;
@@ -304,11 +318,9 @@ begin
         AErrorText) then
         Exit;
     FFolder := SynthFolder;
-    FArrayName := Info.ArrayName;
     FSourceFolder := Info.SourceFolder;
-    FLayersStored := True;
+    FCreated := Now;
     FStarted := Info.Started;
-    FDirty := False;
     Result := True;
   finally
     Names.Free;
@@ -322,28 +334,32 @@ end;
 
 function TSynthesisWorkspace.PrepareStart(ANow: TDateTime;
   out ASnapshot: TSynthesisSnapshot; out AErrorText: string): Boolean;
+var
+  I: Integer;
 begin
   Result := False;
   ASnapshot := Default(TSynthesisSnapshot);
-  if not FSession.CheckReady(AErrorText) then
-    Exit;
   if FFolder = '' then
   begin
-    AErrorText := 'Синтез не сохранён. Нажмите «Сохранить»: слои и протоколы ' +
-      'скопируются в папку синтеза, и синтез пойдёт по копиям.';
-    Exit;
-  end;
-  if FDirty then
-  begin
-    AErrorText := 'Синтез изменён после сохранения. Нажмите «Сохранить».';
+    AErrorText := NO_SYNTHESIS_TEXT;
     Exit;
   end;
   if FStarted then
   begin
     AErrorText := 'Этот синтез уже запускался, его папка - запись ' +
-      'выполненного. Сохраните синтез в другую папку и запустите его.';
+      'выполненного. Создайте новый синтез и запустите его.';
     Exit;
   end;
+  if not FSession.CheckReady(AErrorText) then
+    Exit;
+  for I := 0 to FSession.LayerCount - 1 do
+    if not FileExists(FSession.Layers[I].EZDFile) then
+    begin
+      AErrorText := 'Слой ' + IntToStr(FSession.Layers[I].LayerNumber) +
+        ': файл EZD не найден, синтез не запущен:' + LineEnding +
+        FSession.Layers[I].EZDFile;
+      Exit;
+    end;
   if not SaveSynthesisStart(FFolder, ANow, AErrorText) then
   begin
     AErrorText := 'Синтез не запущен.' + LineEnding + AErrorText;
@@ -360,10 +376,8 @@ procedure TSynthesisWorkspace.NewSynthesis;
 begin
   FSession.Clear;
   FFolder := '';
-  FArrayName := '';
   FSourceFolder := '';
-  FLayersStored := False;
-  FDirty := False;
+  FCreated := 0;
   FStarted := False;
 end;
 

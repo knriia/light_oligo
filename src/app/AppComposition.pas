@@ -7,7 +7,7 @@ unit AppComposition;
 interface
 
 uses
-  Classes, SysUtils, Controls, OligoSlices,
+  Classes, SysUtils, Controls,
   UProtocolForm, USynthesisForm, UDispenserStationHost, USequencesForm,
   UManualForm, ULaserActions, EzCadApp, AppSynthesisAdapters;
 
@@ -37,7 +37,7 @@ type
     FEzCadWatcher: TEzCadDialogWatcher;
     FSynthesisStation: TStationSyringeAdapter;
     FSynthesisMarker: TEzCadLayerMarker;
-    procedure LayersChanged(const ALayers: TSliceLayers);
+    FSynthesisLayers: TLaserLayersBuilder;
   public
     constructor Create(AOwner: TComponent; AManualParent,
       AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
@@ -90,6 +90,7 @@ destructor TAppComposition.Destroy;
 begin
   // Формы принадлежат FOwner и уже освобождены его деструктором.
   // Адаптеры, действия лазера и наблюдатель освобождаются после дочерних форм.
+  FreeAndNil(FSynthesisLayers);
   FreeAndNil(FLaserActions);
   FreeAndNil(FSynthesisMarker);
   FreeAndNil(FSynthesisStation);
@@ -140,6 +141,12 @@ begin
   FDispenserStation.Show;
   FProtocolForm.OnCheckSyringeStep := @FDispenserStation.CheckSyringeStepConfig;
 
+  // действия лазера нужны и вкладке синтеза (слои), и вкладке последовательностей
+  FLaserActions := TLaserActions.Create;
+  FLaserActions.OnLog := FLaserLog;
+  FLaserActions.LoadSettings;
+  FSynthesisLayers := TLaserLayersBuilder.Create(FLaserActions);
+
   FSynthesisStation := TStationSyringeAdapter.Create(FDispenserStation);
   FSynthesisMarker := TEzCadLayerMarker.Create(
     ReadConfigInteger('Laser', 'EzCAD2OpenTime', 1000),
@@ -153,6 +160,7 @@ begin
   FSynthesisForm.Station := FSynthesisStation;
   FSynthesisForm.OnCheckSyringeStep := @FDispenserStation.CheckSyringeStepConfig;
   FSynthesisForm.Marker := FSynthesisMarker;
+  FSynthesisForm.LayersBuilder := FSynthesisLayers;
   FSynthesisForm.OnLog := FSynthesisLog;
   FSynthesisForm.OnClearLog := FClearLog;
   FSynthesisForm.Show;
@@ -163,22 +171,14 @@ begin
   FSequencesForm.Align := alClient;
   FSequencesForm.ApplyCaptions(InterfaceIniFile);
   FSequencesForm.OnLog := FSequencesLog;
-  FSequencesForm.OnLayersChanged := @LayersChanged;
 
-  // кнопки лазера на вкладке последовательностей: форма про лазер не знает,
-  // действия подключаются здесь
-  FLaserActions := TLaserActions.Create;
-  FLaserActions.OnLog := FLaserLog;
-  FLaserActions.LoadSettings;
+  // кнопка лазера на вкладке последовательностей: форма про лазер не знает,
+  // действие подключается здесь
   FSequencesForm.OnEditLaserParams := @FLaserActions.EditLaserParams;
-  FSequencesForm.OnEditGeometry := @FLaserActions.EditGeometry;
-  FSequencesForm.OnCreateEzd := @FLaserActions.CreateEzd;
   FSequencesForm.Show;
-end;
 
-procedure TAppComposition.LayersChanged(const ALayers: TSliceLayers);
-begin
-  FSynthesisForm.SetLayers(ALayers);
+  // синтез создаётся в проекте, открытом на вкладке последовательностей
+  FSynthesisForm.OnGetProjectDir := @FSequencesForm.ProjectDir;
 end;
 
 function TAppComposition.CanCloseAll: Boolean;

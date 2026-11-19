@@ -62,24 +62,6 @@ object SequencesForm: TSequencesForm
       TabOrder = 4
       OnClick = B_LaserParamsClick
     end
-    object B_Geometry: TButton
-      Left = 16
-      Height = 25
-      Top = 208
-      Width = 150
-      Caption = 'B_Geometry'
-      TabOrder = 5
-      OnClick = B_GeometryClick
-    end
-    object B_CreateEzd: TButton
-      Left = 16
-      Height = 25
-      Top = 240
-      Width = 150
-      Caption = 'B_CreateEzd'
-      TabOrder = 6
-      OnClick = B_CreateEzdClick
-    end
   end
   object P_OligoArr: TPanel
     Left = 185

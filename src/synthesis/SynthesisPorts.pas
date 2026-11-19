@@ -1,5 +1,6 @@
 unit SynthesisPorts;
-// Порты синтеза: действия исполнения, маркировка слоя и шприцевая станция.
+// Порты синтеза: действия исполнения, маркировка слоя, создание слоёв и
+// шприцевая станция.
 // Реализации оборудования находятся в composition root (app), а synthesis
 // работает только с этими контрактами.
 
@@ -8,7 +9,7 @@ unit SynthesisPorts;
 interface
 
 uses
-  Classes, ProtocolFormat;
+  Classes, ProtocolFormat, OligoSlices;
 
 type
   // Порт не утверждает успех, если не знает, выполнилось ли действие.
@@ -61,6 +62,28 @@ type
       virtual; abstract;
     // Контекст действует только во время вызова MarkLayer.
     procedure SetExecutionContext(AContext: TExecutionContext); virtual;
+  end;
+
+  // Чем кончилось создание слоёв синтеза.
+  TLayersBuildStatus = (lbsBuilt, lbsCancelled, lbsFailed);
+
+  // Порт слоёв синтеза: геометрия и EZD-файлы слоёв слайса.
+  TLayersBuilder = class
+  public
+    // По слайсу из ASliceFolder (Slices.txt и матрицы слоёв) спрашивает
+    // геометрию и создаёт в ASynthesisFolder EZD-файлы слоёв (ezd\), таблицу
+    // Slices.lays, geometry.ini и laser.ini. lbsBuilt - все слои созданы,
+    // ALayers с путями к EZD; lbsCancelled - пользователь отказался, ничего
+    // не создано; lbsFailed - причина в AErrorText, часть файлов могла
+    // остаться (чистит вызывающий).
+    function Build(const ASliceFolder, ASynthesisFolder: string;
+      out ALayers: TSliceLayers;
+      out AErrorText: string): TLayersBuildStatus; virtual; abstract;
+    // Показывает геометрию, с которой созданы слои синтеза (geometry.ini в
+    // ASynthesisFolder), на занятых ячейках слайса ASliceFolder. Только
+    // просмотр: изменить параметры нельзя. False - показать не удалось.
+    function ShowGeometry(const ASliceFolder, ASynthesisFolder: string;
+      out AErrorText: string): Boolean; virtual; abstract;
   end;
 
   // Порт шприцевой станции.

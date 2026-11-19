@@ -1,8 +1,9 @@
 unit USequencesForm;
-// Вкладка «Последовательности»: массив олигов, слайсинг, кнопки лазера.
-// Форма встраивается во вкладку главного окна. Журнал и действия лазера
-// (параметры пера, геометрия, создание EZD) она получает от главного окна
-// через события и про модуль лазера ничего не знает.
+// Вкладка «Последовательности»: массив олигов, слайсинг, параметры лазера.
+// Форма встраивается во вкладку главного окна. Журнал и действие лазера
+// (параметры пера) она получает от главного окна через события и про модуль
+// лазера ничего не знает. Слои синтеза она не отдаёт: синтез сам берёт слайс
+// из папки проекта.
 
 {$mode ObjFPC}{$H+}
 
@@ -14,22 +15,11 @@ uses
 
 type
   TSequencesLogEvent = procedure(const AMsg: string) of object;
-  // Таблица слоёв массива изменилась (слайсинг, EZD-файлы) или сброшена
-  // (пустая): синтез берёт слои отсюда.
-  TSequencesLayersEvent = procedure(const ALayers: TSliceLayers) of object;
-  // Параметры геометрии маркировки: окно чертит занятые ячейки массива.
-  TSequencesGeometryEvent = procedure(const AArr: TOligoArr) of object;
-  // EZD-файлы для слоёв ATable (Slices.txt лежит в ASliceDir). True - созданы
-  // все, AResult - таблица с путями к EZD.
-  TSequencesCreateEzdEvent = function(const ASliceDir: string;
-    const ATable: TSliceLayers; out AResult: TSliceLayers): Boolean of object;
 
   { TSequencesForm }
 
   TSequencesForm = class(TForm)
-    B_CreateEzd: TButton;
     B_CreateOligoArr: TButton;
-    B_Geometry: TButton;
     B_LaserParams: TButton;
     B_LoadOligoArr: TButton;
     B_SaveOligoArr: TButton;
@@ -38,9 +28,7 @@ type
     OD_File: TOpenDialog;
     P_OligoArr: TPanel;
     SG_OligoArr: TStringGrid;
-    procedure B_CreateEzdClick(Sender: TObject);
     procedure B_CreateOligoArrClick(Sender: TObject);
-    procedure B_GeometryClick(Sender: TObject);
     procedure B_LaserParamsClick(Sender: TObject);
     procedure B_LoadOligoArrClick(Sender: TObject);
     procedure B_SaveOligoArrClick(Sender: TObject);
@@ -58,11 +46,7 @@ type
     FDocument: TOligoArrayDocument;
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
-    FOnLayersChanged: TSequencesLayersEvent;
     FOnEditLaserParams: TNotifyEvent;
-    FOnEditGeometry: TSequencesGeometryEvent;
-    FOnCreateEzd: TSequencesCreateEzdEvent;
-    procedure LayersChanged(const ALayers: TSliceLayers);
     procedure Log(const AMsg: string);
     procedure DisplayOligoArray;
     procedure ApplyWidthMode;
@@ -72,8 +56,6 @@ type
     function RequireArray: Boolean;
     procedure UpdateLaserButtons;
     procedure SetOnEditLaserParams(AValue: TNotifyEvent);
-    procedure SetOnEditGeometry(AValue: TSequencesGeometryEvent);
-    procedure SetOnCreateEzd(AValue: TSequencesCreateEzdEvent);
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -83,22 +65,19 @@ type
     // False - пользователь отменил закрытие.
     function CanCloseFromHost: Boolean;
     property OnLog: TSequencesLogEvent read FOnLog write FOnLog;
-    property OnLayersChanged: TSequencesLayersEvent read FOnLayersChanged
-      write FOnLayersChanged;
-    // Кнопки лазера доступны, только когда назначено их событие.
+    // Папка открытого проекта (там лежит файл массива); пусто - массив ещё
+    // не сохранён в проект.
+    function ProjectDir: string;
+    // Кнопка лазера доступна, только когда назначено её событие.
     property OnEditLaserParams: TNotifyEvent read FOnEditLaserParams
       write SetOnEditLaserParams;
-    property OnEditGeometry: TSequencesGeometryEvent read FOnEditGeometry
-      write SetOnEditGeometry;
-    property OnCreateEzd: TSequencesCreateEzdEvent read FOnCreateEzd
-      write SetOnCreateEzd;
   end;
 
 implementation
 
 uses
   LCLType, Clipbrd, AppPaths, CommonUtils, OligoSlicing,
-  OligoPaste, UOligoArrayForm, UArraySaveForm, UFolderForm, ULayerChartForm;
+  OligoPaste, UOligoArrayForm, UArraySaveForm, UChoiceForm, ULayerChartForm;
 
 {$R *.lfm}
 
@@ -125,32 +104,16 @@ begin
   B_SaveOligoArr.Caption:=AIni.ReadString('Oligo','B_SaveOligoArr','Save');
   B_SliceOligoArr.Caption:=AIni.ReadString('Oligo','B_SliceOligoArr','Slicing');
   B_LaserParams.Caption:=AIni.ReadString('Oligo','B_LaserParams','Laser parameters');
-  B_Geometry.Caption:=AIni.ReadString('Oligo','B_Geometry','Geometry parameters');
-  B_CreateEzd.Caption:=AIni.ReadString('Oligo','B_CreateEzd','Create EZD');
 end;
 
 procedure TSequencesForm.UpdateLaserButtons;
 begin
   B_LaserParams.Enabled:=Assigned(FOnEditLaserParams);
-  B_Geometry.Enabled:=Assigned(FOnEditGeometry);
-  B_CreateEzd.Enabled:=Assigned(FOnCreateEzd);
 end;
 
 procedure TSequencesForm.SetOnEditLaserParams(AValue: TNotifyEvent);
 begin
   FOnEditLaserParams:=AValue;
-  UpdateLaserButtons;
-end;
-
-procedure TSequencesForm.SetOnEditGeometry(AValue: TSequencesGeometryEvent);
-begin
-  FOnEditGeometry:=AValue;
-  UpdateLaserButtons;
-end;
-
-procedure TSequencesForm.SetOnCreateEzd(AValue: TSequencesCreateEzdEvent);
-begin
-  FOnCreateEzd:=AValue;
   UpdateLaserButtons;
 end;
 
@@ -162,10 +125,9 @@ begin
     ShowMessage('Массив пуст.');
 end;
 
-procedure TSequencesForm.LayersChanged(const ALayers: TSliceLayers);
+function TSequencesForm.ProjectDir: string;
 begin
-  if Assigned(FOnLayersChanged) then
-    FOnLayersChanged(ALayers);
+  Result:=FDocument.ArrayDir;
 end;
 
 procedure TSequencesForm.Log(const AMsg: string);
@@ -356,18 +318,19 @@ begin
     Exit;
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
-  LayersChanged(nil); // слайс-таблица старого массива больше не нужна
   FDocument.NewArray(CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq));
   DisplayOligoArray;
 end;
 
 procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);
-// нарезка массива в папку слайса (по умолчанию <папка проекта>\slice, имя и
-// место можно изменить): Slices.txt и папка layers с матрицами слоёв
+// нарезка массива выбранным алгоритмом в папку проекта slice_<алгоритм>:
+// Slices.txt и папка layers с матрицами слоёв
 var
   Layers: TOligoLayers;
   Table: TSliceLayers;
-  i: integer;
+  Algorithms: TStringList;
+  Existing: TStringArray;
+  i, AlgorithmIndex: integer;
   Path, ErrorText: String;
 begin
   if not RequireArray then
@@ -384,10 +347,40 @@ begin
       Exit;
   end;
 
-  Path:=IncludeTrailingPathDelimiter(FDocument.ArrayDir)+SLICE_FOLDER;
-  if not ChooseFolderForFiles('Слайсинг', 'Папка слайсинга (Slices.txt и layers):',
-       'файлы слайсинга', @ListSliceFiles, @DeleteSliceFiles, Path) then
+  // алгоритм слайсинга; пока он один, его имя - постфикс папки слайса
+  Algorithms:=TStringList.Create;
+  try
+    Algorithms.Add(SLICE_ALGORITHM_BASE);
+    AlgorithmIndex:=0;
+    if not ChooseFromList('Слайсинг', 'Алгоритм слайсинга:', Algorithms,
+         AlgorithmIndex) then
+      Exit;
+    Path:=IncludeTrailingPathDelimiter(FDocument.ArrayDir)+
+          SliceFolderName(Algorithms[AlgorithmIndex]);
+  finally
+    Algorithms.Free;
+  end;
+
+  // слайс одного алгоритма один: прежний заменяется с согласия оператора
+  Existing:=ListSliceFiles(Path);
+  if Length(Existing)>0 then
+  begin
+    if MessageDlg('В папке уже есть файлы слайсинга ('+
+         IntToStr(Length(Existing))+'):'+LineEnding+Path+LineEnding+
+         'Удалить их и записать новые?', mtConfirmation, [mbYes, mbNo],
+         0)<>mrYes then
+      Exit;
+    if not DeleteSliceFiles(Path, ErrorText) then
+    begin
+      ShowMessage(ErrorText);
+      Exit;
+    end;
+  end;
+  if not ForceDirectories(Path) then
+  begin
+    ShowMessage('Не удалось создать папку:'+LineEnding+Path);
     Exit;
+  end;
 
   // показываем уникальные буквы массива
   ShowMessage(SymbolsToString(CollectSymbols(FDocument.Arr)));
@@ -401,7 +394,6 @@ begin
     Exit;
   end;
   FDocument.SetSlicing(Table, Path);
-  LayersChanged(Table); // общая таблица слоёв (её использует синтез)
 
   LayerChartForm.LS_CharsInLayers.Clear;
   for i:=0 to High(Layers) do
@@ -414,38 +406,6 @@ procedure TSequencesForm.B_LaserParamsClick(Sender: TObject);
 begin
   if Assigned(FOnEditLaserParams) then
     FOnEditLaserParams(Self);
-end;
-
-procedure TSequencesForm.B_GeometryClick(Sender: TObject);
-// окно параметров геометрии чертит занятые ячейки массива, поэтому он нужен
-begin
-  if not RequireArray then
-    Exit;
-  FOnEditGeometry(FDocument.Arr); // кнопка доступна, только если событие назначено
-end;
-
-procedure TSequencesForm.B_CreateEzdClick(Sender: TObject);
-// EZD слоёв создаются по слайсингу этого массива и пишутся рядом с ним.
-// Правка массива слайсинг сбрасывает, поэтому "нет слайсинга" включает и
-// несохранённый массив: слайсинг сам предложит его сохранить.
-var
-  Table: TSliceLayers;
-begin
-  if not RequireArray then
-    Exit;
-  if not FDocument.HasSlicing then
-  begin
-    if not FDocument.HasFile or FDocument.Modified then
-      ShowMessage('Массив не сохранён и не нарезан на слои.'+LineEnding+
-                  'Выполните слайсинг: он предложит сохранить массив.')
-    else
-      ShowMessage('Сначала выполните слайсинг массива.');
-    Exit;
-  end;
-  if not FOnCreateEzd(FDocument.SliceDir, FDocument.SliceTable, Table) then
-    Exit;
-  FDocument.SetSlicing(Table, FDocument.SliceDir);
-  LayersChanged(Table); // синтез можно запускать сразу
 end;
 
 end.
