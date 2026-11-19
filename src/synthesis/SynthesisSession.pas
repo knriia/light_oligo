@@ -33,7 +33,7 @@ type
     function LoadLayersFile(const AFileName: string;
       out AErrorText: string): Boolean;
 
-    // Буква протокола - имя файла без пути и расширения.
+    // Буква протокола - часть имени файла до первого "_" (A_test.pro -> A).
     class function LetterOfFile(const AFileName: string): string;
     function HasProtocol(const ALetter: string): Boolean;
     // nil, если протокола для буквы нет. Протокол принадлежит сессии.
@@ -119,7 +119,7 @@ end;
 
 class function TSynthesisSession.LetterOfFile(const AFileName: string): string;
 begin
-  Result := ChangeFileExt(ExtractFileName(AFileName), '');
+  Result := ProtocolTypeOfFile(AFileName);
 end;
 
 function TSynthesisSession.HasProtocol(const ALetter: string): Boolean;
@@ -231,7 +231,7 @@ begin
       Letters := Letters + Missing[I];
     end;
     AErrorText := 'Нет протоколов для букв: ' + Letters + '. Имя файла ' +
-      'протокола должно совпадать с буквой, например A.pro.';
+      'протокола должно начинаться с буквы и «_», например A_test.pro.';
     Exit;
   end;
   Result := True;

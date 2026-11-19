@@ -28,6 +28,7 @@ type
     B_Open: TButton;
     B_Save: TButton;
     GB_ProtControl: TGroupBox;
+    GB_ProtTree: TGroupBox;
     L_File: TLabel;
     OD_File: TOpenDialog;
     SD_File: TSaveDialog;
@@ -45,6 +46,7 @@ type
   private
     FModel: TProtocolModel;
     FFileName: string;
+    FProtocolType: string;        // тип протокола (A); пусто - ещё не выбран
     FModified: Boolean;           // протокол менялся после открытия или сохранения
     FCaptions: TCustomIniFile;    // подписи окон (не владеем)
     FOnCheckSyringeStep: TSyringeStepCheck;
@@ -57,6 +59,7 @@ type
     procedure EditNode(const APosition: TProtocolPosition);
     function ConfirmSaveChanges: Boolean;
     function SaveProtocol: Boolean;
+    function ChooseProtocolType(out AType: string): Boolean;
     procedure ClearProtocol;
   public
     constructor Create(TheOwner: TComponent); override;
@@ -76,7 +79,7 @@ implementation
 {$R *.lfm}
 
 uses
-  AppPaths, UOperationForm, UBlockNameForm;
+  AppPaths, UChoiceForm, UOperationForm, UBlockNameForm;
 
 const
   CAPTIONS_SECTION = 'Protocol';
@@ -98,6 +101,7 @@ end;
 procedure TProtocolForm.ApplyCaptions(AIni: TCustomIniFile);
 begin
   FCaptions := AIni;
+  GB_ProtTree.Caption := AIni.ReadString(CAPTIONS_SECTION, 'GB_ProtTree', 'Дерево протокола');
   GB_ProtControl.Caption := AIni.ReadString(CAPTIONS_SECTION, 'GB_ProtControl', 'Управление');
   B_New.Caption := AIni.ReadString(CAPTIONS_SECTION, 'B_NewProtocol', 'Создать');
   B_Open.Caption := AIni.ReadString(CAPTIONS_SECTION, 'B_LoadProtocolLayer', 'Открыть');
@@ -200,6 +204,10 @@ begin
     StatusText := ExtractFileName(FFileName)
   else
     StatusText := 'Протокол без файла';
+  if FProtocolType <> '' then
+    StatusText := StatusText + ' [тип ' + FProtocolType + ']'
+  else if FFileName <> '' then
+    StatusText := StatusText + ' [тип не определён]';
   if FModified then
     StatusText := StatusText + ' (изменён)';
   L_File.Caption := StatusText;
@@ -317,22 +325,60 @@ begin
   Changed(MoveDown(FModel, SelectedPosition));
 end;
 
+function TProtocolForm.ChooseProtocolType(out AType: string): Boolean;
+// Окно выбора типа протокола; True - тип выбран и записан в AType.
+var
+  Items: TStringList;
+  Index: Integer;
+  I: Integer;
+begin
+  Result := False;
+  AType := '';
+  Items := TStringList.Create;
+  try
+    for I := 0 to High(PROTOCOL_TYPES) do
+      Items.Add(PROTOCOL_TYPES[I]);
+    Index := Items.IndexOf(FProtocolType);
+    if not ChooseFromList('Тип протокола', 'Тип протокола:', Items, Index) then
+      Exit;
+    AType := Items[Index];
+    Result := True;
+  finally
+    Items.Free;
+  end;
+end;
+
 function TProtocolForm.SaveProtocol: Boolean;
 var
-  FileName, ErrorText: string;
+  FileName, ResultName, ErrorText: string;
 begin
   Result := False;
   FileName := FFileName;
   if FileName = '' then
   begin
+    if (FProtocolType = '') and not ChooseProtocolType(FProtocolType) then
+      Exit;
     ForceDirectories(ProtocolsDir);
     SD_File.Filter := 'Протокол|*.pro';
     SD_File.DefaultExt := 'pro';
     SD_File.InitialDir := ProtocolsDir;
-    SD_File.FileName := '';
-    if not SD_File.Execute then
-      Exit;
-    FileName := SD_File.FileName;
+    SD_File.Options := SD_File.Options - [ofOverwritePrompt];
+    // Итоговое имя <тип>_<имя> проверяем сами, при отказе показываем диалог снова.
+    repeat
+      SD_File.FileName := '';
+      if not SD_File.Execute then
+        Exit;
+      ResultName := ProtocolFileName(FProtocolType,
+        ExtractFileName(SD_File.FileName));
+      if ResultName = '' then
+      begin
+        MessageDlg('Введите имя протокола.', mtWarning, [mbOK], 0);
+        Continue;
+      end;
+      FileName := ExtractFilePath(SD_File.FileName) + ResultName;
+    until not FileExists(FileName) or
+      (MessageDlg('Файл ' + ResultName + ' уже существует. Заменить его?',
+      mtConfirmation, [mbYes, mbNo], 0) = mrYes);
   end;
   if not FModel.SaveToFile(FileName, ErrorText) then
   begin
@@ -364,14 +410,22 @@ procedure TProtocolForm.ClearProtocol;
 begin
   FModel.Clear;
   FFileName := '';
+  FProtocolType := '';
   FModified := False;
   RebuildTree(NoPosition);
 end;
 
 procedure TProtocolForm.B_NewClick(Sender: TObject);
+var
+  NewType: string;
 begin
-  if ConfirmSaveChanges then
-    ClearProtocol;
+  if not ConfirmSaveChanges then
+    Exit;
+  if not ChooseProtocolType(NewType) then
+    Exit;
+  ClearProtocol;
+  FProtocolType := NewType;
+  UpdateControls;
 end;
 
 procedure TProtocolForm.B_OpenClick(Sender: TObject);
@@ -398,6 +452,10 @@ begin
   if not Result then
     Exit;
   FFileName := ExpandFileName(AFileName);
+  if IsProtocolType(ProtocolTypeOfFile(AFileName)) then
+    FProtocolType := ProtocolTypeOfFile(AFileName)
+  else
+    FProtocolType := '';
   FModified := False;
   RebuildTree(NoPosition);
 end;

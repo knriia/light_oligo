@@ -136,10 +136,63 @@ function CheckProtocolText(const AText, ACaption: string;
 function CheckProtocolStep(const AStep: TProtocolStep;
   out ErrorText: string): Boolean;
 
+// Тип протокола - часть имени файла до первого "_": A_test.pro - тип A.
+// Файл без "_" целиком считается типом (A.pro - тип A).
+const
+  PROTOCOL_TYPE_SEPARATOR = '_';
+  PROTOCOL_TYPES: array[0..0] of string = ('A');
+
+// Тип по имени или пути файла.
+function ProtocolTypeOfFile(const AFileName: string): string;
+// Является ли AType одним из PROTOCOL_TYPES (без учёта регистра).
+function IsProtocolType(const AType: string): Boolean;
+// Имя файла протокола: <тип>_<введённое имя>.pro. Расширение .pro во
+// введённом имени отбрасывается (другие "расширения" остаются частью имени),
+// префикс "<тип>_" не дублируется. Пустое имя даёт пустой результат.
+function ProtocolFileName(const AType, AName: string): string;
+
 implementation
 
 uses
   StrUtils;
+
+function ProtocolTypeOfFile(const AFileName: string): string;
+var
+  Base: string;
+  P: Integer;
+begin
+  Base := ChangeFileExt(ExtractFileName(AFileName), '');
+  P := Pos(PROTOCOL_TYPE_SEPARATOR, Base);
+  if P = 0 then
+    Result := Base
+  else
+    Result := Copy(Base, 1, P - 1);
+end;
+
+function IsProtocolType(const AType: string): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to High(PROTOCOL_TYPES) do
+    if SameText(PROTOCOL_TYPES[I], AType) then
+      Exit(True);
+end;
+
+function ProtocolFileName(const AType, AName: string): string;
+var
+  Base, Prefix: string;
+begin
+  Base := Trim(AName);
+  if (Length(Base) >= 4) and SameText(Copy(Base, Length(Base) - 3, 4), '.pro') then
+    Base := Copy(Base, 1, Length(Base) - 4);
+  Prefix := AType + PROTOCOL_TYPE_SEPARATOR;
+  if Copy(Base, 1, Length(Prefix)) = Prefix then
+    Base := Copy(Base, Length(Prefix) + 1, MaxInt);
+  if Base = '' then
+    Exit('');
+  Result := Prefix + Base + '.pro';
+end;
 
 function SplitSlashValues(const AText: string; AValues: TStrings): Boolean;
 var

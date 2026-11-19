@@ -22,6 +22,11 @@ type
     procedure RejectsBadSlashes;
     procedure RejectsMismatchedCounts;
     procedure RejectsDuplicateNames;
+    procedure ProtocolTypeIsNamePartBeforeUnderscore;
+    procedure ProtocolFileNameJoinsTypeAndName;
+    procedure ProtocolFileNameKeepsOtherDotsAndPrefix;
+    procedure ProtocolFileNameIsEmptyForEmptyName;
+    procedure KnownProtocolTypes;
   end;
 
 implementation
@@ -207,6 +212,52 @@ end;
 procedure TProtocolFormatTests.RejectsDuplicateNames;
 begin
   AssertTrue(Pos('несколько раз', StepError(MakeStep('A/a', '2', '1', '1'))) > 0);
+end;
+
+procedure TProtocolFormatTests.ProtocolTypeIsNamePartBeforeUnderscore;
+begin
+  AssertEquals('A', ProtocolTypeOfFile('D:\data\protocols\A_test.pro'));
+  AssertEquals('A', ProtocolTypeOfFile('A_my_long_name.pro'));
+  AssertEquals('A', ProtocolTypeOfFile('A.pro'));
+  AssertEquals('', ProtocolTypeOfFile('_x.pro'));
+  AssertEquals('каталог с _ в пути не влияет', 'A',
+    ProtocolTypeOfFile('D:\my_dir\A_x.pro'));
+  AssertEquals('test', ProtocolTypeOfFile('test.pro'));
+end;
+
+procedure TProtocolFormatTests.ProtocolFileNameJoinsTypeAndName;
+begin
+  AssertEquals('A_test.pro', ProtocolFileName('A', 'test'));
+  AssertEquals('A_test.pro', ProtocolFileName('A', 'test.pro'));
+  AssertEquals('A_test.pro', ProtocolFileName('A', 'test.PRO'));
+  AssertEquals('A_a_b.pro', ProtocolFileName('A', 'a_b'));
+  AssertEquals('пробелы по краям убираются', 'A_test.pro',
+    ProtocolFileName('A', ' test '));
+end;
+
+procedure TProtocolFormatTests.ProtocolFileNameKeepsOtherDotsAndPrefix;
+begin
+  AssertEquals('A_v1.2.pro', ProtocolFileName('A', 'v1.2'));
+  AssertEquals('префикс типа не дублируется', 'A_test.pro',
+    ProtocolFileName('A', 'A_test'));
+  AssertEquals('A_test.pro', ProtocolFileName('A', 'A_test.pro'));
+  AssertEquals('A_AB.pro', ProtocolFileName('A', 'AB'));
+end;
+
+procedure TProtocolFormatTests.ProtocolFileNameIsEmptyForEmptyName;
+begin
+  AssertEquals('', ProtocolFileName('A', ''));
+  AssertEquals('', ProtocolFileName('A', '.pro'));
+  AssertEquals('', ProtocolFileName('A', '  '));
+  AssertEquals('', ProtocolFileName('A', 'A_'));
+end;
+
+procedure TProtocolFormatTests.KnownProtocolTypes;
+begin
+  AssertTrue(IsProtocolType('A'));
+  AssertTrue(IsProtocolType('a'));
+  AssertFalse(IsProtocolType('test'));
+  AssertFalse(IsProtocolType(''));
 end;
 
 initialization
