@@ -130,8 +130,8 @@ begin
   SetLength(Result, ACount);
   for I := 0 to ACount - 1 do
   begin
-    FileName := Path('arrays' + PathDelim + AArray + PathDelim + 'ezd' +
-      PathDelim + 'Layer' + IntToStr(I + 1) + '.ezd');
+    FileName := Path('projects' + PathDelim + AArray + PathDelim + 'slice' +
+      PathDelim + 'ezd' + PathDelim + 'Layer' + IntToStr(I + 1) + '.ezd');
     WriteText(FileName, AArray + ' layer ' + IntToStr(I + 1));
     Result[I] := Default(TSliceLayer);
     Result[I].LayerNumber := I + 1;
@@ -172,7 +172,8 @@ begin
   AssertTrue(FWs.NeedsSave);
   AssertFalse(DirectoryExists(Path('syntheses')));
   AssertEquals('слои пока исходные',
-    Path('arrays' + PathDelim + 'Arr1' + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'),
+    Path('projects' + PathDelim + 'Arr1' + PathDelim + 'slice' + PathDelim +
+      'ezd' + PathDelim + 'Layer1.ezd'),
     FWs.Session.Layers[0].EZDFile);
 end;
 
@@ -204,13 +205,13 @@ var
   ErrorText: string;
 begin
   Layers := MakeLayers('Arr1', 'A', 2);
-  AssertTrue(ErrorText, SaveSliceStatistics(Path('arrays' + PathDelim + 'Arr1'),
+  AssertTrue(ErrorText, SaveSliceStatistics(Path('projects' + PathDelim + 'Arr1' + PathDelim + 'slice'),
     Layers, SLICES_EZD_FILE, ErrorText));
-  AssertTrue(ErrorText, FWs.AddLayersFile(Path('arrays' + PathDelim + 'Arr1' +
-    PathDelim + 'Slices.lays'), ErrorText));
+  AssertTrue(ErrorText, FWs.AddLayersFile(Path('projects' + PathDelim + 'Arr1' +
+    PathDelim + 'slice' + PathDelim + 'Slices.lays'), ErrorText));
   AssertEquals(2, FWs.Session.LayerCount);
   AssertEquals(Layers[1].EZDFile, FWs.Session.Layers[1].EZDFile);
-  AssertFalse(FWs.AddLayersFile(Path('arrays' + PathDelim + 'none.lays'), ErrorText));
+  AssertFalse(FWs.AddLayersFile(Path('projects' + PathDelim + 'none.lays'), ErrorText));
   AssertTrue(ErrorText <> '');
   AssertEquals('прежние слои на месте', 2, FWs.Session.LayerCount);
 end;
@@ -235,7 +236,8 @@ begin
     AssertEquals(2, I.ReadInteger('Synthesis', 'LayerCount', 0));
     AssertEquals('A', I.ReadString('Synthesis', 'Letters', ''));
     AssertEquals('2026-11-04 14:30:05', I.ReadString('Synthesis', 'Saved', ''));
-    AssertEquals(Path('arrays' + PathDelim + 'Arr1' + PathDelim + 'ezd'),
+    AssertEquals(Path('projects' + PathDelim + 'Arr1' + PathDelim + 'slice' +
+      PathDelim + 'ezd'),
       I.ReadString('Synthesis', 'SourceFolder', ''));
   finally
     I.Free;
@@ -655,7 +657,8 @@ begin
   AssertTrue(ErrorText, ReadSynthesisInfo(Folder + PathDelim + SYNTHESIS_INFO_FILE,
     Info, ErrorText));
   AssertEquals('Arr2', Info.ArrayName);
-  AssertEquals(Path('arrays' + PathDelim + 'Arr2' + PathDelim + 'ezd'),
+  AssertEquals(Path('projects' + PathDelim + 'Arr2' + PathDelim + 'slice' +
+    PathDelim + 'ezd'),
     Info.SourceFolder);
 end;
 

@@ -77,9 +77,9 @@ begin
   UpdateMinimumWindowWidth();
   UpdateManualControlsWidth();
 
-  // при запуске всегда открываем вкладку синтеза,
+  // при запуске всегда открываем первую вкладку (последовательности),
   // независимо от того, какая вкладка сохранена в дизайнере
-  PageControl1.ActivePage:=TS_Synthesis;
+  PageControl1.ActivePage:=TS_Sequences;
 end;
 
 procedure TMainForm.FormResize(Sender: TObject);

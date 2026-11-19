@@ -100,7 +100,13 @@ begin
     Exit;
   Dir := ExcludeTrailingPathDelimiter(ExtractFilePath(ALayers[0].EZDFile));
   Leaf := ExtractFileName(Dir);
-  if SameText(Leaf, 'ezd') or SameText(Leaf, SYNTHESIS_LAYERS_FOLDER) then
+  // EZD лежат в <проект>\<папка слайса>\ezd - имя массива это папка проекта
+  if SameText(Leaf, 'ezd') then
+  begin
+    Dir := ExcludeTrailingPathDelimiter(ExtractFilePath(Dir));
+    Leaf := ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(Dir)));
+  end
+  else if SameText(Leaf, SYNTHESIS_LAYERS_FOLDER) then
     Leaf := ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(Dir)));
   if Leaf <> '' then
     Result := Leaf;

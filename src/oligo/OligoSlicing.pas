@@ -35,17 +35,17 @@ function LayerFileName(const aLayer: TOligoLayer): String;
 function WriteLayerFiles(const aLayers: TOligoLayers; const aDir: String;
   out aTable: TSliceLayers; out aErrorText: String): Boolean;
 
-// Слайсинг целиком: слои массива, их матрицы в aLayersDir и статистика
-// Slices.txt в aStatDir (пути к слоям в ней - относительно aStatDir).
-// При ошибке - False, текст ошибки и пустая таблица.
-function SliceArrayIntoFolder(const aArr: TOligoArr;
-  const aLayersDir, aStatDir: String; out aLayers: TOligoLayers;
-  out aTable: TSliceLayers; out aErrorText: String): Boolean;
+// Слайсинг целиком в папку слайса aSliceDir: матрицы слоёв в aSliceDir\layers
+// (папка создаётся) и статистика Slices.txt в aSliceDir (пути к слоям в ней -
+// относительно aSliceDir). При ошибке - False, текст ошибки и пустая таблица.
+function SliceArrayIntoFolder(const aArr: TOligoArr; const aSliceDir: String;
+  out aLayers: TOligoLayers; out aTable: TSliceLayers;
+  out aErrorText: String): Boolean;
 
 implementation
 
 uses
-  OligoMatrix;
+  AppPaths, OligoMatrix;
 
 function SliceOligoArray(const aArr: TOligoArr): TOligoLayers;
 var
@@ -104,13 +104,22 @@ begin
   end;
 end;
 
-function SliceArrayIntoFolder(const aArr: TOligoArr;
-  const aLayersDir, aStatDir: String; out aLayers: TOligoLayers;
-  out aTable: TSliceLayers; out aErrorText: String): Boolean;
+function SliceArrayIntoFolder(const aArr: TOligoArr; const aSliceDir: String;
+  out aLayers: TOligoLayers; out aTable: TSliceLayers;
+  out aErrorText: String): Boolean;
+var
+  LayersDir: String;
 begin
   aLayers:=SliceOligoArray(aArr);
-  Result:=WriteLayerFiles(aLayers, aLayersDir, aTable, aErrorText) and
-    SaveSliceStatistics(aStatDir, aTable, SLICES_STAT_FILE, aErrorText);
+  LayersDir:=IncludeTrailingPathDelimiter(aSliceDir)+LAYERS_FOLDER;
+  if ForceDirectories(LayersDir) then
+    Result:=WriteLayerFiles(aLayers, LayersDir, aTable, aErrorText) and
+      SaveSliceStatistics(aSliceDir, aTable, SLICES_STAT_FILE, aErrorText)
+  else
+  begin
+    Result:=False;
+    aErrorText:='Не удалось создать папку:'+LineEnding+LayersDir;
+  end;
   if not Result then
     aTable:=nil;
 end;

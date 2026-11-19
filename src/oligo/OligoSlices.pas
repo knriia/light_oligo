@@ -50,6 +50,10 @@ function LoadSliceStatistics(const aSliceFile: String; out aLayers: TSliceLayers
 function ListLayerFiles(const aDir: String): TStringArray;
 // Удаляет файлы слоёв из папки. False и текст ошибки, если какой-то не удалился.
 function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
+// Результат прежнего слайсинга в папке слайса aDir: Slices.txt, Slices.lays и
+// файлы слоёв из aDir\layers (полные пути). Папка EZD не входит.
+function ListSliceFiles(const aDir: String): TStringArray;
+function DeleteSliceFiles(const aDir: String; out aErrorText: String): Boolean;
 // То же только для EZD-файлов слоёв (Layer*.ezd); файлы матриц не трогаются.
 function ListLayerEzdFiles(const aDir: String): TStringArray;
 function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolean;
@@ -57,7 +61,7 @@ function DeleteLayerEzdFiles(const aDir: String; out aErrorText: String): Boolea
 implementation
 
 uses
-  PathUtils, TextFileUtils;
+  AppPaths, PathUtils, TextFileUtils;
 
 function SaveSliceStatistics(const aDir: String;
   const aTable: array of TSliceLayer; aFileType: Word;
@@ -309,6 +313,24 @@ end;
 function DeleteLayerFiles(const aDir: String; out aErrorText: String): Boolean;
 begin
   Result:=DeleteFileList(ListLayerFiles(aDir), aErrorText);
+end;
+
+function ListSliceFiles(const aDir: String): TStringArray;
+var
+  Own, Layers: TStringArray;
+  i: integer;
+begin
+  Own:=ListFilesByMasks(aDir, ['Slices.txt', 'Slices.lays']);
+  Layers:=ListLayerFiles(IncludeTrailingPathDelimiter(aDir)+LAYERS_FOLDER);
+  Result:=Own;
+  SetLength(Result, Length(Own)+Length(Layers));
+  for i:=0 to High(Layers) do
+    Result[Length(Own)+i]:=Layers[i];
+end;
+
+function DeleteSliceFiles(const aDir: String; out aErrorText: String): Boolean;
+begin
+  Result:=DeleteFileList(ListSliceFiles(aDir), aErrorText);
 end;
 
 function ListLayerEzdFiles(const aDir: String): TStringArray;

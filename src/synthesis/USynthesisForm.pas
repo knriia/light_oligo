@@ -490,7 +490,7 @@ begin
     Exit;
   end;
   OD_File.Filter := 'Слои|*.lays';
-  OD_File.InitialDir := ArraysDir;
+  OD_File.InitialDir := ProjectsDir;
   OD_File.FileName := '';
   if not OD_File.Execute then
     Exit;

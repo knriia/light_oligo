@@ -13,16 +13,15 @@ uses
 
 const
   DATA_FOLDER = 'data';
-  ARRAYS_FOLDER = 'arrays';          // массивы олигов (CSV)
-  MATRICES_FOLDER = 'matrices';      // матрицы точек
-  SLICES_FOLDER = 'slices';          // результаты нарезки на слои
+  PROJECTS_FOLDER = 'projects';      // проекты: папка проекта с одним CSV массива
   PROTOCOLS_FOLDER = 'protocols';    // протоколы синтеза (.pro)
   AUTOMATION_FOLDER = 'automation';  // сценарии шприцевой станции
   SYNTHESES_FOLDER = 'syntheses';    // папки запусков синтеза
   SETTINGS_FOLDER = 'settings';      // старое место настроек станции (data\settings)
   EZD_FOLDER = 'ezd';                // файлы EzCAD, созданные вручную
   SETTINGS_FILE = 'syringe_pump.ini';
-  LAYERS_FOLDER = 'layers';          // файлы слоёв рядом с файлом массива
+  SLICE_FOLDER = 'slice';            // папка слайсинга в папке проекта (имя по умолчанию)
+  LAYERS_FOLDER = 'layers';          // файлы слоёв внутри папки слайсинга
   CONFIGS_FOLDER = 'configs';        // настройки программы рядом с exe
   INTERFACE_FILE = 'Interface.ini';  // надписи интерфейса
   PROG_CONFIG_FILE = 'ProgConfig.ini'; // настройки ручной вкладки, лазера, станции
@@ -36,9 +35,7 @@ function AppDir(const AExecutableFileName: string = ''): string;
 function DataDir(const AExecutableFileName: string = ''): string;
 function DataSubDir(const AFolderName: string;
   const AExecutableFileName: string = ''): string;
-function ArraysDir: string;
-function MatricesDir: string;
-function SlicesDir: string;
+function ProjectsDir: string;
 function ProtocolsDir: string;
 function AutomationDir(const AExecutableFileName: string = ''): string;
 // Папки запусков синтеза: в каждой копии слоёв и протоколов, журнал и итог.
@@ -102,19 +99,9 @@ begin
     AFolderName;
 end;
 
-function ArraysDir: string;
+function ProjectsDir: string;
 begin
-  Result := DataSubDir(ARRAYS_FOLDER);
-end;
-
-function MatricesDir: string;
-begin
-  Result := DataSubDir(MATRICES_FOLDER);
-end;
-
-function SlicesDir: string;
-begin
-  Result := DataSubDir(SLICES_FOLDER);
+  Result := DataSubDir(PROJECTS_FOLDER);
 end;
 
 function ProtocolsDir: string;
@@ -171,12 +158,9 @@ end;
 
 procedure EnsureDataDirs;
 begin
-  ForceDirectories(ArraysDir);
-  ForceDirectories(MatricesDir);
-  ForceDirectories(SlicesDir);
+  ForceDirectories(ProjectsDir);
   ForceDirectories(ProtocolsDir);
   ForceDirectories(AutomationDir);
-  ForceDirectories(SynthesesDir);
   ForceDirectories(EzdDir);
   ForceDirectories(ConfigsDir);
 end;
