@@ -15,6 +15,7 @@
     "protocol",
     "laser",
     "synthesis",
+    "project",
     "station",
     "manual"
   ],
@@ -78,6 +79,7 @@
     "ProtocolFormat": "protocol",
     "ProtocolModel": "protocol",
     "SynthesisFolder": "synthesis",
+    "ProjectModel": "project",
     "SynthesisRunner": "synthesis",
     "SynthesisSession": "synthesis",
     "SynthesisThread": "synthesis",
@@ -124,13 +126,14 @@
     "WindowSettingsStorage": "station"
   },
   "allowed_edges": {
-    "app": ["shared", "platform", "oligo", "protocol", "laser", "synthesis", "station", "manual"],
+    "app": ["shared", "platform", "oligo", "protocol", "laser", "synthesis", "project", "station", "manual"],
     "shared": [],
     "platform": [],
     "oligo": ["shared", "platform"],
     "protocol": ["shared", "platform"],
     "laser": ["oligo", "shared", "platform"],
     "synthesis": ["protocol", "oligo", "shared", "platform"],
+    "project": ["synthesis", "oligo", "shared", "platform"],
     "station": ["protocol", "shared", "platform"],
     "manual": ["laser", "station", "oligo", "shared", "platform"]
   },
