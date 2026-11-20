@@ -1,6 +1,6 @@
 unit SynthesisWorkspace;
-// Синтез, который собирает оператор: сессия (что загружено) и его папка в
-// проекте. Папка создаётся вместе с синтезом, и всё, что оператор добавляет,
+// Синтез, который собирает оператор: сессия (что загружено) и его папка
+// внутри слайса проекта. Папка создаётся вместе с синтезом, и всё, что оператор добавляет,
 // сразу пишется в неё: протокол копируется в protocols\, слои создаются в
 // ezd\ вместе с Slices.lays, геометрией и пером лазера, а synthesis.ini хранит
 // состав. Поэтому состояние на диске всегда равно состоянию в окне, а синтез
@@ -25,6 +25,7 @@ type
     FCreated: TDateTime;
     FStarted: Boolean;
     function GetProjectDir: string;
+    function GetSliceDir: string;
     function SaveInfo(out AErrorText: string): Boolean;
   public
     constructor Create;
@@ -32,7 +33,7 @@ type
 
     // Можно ли менять синтез: он создан и не запускался. Иначе False и текст.
     function CheckEditable(out AErrorText: string): Boolean;
-    // Создаёт пустой синтез в новой папке AFolder (внутри папки проекта):
+    // Создаёт пустой синтез в новой папке AFolder (внутри папки слайса):
     // папка и synthesis.ini. Папка не должна существовать. Ошибка - False,
     // текст объясняет, что не сделано. Прежний синтез из окна убирается.
     function CreateNew(const AFolder: string; ANow: TDateTime;
@@ -45,7 +46,8 @@ type
     function RemoveProtocol(const ALetter: string;
       out AErrorText: string): Boolean;
     // Создаёт слои синтеза по слайсу ASliceFolder: геометрия и EZD в папке
-    // синтеза. Слайс должен лежать в проекте синтеза. lbsBuilt - слои в
+    // синтеза. Слайс - только тот, в папке которого лежит синтез (SliceDir).
+    // lbsBuilt - слои в
     // синтезе; lbsCancelled - оператор отказался, синтез не изменился;
     // lbsFailed - причина в AErrorText, файлы слоёв в папке убраны.
     function AddLayers(ABuilder: TLayersBuilder; const ASliceFolder: string;
@@ -68,7 +70,9 @@ type
     property Session: TSynthesisSession read FSession;
     // Папка синтеза; пусто, пока синтез не создан и не открыт.
     property Folder: string read FFolder;
-    // Папка проекта синтеза (родитель папки синтеза).
+    // Папка слайса, внутри которой лежит синтез (родитель папки синтеза).
+    property SliceDir: string read GetSliceDir;
+    // Папка проекта синтеза (родитель папки слайса).
     property ProjectDir: string read GetProjectDir;
     // Папка слайса, из которого созданы слои; пусто, пока слоёв нет.
     property SourceFolder: string read FSourceFolder;
@@ -96,6 +100,14 @@ begin
 end;
 
 function TSynthesisWorkspace.GetProjectDir: string;
+begin
+  if FFolder = '' then
+    Result := ''
+  else
+    Result := ExtractFileDir(GetSliceDir);
+end;
+
+function TSynthesisWorkspace.GetSliceDir: string;
 begin
   if FFolder = '' then
     Result := ''
@@ -232,6 +244,13 @@ begin
       'уберите слои из синтеза.';
     Exit;
   end;
+  if not SameText(ExcludeTrailingPathDelimiter(ExpandFileName(ASliceFolder)),
+    ExcludeTrailingPathDelimiter(ExpandFileName(GetSliceDir))) then
+  begin
+    AErrorText := 'Синтез лежит в папке своего слайса, слои можно взять ' +
+      'только из него:' + LineEnding + GetSliceDir;
+    Exit;
+  end;
   if not CheckSliceFolder(GetProjectDir, ASliceFolder, AErrorText) then
     Exit;
   Layers := nil;
@@ -290,6 +309,14 @@ begin
   if not ReadSynthesisInfo(AIniFile, Info, AErrorText) then
     Exit;
   SynthFolder := ExcludeTrailingPathDelimiter(ExtractFileDir(AIniFile));
+  if not FileExists(IncludeTrailingPathDelimiter(ExtractFileDir(SynthFolder)) +
+    SLICE_STATISTICS_FILE) then
+  begin
+    AErrorText := 'Синтез лежит не в папке слайса (нет ' + SLICE_STATISTICS_FILE +
+      ' в родительской папке). Перенесите папку синтеза внутрь папки слайса ' +
+      '(например slices_base):' + LineEnding + SynthFolder;
+    Exit;
+  end;
   NewSynthesis;
   Names := TStringList.Create;
   try

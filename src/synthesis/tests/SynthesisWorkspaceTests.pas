@@ -69,6 +69,9 @@ type
     procedure CancelledBuildLeavesSynthesisEmpty;
     procedure FailedBuildRemovesPartialFiles;
     procedure SecondAddLayersIsRefused;
+    procedure OtherSliceOfSameProjectIsRefusedWithoutBuilding;
+    procedure OwnSliceWithSlashAndOtherCaseIsAccepted;
+    procedure OpenRefusesSynthesisOutsideSlice;
     procedure RemoveLayersDeletesLayerFilesAndKeepsProtocols;
     procedure ShowGeometryWithoutLayersSaysSo;
     procedure ShowGeometryPassesSliceAndSynthesisFolders;
@@ -170,7 +173,7 @@ begin
   AssertTrue(ForceDirectories(FRoot));
   FProject := Path('projects' + PathDelim + 'Arr1');
   FSlice := FProject + PathDelim + 'slice';
-  FSynth := FProject + PathDelim + 'synthes_2026-11-04';
+  FSynth := FSlice + PathDelim + 'synthes_2026-11-04';
   WriteText(FProject + PathDelim + 'arrays.csv', 'AT;GC');
   WriteText(FSlice + PathDelim + 'Slices.txt', 'Layer');
   FWs := TSynthesisWorkspace.Create;
@@ -275,6 +278,7 @@ var
 begin
   CreateSynthesis;
   AssertEquals(FSynth, FWs.Folder);
+  AssertEquals(FSlice, FWs.SliceDir);
   AssertEquals(FProject, FWs.ProjectDir);
   AssertTrue(DirectoryExists(FSynth));
   I := TMemIniFile.Create(FSynth + PathDelim + SYNTHESIS_INFO_FILE);
@@ -318,7 +322,7 @@ var
 begin
   CreateSynthesis;
   AddProtocol('A');
-  Second := FProject + PathDelim + 'synthes_2026-11-04_2';
+  Second := FSlice + PathDelim + 'synthes_2026-11-04_2';
   AssertTrue(ErrorText, FWs.CreateNew(Second, Later, ErrorText));
   AssertEquals(Second, FWs.Folder);
   AssertEquals(0, FWs.Session.ProtocolCount);
@@ -440,19 +444,59 @@ begin
   Other := Path('projects' + PathDelim + 'Other' + PathDelim + 'slice');
   WriteText(Other + PathDelim + 'Slices.txt', 'Layer');
   AssertTrue(FWs.AddLayers(FBuilder, Other, ErrorText) = lbsFailed);
-  AssertTrue(ErrorText, Pos('в папке проекта', ErrorText) > 0);
+  AssertEquals('Синтез лежит в папке своего слайса, слои можно взять только ' +
+    'из него:' + LineEnding + FSlice, ErrorText);
   AssertEquals(0, FBuilder.BuildCalls);
   AssertEquals(0, FWs.Session.LayerCount);
 end;
 
-procedure TSynthesisWorkspaceTests.SliceWithoutStatisticsIsRefusedWithoutBuilding;
+procedure TSynthesisWorkspaceTests.OtherSliceOfSameProjectIsRefusedWithoutBuilding;
 var
-  Empty, ErrorText: string;
+  Other, ErrorText: string;
 begin
   CreateSynthesis;
-  Empty := FProject + PathDelim + 'empty';
-  ForceDirectories(Empty);
-  AssertTrue(FWs.AddLayers(FBuilder, Empty, ErrorText) = lbsFailed);
+  Other := FProject + PathDelim + 'slice_other';
+  WriteText(Other + PathDelim + 'Slices.txt', 'Layer');
+  AssertTrue(FWs.AddLayers(FBuilder, Other, ErrorText) = lbsFailed);
+  AssertEquals('Синтез лежит в папке своего слайса, слои можно взять только ' +
+    'из него:' + LineEnding + FSlice, ErrorText);
+  AssertEquals(0, FBuilder.BuildCalls);
+  AssertEquals(0, FWs.Session.LayerCount);
+end;
+
+procedure TSynthesisWorkspaceTests.OwnSliceWithSlashAndOtherCaseIsAccepted;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AssertTrue(ErrorText, FWs.AddLayers(FBuilder,
+    UpperCase(FSlice) + PathDelim, ErrorText) = lbsBuilt);
+  AssertEquals(1, FBuilder.BuildCalls);
+  AssertEquals(2, FWs.Session.LayerCount);
+end;
+
+procedure TSynthesisWorkspaceTests.OpenRefusesSynthesisOutsideSlice;
+var
+  Legacy, ErrorText: string;
+begin
+  CreateSynthesis;
+  Legacy := FProject + PathDelim + 'synthes_old';
+  ForceDirectories(Legacy);
+  WriteText(Legacy + PathDelim + SYNTHESIS_INFO_FILE,
+    ReadText(FSynth + PathDelim + SYNTHESIS_INFO_FILE));
+  AssertFalse(FWs.Open(Legacy + PathDelim + SYNTHESIS_INFO_FILE, ErrorText));
+  AssertTrue(ErrorText, Pos('не в папке слайса', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos(Legacy, ErrorText) > 0);
+  AssertEquals('прежний синтез не тронут', FSynth, FWs.Folder);
+end;
+
+procedure TSynthesisWorkspaceTests.SliceWithoutStatisticsIsRefusedWithoutBuilding;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AssertTrue(DeleteFile(FSlice + PathDelim + 'Slices.txt'));
+  AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsFailed);
   AssertTrue(ErrorText, Pos('Slices.txt', ErrorText) > 0);
   AssertEquals(0, FBuilder.BuildCalls);
 end;
@@ -554,6 +598,7 @@ begin
     AssertTrue(ErrorText, Other.Open(FSynth + PathDelim + SYNTHESIS_INFO_FILE,
       ErrorText));
     AssertEquals(FSynth, Other.Folder);
+    AssertEquals(FSlice, Other.SliceDir);
     AssertEquals(FProject, Other.ProjectDir);
     AssertEquals(FSlice, Other.SourceFolder);
     AssertEquals(2, Other.Session.LayerCount);

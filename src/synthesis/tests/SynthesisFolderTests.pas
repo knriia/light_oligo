@@ -35,6 +35,7 @@ type
     procedure SliceOutsideProjectIsRefused;
     procedure SliceInSiblingFolderWithSamePrefixIsRefused;
     procedure SliceWithoutStatisticsFileIsRefused;
+    procedure SynthesisFolderNameNeedsPrefix;
     procedure EzdFolderIsInsideSynthesisFolder;
     procedure RemoveLayerFilesKeepsProtocolsAndInfo;
     procedure ProtocolCopyFileIsInProtocolsFolder;
@@ -120,19 +121,21 @@ end;
 
 procedure TSynthesisFolderTests.FreeFolderNameIsPlainWhenNotTaken;
 begin
-  ForceDirectories(Path('proj'));
-  AssertEquals('synthes_2026-11-04', FreeSynthesisFolderName(Path('proj'),
-    Moment));
+  ForceDirectories(Path('proj' + PathDelim + 'slices_base'));
+  AssertEquals('synthes_2026-11-04', FreeSynthesisFolderName(
+    Path('proj' + PathDelim + 'slices_base'), Moment));
 end;
 
 procedure TSynthesisFolderTests.FreeFolderNameGetsSuffixWhenTaken;
 begin
-  ForceDirectories(Path('proj' + PathDelim + 'synthes_2026-11-04'));
-  AssertEquals('synthes_2026-11-04_2', FreeSynthesisFolderName(Path('proj'),
-    Moment));
-  ForceDirectories(Path('proj' + PathDelim + 'synthes_2026-11-04_2'));
-  AssertEquals('synthes_2026-11-04_3', FreeSynthesisFolderName(Path('proj'),
-    Moment));
+  ForceDirectories(Path('proj' + PathDelim + 'slices_base' + PathDelim +
+    'synthes_2026-11-04'));
+  AssertEquals('synthes_2026-11-04_2', FreeSynthesisFolderName(
+    Path('proj' + PathDelim + 'slices_base'), Moment));
+  ForceDirectories(Path('proj' + PathDelim + 'slices_base' + PathDelim +
+    'synthes_2026-11-04_2'));
+  AssertEquals('synthes_2026-11-04_3', FreeSynthesisFolderName(
+    Path('proj' + PathDelim + 'slices_base'), Moment));
 end;
 
 procedure TSynthesisFolderTests.SafeFolderPartReplacesBadCharsAndCutsLength;
@@ -207,6 +210,19 @@ begin
   AssertFalse(CheckSliceFolder(Path('proj'), Path('proj' + PathDelim + 'empty'),
     ErrorText));
   AssertTrue(ErrorText, Pos('Slices.txt', ErrorText) > 0);
+end;
+
+procedure TSynthesisFolderTests.SynthesisFolderNameNeedsPrefix;
+var
+  ErrorText: string;
+begin
+  AssertTrue(ErrorText, CheckSynthesisFolderName('synthes_2026-11-04', ErrorText));
+  AssertEquals('', ErrorText);
+  AssertTrue(ErrorText, CheckSynthesisFolderName('Synthes_my', ErrorText));
+  AssertFalse(CheckSynthesisFolderName('layers', ErrorText));
+  AssertEquals('Имя папки синтеза должно начинаться с synthes_', ErrorText);
+  AssertFalse(CheckSynthesisFolderName('', ErrorText));
+  AssertFalse(CheckSynthesisFolderName('synthes', ErrorText));
 end;
 
 procedure TSynthesisFolderTests.EzdFolderIsInsideSynthesisFolder;

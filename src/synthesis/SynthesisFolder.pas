@@ -1,5 +1,6 @@
 unit SynthesisFolder;
-// Папка одного синтеза: <папка проекта>\synthes_<дата>\. В ней лежат EZD-файлы
+// Папка одного синтеза: <папка проекта>\<папка слайса>\synthes_<дата>\
+// (синтез лежит внутри слайса, из которого взяты слои). В ней лежат EZD-файлы
 // слоёв (ezd\), Slices.lays с путями к ним, геометрия и перо лазера, с которыми
 // созданы EZD (geometry.ini, laser.ini), протоколы букв (protocols\), а файл
 // синтеза synthesis.ini хранит, когда синтез изменён, какой проект, из какого
@@ -51,13 +52,17 @@ type
 function SafeFolderPart(const AText: string): string;
 // Имя папки синтеза по умолчанию: synthes_<гггг-мм-дд>
 function SynthesisFolderName(ANow: TDateTime): string;
-// То же, но свободное в папке проекта: если такая папка есть, добавляется
+// То же, но свободное в папке слайса: если такая папка есть, добавляется
 // _2, _3...
-function FreeSynthesisFolderName(const AProjectDir: string;
+function FreeSynthesisFolderName(const ASliceDir: string;
   ANow: TDateTime): string;
 
 // Папка проекта: в ней есть файл массива (*.csv).
 function IsProjectFolder(const AFolder: string): Boolean;
+// Имя папки синтеза внутри слайса: начинается с synthes_, чтобы не совпасть со
+// служебными папками слайса. Иначе - False, текст объясняет почему.
+function CheckSynthesisFolderName(const AName: string;
+  out AErrorText: string): Boolean;
 // Слайс синтеза: папка со Slices.txt внутри папки проекта (или сама папка
 // проекта). Иначе - False, текст объясняет почему.
 function CheckSliceFolder(const AProjectDir, ASliceDir: string;
@@ -132,13 +137,13 @@ begin
   Result := SYNTHESIS_FOLDER_PREFIX + FormatDateTime('yyyy-mm-dd', ANow);
 end;
 
-function FreeSynthesisFolderName(const AProjectDir: string;
+function FreeSynthesisFolderName(const ASliceDir: string;
   ANow: TDateTime): string;
 var
   Dir, Base: string;
   N: Integer;
 begin
-  Dir := IncludeTrailingPathDelimiter(AProjectDir);
+  Dir := IncludeTrailingPathDelimiter(ASliceDir);
   Base := SynthesisFolderName(ANow);
   Result := Base;
   N := 2;
@@ -147,6 +152,18 @@ begin
     Result := Base + '_' + IntToStr(N);
     Inc(N);
   end;
+end;
+
+function CheckSynthesisFolderName(const AName: string;
+  out AErrorText: string): Boolean;
+begin
+  Result := SameText(Copy(AName, 1, Length(SYNTHESIS_FOLDER_PREFIX)),
+    SYNTHESIS_FOLDER_PREFIX);
+  if Result then
+    AErrorText := ''
+  else
+    AErrorText := 'Имя папки синтеза должно начинаться с ' +
+      SYNTHESIS_FOLDER_PREFIX;
 end;
 
 function IsProjectFolder(const AFolder: string): Boolean;
