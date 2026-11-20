@@ -1,7 +1,7 @@
 unit USynthesisForm;
-// Вкладка «Синтез»: создание синтеза в проекте, загрузка слоёв и протоколов,
+// Вкладка «Синтез»: создание синтеза в слайсе проекта, загрузка слоёв и протоколов,
 // запуск и остановка синтеза. Что загружено - в синтезе (SynthesisWorkspace:
-// сессия и папка синтеза в проекте, куда всё пишется сразу), ход синтеза - в
+// сессия и папка синтеза внутри слайса, куда всё пишется сразу), ход синтеза - в
 // потоке (SynthesisThread и SynthesisRunner). Вкладка ничего не знает о
 // главном окне: журнал, шприцевую станцию, создание слоёв (геометрия и EZD),
 // текущий проект и запуск наблюдателя за окнами EzCAD ей передаёт владелец.
@@ -68,7 +68,9 @@ type
     function OpenProjectDir: string;
     // Выбор проекта в корне projects; пусто - отказ или это не проект.
     function ChooseProjectDir: string;
-    // Выбор слайса в проекте синтеза и создание слоёв синтеза.
+    // Выбор слайса в проекте (окно со списком); пусто - отказ или слайсов нет.
+    function ChooseSliceFolder(const AProjectDir: string): string;
+    // Создание слоёв синтеза из слайса, в папке которого лежит синтез.
     procedure LoadLayersFromSlice;
     procedure Log(const AText: string);
     procedure SetOnEditLaserParams(AValue: TNotifyEvent);
@@ -83,7 +85,7 @@ type
     // Геометрия и EZD слоёв; без него слои создать и показать нельзя.
     property LayersBuilder: TLayersBuilder read FLayersBuilder
       write FLayersBuilder;
-    // Открытый проект: синтез создаётся в нём; нет события - проект выбирают.
+    // Открытый проект: слайс для синтеза выбирают в нём; нет события - проект выбирают.
     property OnGetProjectDir: TSynthesisProjectEvent read FOnGetProjectDir
       write FOnGetProjectDir;
     // Параметры лазера (перо), с которыми создаются EZD; без события кнопка
@@ -285,20 +287,15 @@ begin
   end;
 end;
 
-procedure TSynthesisForm.LoadLayersFromSlice;
-// Слайс выбирают из папок slice* проекта синтеза; отказ оставляет слои как были
+function TSynthesisForm.ChooseSliceFolder(const AProjectDir: string): string;
+// Слайс выбирают из папок slice* проекта; синтез будет лежать внутри выбранного
 var
   Folders: TStringArray;
   Items: TStringList;
   Index, I: Integer;
-  SliceFolder, ErrorText: string;
 begin
-  if FLayersBuilder = nil then
-  begin
-    ShowMessage('Создание слоёв не подключено.');
-    Exit;
-  end;
-  Folders := ListSliceFolders(FWorkspace.ProjectDir);
+  Result := '';
+  Folders := ListSliceFolders(AProjectDir);
   if Length(Folders) = 0 then
   begin
     ShowMessage('В проекте нет слайса (папки slice со Slices.txt).' +
@@ -314,11 +311,23 @@ begin
     if not ChooseFromList('Слайс для синтеза', 'Слайс в проекте:', Items,
       Index) then
       Exit;
-    SliceFolder := IncludeTrailingPathDelimiter(FWorkspace.ProjectDir) +
-      Folders[Index];
+    Result := IncludeTrailingPathDelimiter(AProjectDir) + Folders[Index];
   finally
     Items.Free;
   end;
+end;
+
+procedure TSynthesisForm.LoadLayersFromSlice;
+// Слои берутся из слайса, внутри которого лежит синтез; отказ оставляет слои как были
+var
+  SliceFolder, ErrorText: string;
+begin
+  if FLayersBuilder = nil then
+  begin
+    ShowMessage('Создание слоёв не подключено.');
+    Exit;
+  end;
+  SliceFolder := FWorkspace.SliceDir;
   case FWorkspace.AddLayers(FLayersBuilder, SliceFolder, ErrorText) of
     lbsBuilt:
       Log('Слои созданы: ' + IntToStr(FWorkspace.Session.LayerCount) +
@@ -333,9 +342,10 @@ begin
 end;
 
 procedure TSynthesisForm.B_NewSynthesisClick(Sender: TObject);
-// Новый синтез в папке проекта; затем выбор слоёв, отказ оставляет его пустым
+// Новый синтез: выбор слайса, синтез создаётся внутри его папки; затем слои
+// из этого слайса, отказ оставляет синтез пустым
 var
-  ProjectDir, FolderName, ErrorText: string;
+  ProjectDir, SliceDir, FolderName, ErrorText: string;
   NameOk: Boolean;
 begin
   if Running then
@@ -348,23 +358,27 @@ begin
     ProjectDir := ChooseProjectDir;
   if ProjectDir = '' then
     Exit;
-  FolderName := FreeSynthesisFolderName(ProjectDir, Now);
+  SliceDir := ChooseSliceFolder(ProjectDir);
+  if SliceDir = '' then
+    Exit;
+  FolderName := FreeSynthesisFolderName(SliceDir, Now);
   repeat
-    if not InputQuery('Создать синтез', 'Папка синтеза в проекте' +
-      LineEnding + ProjectDir + LineEnding + 'Имя папки:', FolderName) then
+    if not InputQuery('Создать синтез', 'Папка синтеза в слайсе' +
+      LineEnding + SliceDir + LineEnding + 'Имя папки:', FolderName) then
       Exit;
     FolderName := Trim(FolderName);
-    NameOk := CheckFileNamePart(FolderName, 'Имя папки', ErrorText);
-    if NameOk and (DirectoryExists(IncludeTrailingPathDelimiter(ProjectDir) +
-      FolderName) or FileExists(IncludeTrailingPathDelimiter(ProjectDir) + FolderName)) then
+    NameOk := CheckFileNamePart(FolderName, 'Имя папки', ErrorText) and
+      CheckSynthesisFolderName(FolderName, ErrorText);
+    if NameOk and (DirectoryExists(IncludeTrailingPathDelimiter(SliceDir) +
+      FolderName) or FileExists(IncludeTrailingPathDelimiter(SliceDir) + FolderName)) then
     begin
       NameOk := False;
-      ErrorText := 'Такая папка уже есть в проекте: ' + FolderName;
+      ErrorText := 'Такая папка уже есть в слайсе: ' + FolderName;
     end;
     if not NameOk then
       ShowMessage(ErrorText);
   until NameOk;
-  if not FWorkspace.CreateNew(IncludeTrailingPathDelimiter(ProjectDir) + FolderName,
+  if not FWorkspace.CreateNew(IncludeTrailingPathDelimiter(SliceDir) + FolderName,
     Now, ErrorText) then
   begin
     ShowMessage(ErrorText);
@@ -548,7 +562,7 @@ begin
 end;
 
 procedure TSynthesisForm.B_LoadLayersClick(Sender: TObject);
-// Слои в созданный синтез: слайс из папки проекта, геометрия, EZD
+// Слои в созданный синтез: слайс, в папке которого лежит синтез, геометрия, EZD
 var
   ErrorText: string;
 begin
