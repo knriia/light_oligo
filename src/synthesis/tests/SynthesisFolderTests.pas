@@ -44,6 +44,9 @@ type
     procedure InfoIsWrittenAndReadBack;
     procedure RewrittenInfoKeepsCreatedTimeAndStart;
     procedure StartIsAddedToInfo;
+    procedure NewStartErasesPreviousResult;
+    procedure RunLogFileNameHasLogsFolderAndTime;
+    procedure RunLogFileNameAvoidsExistingFile;
     procedure ReadInfoRejectsMissingAndForeignFiles;
     procedure ResultIsAppendedToInfo;
     procedure ResultReportsMissingFolder;
@@ -321,7 +324,6 @@ begin
   AssertEquals('Arr1', Info.ArrayName);
   AssertEquals('D:\src', Info.SourceFolder);
   AssertEquals(2, Info.LayerCount);
-  AssertFalse(Info.Started);
 end;
 
 procedure TSynthesisFolderTests.RewrittenInfoKeepsCreatedTimeAndStart;
@@ -360,6 +362,7 @@ var
   Letters: TStringList;
   ErrorText: string;
   Info: TSynthesisInfo;
+  I: TMemIniFile;
 begin
   ForceDirectories(Path('syn'));
   Letters := TStringList.Create;
@@ -372,10 +375,66 @@ begin
   AssertTrue(ErrorText, SaveSynthesisStart(Path('syn'), Later, ErrorText));
   AssertTrue(ErrorText, ReadSynthesisInfo(Path('syn' + PathDelim +
     SYNTHESIS_INFO_FILE), Info, ErrorText));
-  AssertTrue(Info.Started);
   AssertEquals('Arr1', Info.ArrayName);
+  I := Ini(Path('syn'));
+  try
+    AssertEquals('2026-11-04 14:40:05', I.ReadString('Synthesis', 'Started', ''));
+  finally
+    I.Free;
+  end;
   AssertFalse(SaveSynthesisStart(Path('nowhere'), Later, ErrorText));
   AssertTrue(ErrorText <> '');
+end;
+
+procedure TSynthesisFolderTests.NewStartErasesPreviousResult;
+var
+  Letters: TStringList;
+  ErrorText: string;
+  I: TMemIniFile;
+begin
+  ForceDirectories(Path('syn'));
+  Letters := TStringList.Create;
+  try
+    AssertTrue(ErrorText, SaveSynthesisInfo(Path('syn'), 'Arr1', '', 1,
+      Letters, Moment, ErrorText));
+  finally
+    Letters.Free;
+  end;
+  AssertTrue(ErrorText, SaveSynthesisStart(Path('syn'), Moment, ErrorText));
+  AssertTrue(ErrorText, SaveSynthesisResult(Path('syn'), srCompleted, Later,
+    ErrorText));
+  AssertTrue(ErrorText, SaveSynthesisStart(Path('syn'), Later + 1, ErrorText));
+  I := Ini(Path('syn'));
+  try
+    AssertFalse('итог прежнего запуска убран', I.SectionExists('Result'));
+    AssertEquals('время нового запуска', '2026-11-05 14:40:05',
+      I.ReadString('Synthesis', 'Started', ''));
+  finally
+    I.Free;
+  end;
+end;
+
+procedure TSynthesisFolderTests.RunLogFileNameHasLogsFolderAndTime;
+begin
+  AssertEquals(Path('syn') + PathDelim + 'logs' + PathDelim +
+    '2026-11-04_14-30-05.txt', RunLogFileName(Path('syn'), Moment));
+  AssertEquals(Path('syn') + PathDelim + 'logs' + PathDelim +
+    '2026-11-04_14-40-05.txt', RunLogFileName(Path('syn') + PathDelim, Later));
+end;
+
+procedure TSynthesisFolderTests.RunLogFileNameAvoidsExistingFile;
+var
+  First, Second: string;
+begin
+  ForceDirectories(Path('syn' + PathDelim + 'logs'));
+  First := RunLogFileName(Path('syn'), Moment);
+  WriteText(First, 'первый запуск');
+  Second := RunLogFileName(Path('syn'), Moment);
+  AssertEquals(Path('syn') + PathDelim + 'logs' + PathDelim +
+    '2026-11-04_14-30-05_2.txt', Second);
+  WriteText(Second, 'второй запуск');
+  AssertEquals(Path('syn') + PathDelim + 'logs' + PathDelim +
+    '2026-11-04_14-30-05_3.txt', RunLogFileName(Path('syn'), Moment));
 end;
 
 procedure TSynthesisFolderTests.ReadInfoRejectsMissingAndForeignFiles;

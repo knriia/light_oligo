@@ -5,8 +5,9 @@ unit SynthesisWorkspace;
 // ezd\ вместе с Slices.lays, геометрией и пером лазера, а synthesis.ini хранит
 // состав. Поэтому состояние на диске всегда равно состоянию в окне, а синтез
 // не зависит от исходных протоколов и слайса. «Открыть» загружает сохранённый
-// синтез. Запуск возможен только для созданного синтеза; после запуска его
-// папка - запись того, что выполнялось, и не изменяется.
+// синтез. Запуск возможен только для созданного синтеза и сколько угодно раз:
+// каждый запуск пишет свой журнал в logs\. Пока синтез идёт, его папка не
+// изменяется: ни состав, ни слои, ни другой синтез в окне.
 
 {$mode ObjFPC}{$H+}
 
@@ -23,7 +24,7 @@ type
     FFolder: string;          // пусто, пока синтез не создан и не открыт
     FSourceFolder: string;    // папка слайса, из которого созданы слои
     FCreated: TDateTime;
-    FStarted: Boolean;
+    FRunning: Boolean;        // синтез идёт: файлы его папки менять нельзя
     function GetProjectDir: string;
     function GetSliceDir: string;
     function SaveInfo(out AErrorText: string): Boolean;
@@ -31,7 +32,7 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    // Можно ли менять синтез: он создан и не запускался. Иначе False и текст.
+    // Можно ли менять синтез: он создан и не идёт. Иначе False и текст.
     function CheckEditable(out AErrorText: string): Boolean;
     // Создаёт пустой синтез в новой папке AFolder (внутри папки слайса):
     // папка и synthesis.ini. Папка не должна существовать. Ошибка - False,
@@ -47,9 +48,8 @@ type
       out AErrorText: string): Boolean;
     // Создаёт слои синтеза по слайсу ASliceFolder: геометрия и EZD в папке
     // синтеза. Слайс - только тот, в папке которого лежит синтез (SliceDir).
-    // lbsBuilt - слои в
-    // синтезе; lbsCancelled - оператор отказался, синтез не изменился;
-    // lbsFailed - причина в AErrorText, файлы слоёв в папке убраны.
+    // lbsBuilt - слои в синтезе; lbsCancelled - оператор отказался, синтез не
+    // изменился; lbsFailed - причина в AErrorText, файлы слоёв в папке убраны.
     function AddLayers(ABuilder: TLayersBuilder; const ASliceFolder: string;
       out AErrorText: string): TLayersBuildStatus;
     // Убирает все слои из синтеза и их файлы из папки (протоколы остаются).
@@ -60,11 +60,16 @@ type
 
     // Загружает сохранённый синтез по его файлу synthesis.ini.
     function Open(const AIniFile: string; out AErrorText: string): Boolean;
-    // Готовит запуск: синтез создан, не запускался, слои и протоколы на
-    // месте, EZD-файлы слоёв есть на диске. ASnapshot - папка и слои для хода синтеза.
+    // Готовит запуск: синтез создан и не идёт, слои и протоколы на месте,
+    // EZD-файлы слоёв есть на диске. Записывает время запуска, создаёт папку
+    // logs и считает синтез идущим до FinishRun. ASnapshot - папка, файл
+    // журнала этого запуска и слои для хода синтеза.
     function PrepareStart(ANow: TDateTime; out ASnapshot: TSynthesisSnapshot;
       out AErrorText: string): Boolean;
-    // Закрывает синтез в окне; файлы остаются на диске.
+    // Синтез закончил работу (завершён, остановлен, ошибка): папку снова можно менять.
+    procedure FinishRun;
+    // Закрывает синтез в окне; файлы остаются на диске. Пока синтез идёт, не
+    // вызывать (CreateNew и Open в это время отказывают).
     procedure NewSynthesis;
 
     property Session: TSynthesisSession read FSession;
@@ -76,7 +81,8 @@ type
     property ProjectDir: string read GetProjectDir;
     // Папка слайса, из которого созданы слои; пусто, пока слоёв нет.
     property SourceFolder: string read FSourceFolder;
-    property Started: Boolean read FStarted;
+    // Синтез идёт.
+    property Running: Boolean read FRunning;
   end;
 
 implementation
@@ -84,8 +90,7 @@ implementation
 const
   NO_SYNTHESIS_TEXT = 'Синтез не создан. Нажмите «Создать синтез» или ' +
     '«Открыть».';
-  STARTED_TEXT = 'Синтез уже запускался, его папка - запись выполненного и ' +
-    'не изменяется. Создайте новый синтез.';
+  RUNNING_TEXT = 'Синтез идёт, его папку менять нельзя. Остановите синтез.';
 
 constructor TSynthesisWorkspace.Create;
 begin
@@ -121,8 +126,8 @@ begin
   Result := False;
   if FFolder = '' then
     AErrorText := NO_SYNTHESIS_TEXT
-  else if FStarted then
-    AErrorText := STARTED_TEXT
+  else if FRunning then
+    AErrorText := RUNNING_TEXT
   else
     Result := True;
 end;
@@ -150,6 +155,11 @@ var
 begin
   Result := False;
   AErrorText := '';
+  if FRunning then
+  begin
+    AErrorText := RUNNING_TEXT;
+    Exit;
+  end;
   Target := ExcludeTrailingPathDelimiter(AFolder);
   if Target = '' then
   begin
@@ -306,6 +316,11 @@ var
   I: Integer;
 begin
   Result := False;
+  if FRunning then
+  begin
+    AErrorText := RUNNING_TEXT;
+    Exit;
+  end;
   if not ReadSynthesisInfo(AIniFile, Info, AErrorText) then
     Exit;
   SynthFolder := ExcludeTrailingPathDelimiter(ExtractFileDir(AIniFile));
@@ -347,7 +362,6 @@ begin
     FFolder := SynthFolder;
     FSourceFolder := Info.SourceFolder;
     FCreated := Now;
-    FStarted := Info.Started;
     Result := True;
   finally
     Names.Free;
@@ -363,6 +377,7 @@ function TSynthesisWorkspace.PrepareStart(ANow: TDateTime;
   out ASnapshot: TSynthesisSnapshot; out AErrorText: string): Boolean;
 var
   I: Integer;
+  LogFile: string;
 begin
   Result := False;
   ASnapshot := Default(TSynthesisSnapshot);
@@ -371,10 +386,9 @@ begin
     AErrorText := NO_SYNTHESIS_TEXT;
     Exit;
   end;
-  if FStarted then
+  if FRunning then
   begin
-    AErrorText := 'Этот синтез уже запускался, его папка - запись ' +
-      'выполненного. Создайте новый синтез и запустите его.';
+    AErrorText := 'Синтез уже идёт.';
     Exit;
   end;
   if not FSession.CheckReady(AErrorText) then
@@ -387,16 +401,28 @@ begin
         FSession.Layers[I].EZDFile;
       Exit;
     end;
+  LogFile := RunLogFileName(FFolder, ANow);
+  if not ForceDirectories(ExtractFileDir(LogFile)) then
+  begin
+    AErrorText := 'Не удалось создать папку журналов, синтез не запущен:' +
+      LineEnding + ExtractFileDir(LogFile);
+    Exit;
+  end;
   if not SaveSynthesisStart(FFolder, ANow, AErrorText) then
   begin
     AErrorText := 'Синтез не запущен.' + LineEnding + AErrorText;
     Exit;
   end;
-  FStarted := True;
+  FRunning := True;
   ASnapshot.Folder := FFolder;
-  ASnapshot.LogFile := IncludeTrailingPathDelimiter(FFolder) + SYNTHESIS_LOG_FILE;
+  ASnapshot.LogFile := LogFile;
   ASnapshot.Layers := Copy(FSession.Layers);
   Result := True;
+end;
+
+procedure TSynthesisWorkspace.FinishRun;
+begin
+  FRunning := False;
 end;
 
 procedure TSynthesisWorkspace.NewSynthesis;
@@ -405,7 +431,6 @@ begin
   FFolder := '';
   FSourceFolder := '';
   FCreated := 0;
-  FStarted := False;
 end;
 
 end.

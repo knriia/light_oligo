@@ -5,9 +5,10 @@ unit SynthesisFolder;
 // созданы EZD (geometry.ini, laser.ini), протоколы букв (protocols\), а файл
 // синтеза synthesis.ini хранит, когда синтез изменён, какой проект, из какого
 // слайса слои, сколько слоёв и какие буквы. При запуске в него дописывается
-// время запуска, рядом пишется журнал log.txt, а при завершении - итог
-// (завершён, остановлен или ошибка). Синтез идёт по файлам своей папки, поэтому
-// папка - точная запись того, что выполнялось, даже если слайс потом изменится.
+// время последнего запуска, журнал каждого запуска пишется отдельным файлом в
+// logs\, а при завершении - итог последнего запуска (завершён, остановлен или
+// ошибка). Синтез идёт по файлам своей папки, поэтому он не зависит от слайса,
+// даже если слайс потом изменится. Синтез можно запускать повторно.
 // Здесь отдельные действия над папкой; когда и что делать, решает
 // SynthesisWorkspace.
 
@@ -20,7 +21,7 @@ uses
 
 const
   SYNTHESIS_INFO_FILE = 'synthesis.ini';
-  SYNTHESIS_LOG_FILE = 'log.txt';
+  SYNTHESIS_LOGS_FOLDER = 'logs';          // журналы запусков, по файлу на запуск
   SYNTHESIS_FOLDER_PREFIX = 'synthes_';
   SYNTHESIS_EZD_FOLDER = EZD_FOLDER;       // EZD-файлы слоёв (то же имя пишет лазер)
   SYNTHESIS_PROTOCOLS_FOLDER = 'protocols';
@@ -45,8 +46,11 @@ type
     ArrayName: string;      // имя проекта (папки проекта)
     SourceFolder: string;   // папка слайса, из которого взяты слои
     LayerCount: Integer;
-    Started: Boolean;       // синтез уже запускался
   end;
+
+// Файл журнала запуска, начатого в ANow: AFolder\logs\<гггг-мм-дд_чч-мм-сс>.txt;
+// если такой файл уже есть (два запуска в одну секунду), добавляется _2, _3...
+function RunLogFileName(const AFolder: string; ANow: TDateTime): string;
 
 // Часть имени папки без символов, недопустимых в Windows, не длиннее 60.
 function SafeFolderPart(const AText: string): string;
@@ -91,7 +95,7 @@ function SaveSynthesisInfo(const AFolder, AArrayName, ASourceFolder: string;
   ALayerCount: Integer; ALetters: TStringList; ANow: TDateTime;
   out AErrorText: string): Boolean;
 
-// Дописывает в synthesis.ini, когда синтез запущен.
+// Записывает в synthesis.ini время запуска; итог прежнего запуска убирается.
 function SaveSynthesisStart(const AFolder: string; ANow: TDateTime;
   out AErrorText: string): Boolean;
 
@@ -130,6 +134,22 @@ begin
     SetLength(Result, 60);
   if Result = '' then
     Result := 'array';
+end;
+
+function RunLogFileName(const AFolder: string; ANow: TDateTime): string;
+var
+  Base: string;
+  N: Integer;
+begin
+  Base := IncludeTrailingPathDelimiter(AFolder) + SYNTHESIS_LOGS_FOLDER +
+    PathDelim + FormatDateTime('yyyy-mm-dd_hh-nn-ss', ANow);
+  Result := Base + '.txt';
+  N := 2;
+  while FileExists(Result) do
+  begin
+    Result := Base + '_' + IntToStr(N) + '.txt';
+    Inc(N);
+  end;
 end;
 
 function SynthesisFolderName(ANow: TDateTime): string;
@@ -325,6 +345,7 @@ begin
       SYNTHESIS_INFO_FILE);
     try
       Ini.WriteString(INFO_SECTION, 'Started', FormatDateTime(DATE_TIME_FORMAT, ANow));
+      Ini.EraseSection(RESULT_SECTION);
       Ini.UpdateFile;
     finally
       Ini.Free;
@@ -362,7 +383,6 @@ begin
       AInfo.ArrayName := Ini.ReadString(INFO_SECTION, 'ArrayName', '');
       AInfo.SourceFolder := Ini.ReadString(INFO_SECTION, 'SourceFolder', '');
       AInfo.LayerCount := Ini.ReadInteger(INFO_SECTION, 'LayerCount', 0);
-      AInfo.Started := Ini.ValueExists(INFO_SECTION, 'Started');
     finally
       Ini.Free;
     end;

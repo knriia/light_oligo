@@ -49,6 +49,9 @@ type
     procedure AddProtocol(const ALetter: string);
     procedure BuildLayers(ACount: Integer);
     function InfoOf(const AFolder: string): TSynthesisInfo;
+    function IniHasStart(const AFolder: string): Boolean;
+    function IniStartText(const AFolder: string): string;
+    function IniHasResult(const AFolder: string): Boolean;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -81,9 +84,13 @@ type
     procedure StartRequiresLayersAndProtocols;
     procedure StartWritesStartedAndGivesSnapshot;
     procedure StartRefusesWhenLayerEzdFileIsGone;
-    procedure StartedSynthesisIsNotStartedAgain;
-    procedure StartedSynthesisRefusesAnyChange;
-    procedure OpenedStartedSynthesisKnowsItWasStarted;
+    procedure RunningSynthesisIsNotStartedTwice;
+    procedure FinishedSynthesisStartsAgainWithNewLog;
+    procedure StartFailsWhenLogsFolderCannotBeCreated;
+    procedure FinishRunWithoutStartKeepsSynthesisEditable;
+    procedure RunningSynthesisRefusesAnyChange;
+    procedure FinishedSynthesisAllowsChangesAgain;
+    procedure OpenedSynthesisIsNotRunning;
     procedure NewSynthesisClearsSessionButKeepsFiles;
     procedure RemovedProtocolOfLayersMakesStartRefuse;
   end;
@@ -272,6 +279,35 @@ begin
     SYNTHESIS_INFO_FILE, Result, ErrorText));
 end;
 
+function TSynthesisWorkspaceTests.IniHasStart(const AFolder: string): Boolean;
+begin
+  Result := IniStartText(AFolder) <> '';
+end;
+
+function TSynthesisWorkspaceTests.IniStartText(const AFolder: string): string;
+var
+  I: TMemIniFile;
+begin
+  I := TMemIniFile.Create(AFolder + PathDelim + SYNTHESIS_INFO_FILE);
+  try
+    Result := I.ReadString('Synthesis', 'Started', '');
+  finally
+    I.Free;
+  end;
+end;
+
+function TSynthesisWorkspaceTests.IniHasResult(const AFolder: string): Boolean;
+var
+  I: TMemIniFile;
+begin
+  I := TMemIniFile.Create(AFolder + PathDelim + SYNTHESIS_INFO_FILE);
+  try
+    Result := I.SectionExists('Result');
+  finally
+    I.Free;
+  end;
+end;
+
 procedure TSynthesisWorkspaceTests.CreateNewMakesFolderAndInfoFile;
 var
   I: TMemIniFile;
@@ -292,7 +328,7 @@ begin
   end;
   AssertEquals(0, FWs.Session.LayerCount);
   AssertEquals(0, FWs.Session.ProtocolCount);
-  AssertFalse(FWs.Started);
+  AssertFalse(FWs.Running);
 end;
 
 procedure TSynthesisWorkspaceTests.CreateNewRefusesExistingFolder;
@@ -606,7 +642,7 @@ begin
     AssertTrue(Other.Session.HasProtocol('T'));
     AssertEquals(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer2.ezd',
       Other.Session.Layers[1].EZDFile);
-    AssertFalse(Other.Started);
+    AssertFalse(Other.Running);
   finally
     Other.Free;
   end;
@@ -638,7 +674,7 @@ var
 begin
   AssertFalse(FWs.PrepareStart(Moment, Snap, ErrorText));
   AssertTrue(ErrorText, Pos('Создать синтез', ErrorText) > 0);
-  AssertFalse(FWs.Started);
+  AssertFalse(FWs.Running);
 end;
 
 procedure TSynthesisWorkspaceTests.StartRequiresLayersAndProtocols;
@@ -652,9 +688,8 @@ begin
   BuildLayers(1);
   AssertFalse('нет протокола буквы слоя', FWs.PrepareStart(Moment, Snap, ErrorText));
   AssertTrue(ErrorText, Pos('Нет протоколов для букв: A', ErrorText) > 0);
-  AssertFalse(FWs.Started);
-  AssertFalse('запуск не записан',
-    InfoOf(FSynth).Started);
+  AssertFalse(FWs.Running);
+  AssertFalse('запуск не записан', IniHasStart(FSynth));
 end;
 
 procedure TSynthesisWorkspaceTests.StartWritesStartedAndGivesSnapshot;
@@ -666,13 +701,15 @@ begin
   AddProtocol('A');
   BuildLayers(2);
   AssertTrue(ErrorText, FWs.PrepareStart(Later, Snap, ErrorText));
-  AssertTrue(FWs.Started);
+  AssertTrue(FWs.Running);
   AssertEquals(FSynth, Snap.Folder);
-  AssertEquals(FSynth + PathDelim + SYNTHESIS_LOG_FILE, Snap.LogFile);
+  AssertEquals(FSynth + PathDelim + 'logs' + PathDelim + '2026-11-04_14-40-05.txt',
+    Snap.LogFile);
+  AssertTrue('папка журналов создана', DirectoryExists(FSynth + PathDelim + 'logs'));
   AssertEquals(2, Length(Snap.Layers));
   AssertEquals(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd',
     Snap.Layers[0].EZDFile);
-  AssertTrue(InfoOf(FSynth).Started);
+  AssertTrue(IniHasStart(FSynth));
 end;
 
 procedure TSynthesisWorkspaceTests.StartRefusesWhenLayerEzdFileIsGone;
@@ -687,11 +724,11 @@ begin
   AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
   AssertTrue(ErrorText, Pos('Слой 2', ErrorText) > 0);
   AssertTrue(ErrorText, Pos('Layer2.ezd', ErrorText) > 0);
-  AssertFalse('запуск не записан', FWs.Started);
-  AssertFalse(InfoOf(FSynth).Started);
+  AssertFalse('запуск не записан', FWs.Running);
+  AssertFalse(IniHasStart(FSynth));
 end;
 
-procedure TSynthesisWorkspaceTests.StartedSynthesisIsNotStartedAgain;
+procedure TSynthesisWorkspaceTests.RunningSynthesisIsNotStartedTwice;
 var
   Snap: TSynthesisSnapshot;
   ErrorText: string;
@@ -701,10 +738,62 @@ begin
   BuildLayers(1);
   AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
   AssertFalse(FWs.PrepareStart(Later, Snap, ErrorText));
-  AssertTrue(ErrorText, Pos('уже запускался', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('уже идёт', ErrorText) > 0);
+  AssertEquals('время первого запуска не перезаписано', '2026-11-04 14:30:05',
+    IniStartText(FSynth));
 end;
 
-procedure TSynthesisWorkspaceTests.StartedSynthesisRefusesAnyChange;
+procedure TSynthesisWorkspaceTests.FinishedSynthesisStartsAgainWithNewLog;
+var
+  First, Second: TSynthesisSnapshot;
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  BuildLayers(1);
+  AssertTrue(ErrorText, FWs.PrepareStart(Moment, First, ErrorText));
+  AssertTrue(ErrorText, SaveSynthesisResult(FSynth, srCompleted, Later,
+    ErrorText));
+  FWs.FinishRun;
+  AssertFalse(FWs.Running);
+  AssertTrue(ErrorText, FWs.PrepareStart(Later, Second, ErrorText));
+  AssertTrue(FWs.Running);
+  AssertEquals(FSynth + PathDelim + 'logs' + PathDelim + '2026-11-04_14-40-05.txt',
+    Second.LogFile);
+  AssertEquals(FSynth + PathDelim + 'logs' + PathDelim + '2026-11-04_14-30-05.txt',
+    First.LogFile);
+  AssertEquals('время последнего запуска', '2026-11-04 14:40:05',
+    IniStartText(FSynth));
+  AssertFalse('итог прежнего запуска убран', IniHasResult(FSynth));
+end;
+
+procedure TSynthesisWorkspaceTests.StartFailsWhenLogsFolderCannotBeCreated;
+var
+  Snap: TSynthesisSnapshot;
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  BuildLayers(1);
+  WriteText(FSynth + PathDelim + 'logs', 'файл вместо папки');
+  AssertFalse(FWs.PrepareStart(Moment, Snap, ErrorText));
+  AssertTrue(ErrorText, Pos('папку журналов', ErrorText) > 0);
+  AssertFalse(FWs.Running);
+  AssertFalse('запуск не записан', IniHasStart(FSynth));
+end;
+
+procedure TSynthesisWorkspaceTests.FinishRunWithoutStartKeepsSynthesisEditable;
+var
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  FWs.FinishRun;
+  AssertFalse(FWs.Running);
+  AssertTrue(ErrorText, FWs.RemoveProtocol('A', ErrorText));
+end;
+
+procedure TSynthesisWorkspaceTests.RunningSynthesisRefusesAnyChange;
 var
   Snap: TSynthesisSnapshot;
   Letter, ErrorText: string;
@@ -716,26 +805,49 @@ begin
 
   WriteText(Path('G.pro'), 'Block=BlockG;' + LineEnding + #9'Pause=5;');
   AssertFalse(FWs.AddProtocolFile(Path('G.pro'), Letter, ErrorText));
-  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Синтез идёт', ErrorText) > 0);
   AssertFalse(FileExists(ProtocolFile('G')));
   AssertEquals(1, FWs.Session.ProtocolCount);
 
   AssertFalse(FWs.RemoveProtocol('A', ErrorText));
-  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Синтез идёт', ErrorText) > 0);
   AssertTrue(FileExists(ProtocolFile('A')));
   AssertTrue(FWs.Session.HasProtocol('A'));
 
   AssertFalse(FWs.RemoveLayers(ErrorText));
-  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Синтез идёт', ErrorText) > 0);
   AssertEquals(1, FWs.Session.LayerCount);
   AssertTrue(FileExists(FWs.Session.Layers[0].EZDFile));
 
   AssertTrue(FWs.AddLayers(FBuilder, FSlice, ErrorText) = lbsFailed);
-  AssertTrue(ErrorText, Pos('запись выполненного', ErrorText) > 0);
+  AssertTrue(ErrorText, Pos('Синтез идёт', ErrorText) > 0);
   AssertEquals(1, FBuilder.BuildCalls);
+
+  AssertFalse(FWs.CreateNew(Path('other_synth'), Later, ErrorText));
+  AssertTrue(ErrorText, Pos('Синтез идёт', ErrorText) > 0);
+  AssertFalse(DirectoryExists(Path('other_synth')));
+  AssertFalse(FWs.Open(FSynth + PathDelim + SYNTHESIS_INFO_FILE, ErrorText));
+  AssertTrue(ErrorText, Pos('Синтез идёт', ErrorText) > 0);
+  AssertEquals(FSynth, FWs.Folder);
 end;
 
-procedure TSynthesisWorkspaceTests.OpenedStartedSynthesisKnowsItWasStarted;
+procedure TSynthesisWorkspaceTests.FinishedSynthesisAllowsChangesAgain;
+var
+  Snap: TSynthesisSnapshot;
+  ErrorText: string;
+begin
+  CreateSynthesis;
+  AddProtocol('A');
+  BuildLayers(1);
+  AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
+  FWs.FinishRun;
+  AssertTrue(ErrorText, FWs.RemoveLayers(ErrorText));
+  AssertEquals(0, FWs.Session.LayerCount);
+  AssertTrue(ErrorText, FWs.RemoveProtocol('A', ErrorText));
+  AssertFalse(FileExists(ProtocolFile('A')));
+end;
+
+procedure TSynthesisWorkspaceTests.OpenedSynthesisIsNotRunning;
 var
   Snap: TSynthesisSnapshot;
   ErrorText: string;
@@ -745,13 +857,13 @@ begin
   AddProtocol('A');
   BuildLayers(1);
   AssertTrue(ErrorText, FWs.PrepareStart(Moment, Snap, ErrorText));
+  FWs.FinishRun;
   Other := TSynthesisWorkspace.Create;
   try
     AssertTrue(ErrorText, Other.Open(FSynth + PathDelim + SYNTHESIS_INFO_FILE,
       ErrorText));
-    AssertTrue(Other.Started);
-    AssertFalse(Other.PrepareStart(Later, Snap, ErrorText));
-    AssertTrue(ErrorText, Pos('уже запускался', ErrorText) > 0);
+    AssertFalse(Other.Running);
+    AssertTrue(ErrorText, Other.PrepareStart(Later, Snap, ErrorText));
   finally
     Other.Free;
   end;
@@ -769,7 +881,6 @@ begin
   AssertEquals(0, FWs.Session.LayerCount);
   AssertEquals('', FWs.Folder);
   AssertEquals('', FWs.SourceFolder);
-  AssertFalse(FWs.Started);
   AssertTrue(FileExists(ProtocolFile('A')));
   AssertTrue(FileExists(FSynth + PathDelim + 'ezd' + PathDelim + 'Layer1.ezd'));
   AssertFalse('без синтеза менять нечего',
