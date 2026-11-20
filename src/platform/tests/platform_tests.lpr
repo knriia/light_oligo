@@ -4,7 +4,7 @@ program platform_tests;
 
 uses
   Classes, consoletestrunner, AppPathsTests, PathUtilsTests,
-  LocalizationTests;
+  LocalizationTests, UiThemeTests;
 
 var
   Application: TTestRunner;

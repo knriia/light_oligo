@@ -11,7 +11,7 @@ uses
   {$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms, tachartlazaruspkg, lazcontrols, UMainForm, EzCadApi, UMatrixForm,
-  UOligoArrayForm, ULayerChartForm, ULaserPenForm, SynthesisThread
+  UOligoArrayForm, ULayerChartForm, ULaserPenForm, SynthesisThread, UiFont
   { you can add units after this };
 
 {$R *.res}
@@ -23,6 +23,7 @@ begin
   Application.MainFormOnTaskbar:=True;
   {$POP}
   Application.Initialize;
+  InstallUiFont;
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TMatrixForm, MatrixForm);
   Application.CreateForm(TOligoArrayForm, OligoArrayForm);
