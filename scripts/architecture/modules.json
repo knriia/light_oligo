@@ -34,6 +34,10 @@
     "TextFileUtils": "platform",
     "UChoiceForm": "platform",
     "UFolderForm": "platform",
+    "UiFont": "platform",
+    "UiIconNames": "platform",
+    "UiIcons": "platform",
+    "UiTheme": "platform",
     "WinProcessUtils": "laser",
 
     "EzCadApi": "laser",
