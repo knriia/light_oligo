@@ -184,8 +184,9 @@ begin
 end;
 
 function TSynthesisForm.Running: Boolean;
+// один источник: идёт ли синтез, знает workspace (папку менять нельзя)
 begin
-  Result := FThread <> nil;
+  Result := FWorkspace.Running;
 end;
 
 procedure TSynthesisForm.Log(const AText: string);
@@ -195,9 +196,10 @@ begin
 end;
 
 procedure TSynthesisForm.ThreadFinished(Sender: TObject);
-// Поток закончил работу (сам освободится): синтез можно запускать снова
+// Поток закончил работу (сам освободится): синтез можно менять и запускать снова
 begin
   FThread := nil;
+  FWorkspace.FinishRun;
 end;
 
 function TSynthesisForm.CanCloseFromHost: Boolean;
@@ -206,7 +208,7 @@ begin
   if Running then
     Result := MessageDlg('Синтез идёт. Остановить его и закрыть программу?',
       mtConfirmation, [mbYes, mbNo], 0) = mrYes;
-  if Result and Running then
+  if Result and (FThread <> nil) then
     FThread.Terminate;
 end;
 
@@ -612,22 +614,29 @@ begin
     ShowMessage(ErrorText);
     Exit;
   end;
-  if Assigned(FOnClearLog) then
-    FOnClearLog(Self);
-  Session := FWorkspace.Session;
-  for I := 0 to Session.ProtocolCount - 1 do
-    Log(Session.ProtocolLetters[I]);
-  Log('Число слоев=' + IntToStr(Session.LayerCount));
-  Log('Первыйслой=' + IntToStr(Session.Layers[0].LayerNumber) + ' ' +
-    Session.Layers[0].EZDFile);
-  Log('Последний слой=' +
-    IntToStr(Session.Layers[Session.LayerCount - 1].LayerNumber) + ' ' +
-    Session.Layers[Session.LayerCount - 1].EZDFile);
-  Log('Папка синтеза: ' + Snapshot.Folder);
+  try
+    if Assigned(FOnClearLog) then
+      FOnClearLog(Self);
+    Session := FWorkspace.Session;
+    for I := 0 to Session.ProtocolCount - 1 do
+      Log(Session.ProtocolLetters[I]);
+    Log('Число слоев=' + IntToStr(Session.LayerCount));
+    Log('Первыйслой=' + IntToStr(Session.Layers[0].LayerNumber) + ' ' +
+      Session.Layers[0].EZDFile);
+    Log('Последний слой=' +
+      IntToStr(Session.Layers[Session.LayerCount - 1].LayerNumber) + ' ' +
+      Session.Layers[Session.LayerCount - 1].EZDFile);
+    Log('Папка синтеза: ' + Snapshot.Folder);
 
-  FThread := TSynthesisThread.Create(Session, FHost, Snapshot);
-  FThread.OnTerminate := @ThreadFinished;
-  FThread.Start;
+    FThread := TSynthesisThread.Create(Session, FHost, Snapshot);
+    FThread.OnTerminate := @ThreadFinished;
+    FThread.Start;
+  except
+    // поток не пошёл: ThreadFinished не придёт, снимаем признак «идёт» сами
+    FThread := nil;
+    FWorkspace.FinishRun;
+    raise;
+  end;
 end;
 
 procedure TSynthesisForm.SetOnEditLaserParams(AValue: TNotifyEvent);
