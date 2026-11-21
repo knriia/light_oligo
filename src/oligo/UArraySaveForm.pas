@@ -2,6 +2,7 @@ unit UArraySaveForm;
 // Окно сохранения проекта: папка проектов (можно выбрать любую) и имя проекта.
 // CSV массива пишется в <папка проектов>\<имя проекта>\<имя проекта>.csv.
 // Папки проекта может ещё не быть - её создаст сохранение.
+// То же окно в режиме создания проекта (ExecuteProject) без имени файла.
 
 {$mode ObjFPC}{$H+}
 
@@ -29,6 +30,7 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
   private
     FFilePath: string;
+    FProjectOnly: Boolean;  // создание проекта: поля имени файла нет
   public
     constructor Create(TheOwner: TComponent); override;
     // Показывает окно с AFolder (папка проектов, проект лежит в <папка>\<имя>), AName (имя проекта) и
@@ -38,6 +40,10 @@ type
     // При отмене параметры не меняются.
     class function Execute(var AFolder, AName, AArrayFile: string;
       out AFilePath: string): Boolean;
+    // Окно создания проекта: только папка проектов и имя проекта.
+    // True - нажали «Создать» и папка с именем допустимы: тогда в параметрах
+    // введённые значения. При отмене параметры не меняются.
+    class function ExecuteProject(var AFolder, AName: string): Boolean;
   end;
 
 implementation
@@ -89,7 +95,7 @@ begin
   ProjectName:=Trim(E_Name.Text);
   CanClose:=CheckFileNamePart(ProjectName, 'Имя проекта', ErrorText) and
     CheckFolderPath(E_Folder.Text, ErrorText);
-  if CanClose then
+  if CanClose and not FProjectOnly then
   begin
     ProjectFolder:=IncludeTrailingPathDelimiter(
       ExcludeTrailingPathDelimiter(Trim(E_Folder.Text)))+ProjectName;
@@ -98,6 +104,35 @@ begin
   end;
   if not CanClose then
     ShowMessage(ErrorText);
+end;
+
+class function TArraySaveForm.ExecuteProject(var AFolder, AName: string): Boolean;
+var
+  Form: TArraySaveForm;
+  Shrink: Integer;
+begin
+  Form:=TArraySaveForm.Create(nil);
+  try
+    Form.FProjectOnly:=True;
+    Form.Caption:='Создание проекта';
+    Form.B_Save.Caption:='Создать';
+    Form.L_ArrayFile.Visible:=False;
+    Form.E_ArrayFile.Visible:=False;
+    Shrink:=Form.B_Save.Top-Form.E_ArrayFile.Top;
+    Form.B_Save.Top:=Form.B_Save.Top-Shrink;
+    Form.B_Cancel.Top:=Form.B_Cancel.Top-Shrink;
+    Form.ClientHeight:=Form.ClientHeight-Shrink;
+    Form.E_Folder.Text:=AFolder;
+    Form.E_Name.Text:=AName;
+    Result:=Form.ShowModal=mrOK;
+    if Result then
+    begin
+      AFolder:=Trim(Form.E_Folder.Text);
+      AName:=Trim(Form.E_Name.Text);
+    end;
+  finally
+    Form.Free;
+  end;
 end;
 
 class function TArraySaveForm.Execute(var AFolder, AName, AArrayFile: string;

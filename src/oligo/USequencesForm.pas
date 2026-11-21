@@ -40,6 +40,7 @@ type
     FEditedCol: Integer;
     FEditedRow: Integer;
     FDocument: TOligoArrayDocument;
+    FTargetDir: string;  // проект, в который SaveArray пишет новый массив без диалога
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
     procedure Log(const AMsg: string);
@@ -47,6 +48,7 @@ type
     procedure ApplyWidthMode;
     procedure StoreCell(ACol, ARow: Integer);
     function SaveArray: Boolean;
+    function DoCreateArray: Boolean;
     function LoadFile(const AFileName: string): Boolean;
     function ConfirmSaveIfModified: Boolean;
     function RequireArray: Boolean;
@@ -64,6 +66,10 @@ type
     function ProjectDir: string;
     // Те же действия, что у кнопок вкладки; вызываются из главного меню.
     procedure CreateArray;
+    // Создаёт новый массив и сразу сохраняет его в папку проекта AProjectDir
+    // как <проект>\<проект>.csv, без окна выбора места. False - отмена или
+    // ошибка; массив при ошибке сохранения остаётся несохранённым.
+    function CreateArrayInProject(const AProjectDir: string): Boolean;
     // Открывает CSV массива: вопрос о несохранённом, замена текущего.
     // False - отмена или ошибка чтения, массив прежний.
     function OpenArrayFile(const AFileName: string): Boolean;
@@ -120,6 +126,21 @@ end;
 procedure TSequencesForm.CreateArray;
 begin
   B_CreateOligoArrClick(nil);
+end;
+
+function TSequencesForm.CreateArrayInProject(const AProjectDir: string): Boolean;
+begin
+  Result:=DoCreateArray;
+  if not Result then
+    Exit;
+  // место задаём только после создания: вопрос о сохранении прежнего
+  // массива не должен писать его в этот проект
+  FTargetDir:=ExcludeTrailingPathDelimiter(AProjectDir);
+  try
+    Result:=SaveArray;
+  finally
+    FTargetDir:='';
+  end;
 end;
 
 function TSequencesForm.OpenArrayFile(const AFileName: string): Boolean;
@@ -267,6 +288,18 @@ var
   Folder, ProjectName, ArrayFile, FilePath, ErrorText, OtherCsv: String;
 begin
   Result:=False;
+  FilePath:='';
+  if (not FDocument.HasFile) and (FTargetDir<>'') then
+  begin
+    FilePath:=IncludeTrailingPathDelimiter(FTargetDir)+
+              ExtractFileName(FTargetDir)+'.csv';
+    OtherCsv:=FindOtherProjectCsv(FTargetDir, FilePath);
+    if OtherCsv<>'' then
+    begin
+      ShowMessage('В папке проекта уже есть другой CSV:'+LineEnding+OtherCsv);
+      Exit;
+    end;
+  end;
   FDocument.SuggestProjectLocation(ProjectsDir, Now, Folder, ProjectName);
   if FDocument.HasFile then
     ArrayFile:=ChangeFileExt(ExtractFileName(FDocument.FileName), '')
@@ -274,6 +307,8 @@ begin
     ArrayFile:=DEFAULT_ARRAY_FILE;
 
   // спрашиваем, пока не получим допустимое место и согласие на перезапись
+  // (место проекта уже известно - не спрашиваем)
+  if FilePath='' then
   repeat
     if not TArraySaveForm.Execute(Folder, ProjectName, ArrayFile, FilePath) then
       Exit;
@@ -326,18 +361,26 @@ begin
 end;
 
 procedure TSequencesForm.B_CreateOligoArrClick(Sender: TObject);
-// окно параметров нового массива: пустой, случайный или одна последовательность
+begin
+  DoCreateArray;
+end;
+
+function TSequencesForm.DoCreateArray: Boolean;
+// окно параметров нового массива: пустой, случайный или одна последовательность;
+// True - массив создан
 var
   Rows, Cols, RandomLength: Integer;
   Fill: TOligoFill;
   ConstSeq: String;
 begin
+  Result:=False;
   if not ConfirmSaveIfModified then // новый массив заменит текущий
     Exit;
   if not OligoArrayForm.Execute(Rows, Cols, Fill, RandomLength, ConstSeq) then
     Exit;
   FDocument.NewArray(CreateOligoArray(Rows, Cols, Fill, RandomLength, ConstSeq));
   DisplayOligoArray;
+  Result:=True;
 end;
 
 procedure TSequencesForm.B_SliceOligoArrClick(Sender: TObject);

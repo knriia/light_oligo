@@ -43,6 +43,8 @@ type
     procedure FileKindSynthesisInfoIsSynthesis;
     procedure FileKindOtherIniIsUnknown;
     procedure FileKindNoExtensionIsUnknown;
+    procedure NodesOfEmptyProjectAreProjectOnly;
+    procedure NodesListArraySlicingsAndTheirSynthesesInOrder;
     procedure IndexOfSlicingFindsByFolderName;
     procedure SlicingOfSynthesisFollowsParentFolder;
     procedure SlicingOfSynthesisIgnoresFoldersOutsideSlicings;
@@ -363,6 +365,62 @@ begin
     AssertEquals(2, Length(P.Slicings[1].Syntheses));
     AssertEquals('synthes_2026-11-05', P.Slicings[1].Syntheses[0].Name);
     AssertEquals('synthes_2026-11-06', P.Slicings[1].Syntheses[1].Name);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.NodesOfEmptyProjectAreProjectOnly;
+var
+  P: TProject;
+  Nodes: TProjectNodes;
+begin
+  AssertTrue('папка проекта создаётся', ForceDirectories(Path('p1')));
+  P := Open('p1');
+  try
+    Nodes := ProjectNodes(P);
+    AssertEquals(1, Length(Nodes));
+    AssertTrue(pnkProject = Nodes[0].Kind);
+    AssertEquals(0, Nodes[0].Level);
+    AssertEquals('p1', Nodes[0].Caption);
+    AssertEquals(ExpandFileName(Path('p1')), Nodes[0].Path);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.NodesListArraySlicingsAndTheirSynthesesInOrder;
+var
+  P: TProject;
+  Nodes: TProjectNodes;
+begin
+  Touch('p1\arr.csv');
+  MakeSlice('p1', 'slice_base');
+  MakeSlice('p1', 'slice_other');
+  MakeSynthesis('p1', 'slice_base', 'synthes_2026-11-01');
+  MakeSynthesis('p1', 'slice_base', 'synthes_2026-11-02');
+  MakeSynthesis('p1', 'slice_other', 'synthes_2026-11-05');
+  P := Open('p1');
+  try
+    Nodes := ProjectNodes(P);
+    AssertEquals(7, Length(Nodes));
+    AssertTrue(pnkArray = Nodes[1].Kind);
+    AssertEquals(1, Nodes[1].Level);
+    AssertEquals('arr.csv', Nodes[1].Caption);
+    AssertEquals(ExpandFileName(Path('p1\arr.csv')), Nodes[1].Path);
+    AssertTrue(pnkSlicing = Nodes[2].Kind);
+    AssertEquals(1, Nodes[2].Level);
+    AssertEquals('slice_base', Nodes[2].Caption);
+    AssertEquals(ExpandFileName(Path('p1\slice_base')), Nodes[2].Path);
+    AssertTrue(pnkSynthesis = Nodes[3].Kind);
+    AssertEquals(2, Nodes[3].Level);
+    AssertEquals('synthes_2026-11-01', Nodes[3].Caption);
+    AssertEquals(ExpandFileName(Path('p1\slice_base\synthes_2026-11-02')),
+      Nodes[4].Path);
+    AssertTrue(pnkSlicing = Nodes[5].Kind);
+    AssertEquals('slice_other', Nodes[5].Caption);
+    AssertEquals(ExpandFileName(Path('p1\slice_other\synthes_2026-11-05')),
+      Nodes[6].Path);
   finally
     P.Free;
   end;
