@@ -80,6 +80,10 @@ type
     procedure ApplyCaptions(AIni: TCustomIniFile);
     // Перед закрытием программы: идущий синтез останавливаем только с согласия.
     function CanCloseFromHost: Boolean;
+    // Как кнопки вкладки; вызываются из главного меню.
+    procedure NewSynthesis;
+    // False - синтез идёт или файл не открылся.
+    function OpenSynthesisFile(const AFileName: string): Boolean;
     property Station: TSyringeStation read FStation write FStation;
     property Marker: TLayerMarker read FMarker write FMarker;
     // Геометрия и EZD слоёв; без него слои создать и показать нельзя.
@@ -392,10 +396,33 @@ begin
   LoadLayersFromSlice;
 end;
 
-procedure TSynthesisForm.B_OpenSynthesisClick(Sender: TObject);
+procedure TSynthesisForm.NewSynthesis;
+begin
+  B_NewSynthesisClick(nil);
+end;
+
+function TSynthesisForm.OpenSynthesisFile(const AFileName: string): Boolean;
 // Открыть сохранённый синтез по его файлу synthesis.ini
 var
-  ErrorText, StartDir: string;
+  ErrorText: string;
+begin
+  Result := False;
+  if Running then
+  begin
+    ShowMessage('Синтез идёт. Остановите его, чтобы открыть другой.');
+    Exit;
+  end;
+  Result := FWorkspace.Open(AFileName, ErrorText);
+  if Result then
+    Log('Синтез открыт: ' + FWorkspace.Folder)
+  else
+    ShowMessage(ErrorText);
+  RebuildTree;
+end;
+
+procedure TSynthesisForm.B_OpenSynthesisClick(Sender: TObject);
+var
+  StartDir: string;
 begin
   if Running then
   begin
@@ -412,11 +439,7 @@ begin
   OD_File.FileName := '';
   if not OD_File.Execute then
     Exit;
-  if FWorkspace.Open(OD_File.FileName, ErrorText) then
-    Log('Синтез открыт: ' + FWorkspace.Folder)
-  else
-    ShowMessage(ErrorText);
-  RebuildTree;
+  OpenSynthesisFile(OD_File.FileName);
 end;
 
 procedure TSynthesisForm.B_GeometryClick(Sender: TObject);

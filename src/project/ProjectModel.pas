@@ -15,6 +15,9 @@ uses
   Classes, SysUtils;
 
 type
+  // Что открывает «Файл → Открыть» по имени выбранного файла.
+  TProjectFileKind = (pfkUnknown, pfkArray, pfkProtocol, pfkSynthesis);
+
   TProjectSynthesis = record
     Name: string;     // имя папки синтеза
     Folder: string;   // полный путь к папке синтеза
@@ -58,6 +61,9 @@ type
     property Slicings[AIndex: Integer]: TProjectSlicing read GetSlicing;
   end;
 
+// Тип файла по имени: .csv - массив, .pro - протокол, synthesis.ini -
+// синтез (регистр не важен), остальное - pfkUnknown.
+function ProjectFileKindOf(const AFileName: string): TProjectFileKind;
 // Открывает существующий проект. Нет папки, не папка проекта или несколько
 // CSV - nil, текст объясняет.
 function OpenProject(const ADir: string; out AErrorText: string): TProject;
@@ -72,6 +78,18 @@ implementation
 
 uses
   AppPaths, OligoSlices, OligoArrayDocument, SynthesisFolder;
+
+function ProjectFileKindOf(const AFileName: string): TProjectFileKind;
+begin
+  if SameText(ExtractFileName(AFileName), SYNTHESIS_INFO_FILE) then
+    Result := pfkSynthesis
+  else if SameText(ExtractFileExt(AFileName), '.csv') then
+    Result := pfkArray
+  else if SameText(ExtractFileExt(AFileName), '.pro') then
+    Result := pfkProtocol
+  else
+    Result := pfkUnknown;
+end;
 
 function IsDirectoryEntry(const ASearch: TSearchRec): Boolean;
 begin

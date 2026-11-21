@@ -54,6 +54,10 @@ type
     function CanCloseAll: Boolean;
     procedure EzCadWatcherStart;
     function EzCadWatcherTick: Boolean;
+    property SequencesForm: TSequencesForm read FSequencesForm;
+    property ProtocolForm: TProtocolForm read FProtocolForm;
+    property SynthesisForm: TSynthesisForm read FSynthesisForm;
+    property LaserActions: TLaserActions read FLaserActions;
   end;
 
 implementation
