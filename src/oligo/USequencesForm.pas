@@ -41,6 +41,7 @@ type
     FEditedRow: Integer;
     FDocument: TOligoArrayDocument;
     FTargetDir: string;  // проект, в который SaveArray пишет новый массив без диалога
+    FTargetFile: string; // имя файла (без .csv) для FTargetDir
     FWidthMode: TGridWidthMode;
     FOnLog: TSequencesLogEvent;
     procedure Log(const AMsg: string);
@@ -67,9 +68,11 @@ type
     // Те же действия, что у кнопок вкладки; вызываются из главного меню.
     procedure CreateArray;
     // Создаёт новый массив и сразу сохраняет его в папку проекта AProjectDir
-    // как <проект>\<проект>.csv, без окна выбора места. False - отмена или
+    // как <проект>\<AFileBase>.csv, без окна выбора места. False - отмена или
     // ошибка; массив при ошибке сохранения остаётся несохранённым.
-    function CreateArrayInProject(const AProjectDir: string): Boolean;
+    function CreateArrayInProject(const AProjectDir, AFileBase: string): Boolean;
+    // Имя файла массива без папки; пусто, если массив ещё не сохранён.
+    function ArrayFileName: string;
     // Открывает CSV массива: вопрос о несохранённом, замена текущего.
     // False - отмена или ошибка чтения, массив прежний.
     function OpenArrayFile(const AFileName: string): Boolean;
@@ -77,6 +80,8 @@ type
     procedure SliceArray;
     // Есть ли массив.
     function HasArray: Boolean;
+    // Массив изменён после последнего сохранения.
+    function IsModified: Boolean;
   end;
 
 implementation
@@ -128,7 +133,8 @@ begin
   B_CreateOligoArrClick(nil);
 end;
 
-function TSequencesForm.CreateArrayInProject(const AProjectDir: string): Boolean;
+function TSequencesForm.CreateArrayInProject(const AProjectDir,
+  AFileBase: string): Boolean;
 begin
   Result:=DoCreateArray;
   if not Result then
@@ -136,11 +142,21 @@ begin
   // место задаём только после создания: вопрос о сохранении прежнего
   // массива не должен писать его в этот проект
   FTargetDir:=ExcludeTrailingPathDelimiter(AProjectDir);
+  FTargetFile:=AFileBase;
   try
     Result:=SaveArray;
   finally
     FTargetDir:='';
+    FTargetFile:='';
   end;
+end;
+
+function TSequencesForm.ArrayFileName: string;
+begin
+  if FDocument.HasFile then
+    Result:=ExtractFileName(FDocument.FileName)
+  else
+    Result:='';
 end;
 
 function TSequencesForm.OpenArrayFile(const AFileName: string): Boolean;
@@ -161,6 +177,11 @@ end;
 function TSequencesForm.HasArray: Boolean;
 begin
   Result:=not FDocument.IsEmpty;
+end;
+
+function TSequencesForm.IsModified: Boolean;
+begin
+  Result:=not FDocument.IsEmpty and FDocument.Modified;
 end;
 
 procedure TSequencesForm.Log(const AMsg: string);
@@ -291,8 +312,7 @@ begin
   FilePath:='';
   if (not FDocument.HasFile) and (FTargetDir<>'') then
   begin
-    FilePath:=IncludeTrailingPathDelimiter(FTargetDir)+
-              ExtractFileName(FTargetDir)+'.csv';
+    FilePath:=IncludeTrailingPathDelimiter(FTargetDir)+FTargetFile+'.csv';
     OtherCsv:=FindOtherProjectCsv(FTargetDir, FilePath);
     if OtherCsv<>'' then
     begin

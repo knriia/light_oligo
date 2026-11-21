@@ -76,6 +76,9 @@ begin
   FTree.ReadOnly := True;
   // у корневых узлов (проекты) нет линий и значка раскрытия слева
   FTree.ShowRoot := False;
+  // отступы вместо точечных линий
+  FTree.Options := FTree.Options - [tvoShowLines];
+  FTree.Indent := 20;
   FTree.HideSelection := False;
   FTree.OnCustomDrawItem := @TreeCustomDrawItem;
   FTree.OnDblClick := @TreeDblClick;
