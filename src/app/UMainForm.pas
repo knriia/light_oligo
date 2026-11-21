@@ -309,15 +309,20 @@ begin
 end;
 
 procedure TMainForm.ActOpenProjectExecute(Sender: TObject);
-// папка существующего проекта; проект добавляется в дерево к открытым
+// файл проекта .OlProj; любой другой файл из папки без .OlProj открывает эту
+// папку как проект прежнего формата. Проект добавляется в дерево к открытым
 var
-  Dlg: TSelectDirectoryDialog;
+  Dlg: TOpenDialog;
   NewProject: TProject;
   ErrorText: string;
 begin
-  Dlg := TSelectDirectoryDialog.Create(Self);
+  Dlg := TOpenDialog.Create(Self);
   try
     Dlg.Title := FActOpenProject.Caption;
+    Dlg.Filter :=
+      ReadInterfaceString(MENU_SECTION, 'FilterProject', 'Проект (*.OlProj)') +
+      '|*' + PROJECT_FILE_EXT + '|' +
+      ReadInterfaceString(MENU_SECTION, 'FilterAnyFile', 'Все файлы') + '|*.*';
     Dlg.InitialDir := ProjectsDir;
     if not Dlg.Execute then
       Exit;

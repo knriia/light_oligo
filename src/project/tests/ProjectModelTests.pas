@@ -15,6 +15,7 @@ type
     FRoot: string;        // временная папка теста; в ней лежат проекты
     function Path(const ARelative: string): string;
     procedure Touch(const ARelative: string);
+    procedure WriteText(const ARelative, AText: string);
     procedure MakeSlice(const AProject, ASliceName: string);
     procedure MakeSynthesis(const AProject, ASliceName, ASynthesisName: string);
     function CountEntries(const AFolder: string): Integer;
@@ -25,7 +26,16 @@ type
   published
     procedure OpenFolderWithoutCsvGivesEmptyProject;
     procedure OpenFindsSingleCsv;
-    procedure OpenRefusesSeveralCsv;
+    procedure OpenTakesArrayNamedInProjectFile;
+    procedure OpenHidesDiskItemsMissingFromProjectFile;
+    procedure OpenKeepsSynthesesListedInProjectFile;
+    procedure OpenFolderWithoutProjectFileCreatesIt;
+    procedure OpenByProjectFilePathUsesThatFile;
+    procedure OpenRefusesUnreadableProjectFile;
+    procedure OpenRefusesProjectFileWithPathInName;
+    procedure RefreshAddsNewDiskItemsAndSavesThem;
+    procedure RefreshKeepsHiddenItemsHidden;
+    procedure RefreshDropsItemsDeletedFromDisk;
     procedure OpenRefusesMissingFolder;
     procedure ProjectNameIsFolderName;
     procedure SlicingsAreFoldersWithStatisticsSortedByName;
@@ -84,18 +94,23 @@ begin
     StringReplace(ARelative, '\', PathDelim, [rfReplaceAll]);
 end;
 
-procedure TProjectModelTests.Touch(const ARelative: string);
+procedure TProjectModelTests.WriteText(const ARelative, AText: string);
 var
   F: TStringList;
 begin
   ForceDirectories(ExtractFileDir(Path(ARelative)));
   F := TStringList.Create;
   try
-    F.Text := 'x';
+    F.Text := AText;
     F.SaveToFile(Path(ARelative));
   finally
     F.Free;
   end;
+end;
+
+procedure TProjectModelTests.Touch(const ARelative: string);
+begin
+  WriteText(ARelative, 'x');
 end;
 
 procedure TProjectModelTests.MakeSlice(const AProject, ASliceName: string);
@@ -164,20 +179,218 @@ begin
   end;
 end;
 
-procedure TProjectModelTests.OpenRefusesSeveralCsv;
+procedure TProjectModelTests.OpenTakesArrayNamedInProjectFile;
+var
+  P: TProject;
+begin
+  Touch('p1\a.csv');
+  Touch('p1\b.csv');
+  WriteText('p1\p1.OlProj', '{"version":1,"array":"b.csv","slicings":[]}');
+  P := Open('p1');
+  try
+    AssertEquals(ExpandFileName(Path('p1\b.csv')), P.ArrayFile);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.OpenHidesDiskItemsMissingFromProjectFile;
+var
+  P: TProject;
+begin
+  Touch('p1\a.csv');
+  MakeSlice('p1', 'slice_base');
+  MakeSlice('p1', 'slice_other');
+  WriteText('p1\p1.OlProj',
+    '{"version":1,"array":"","slicings":[{"folder":"slice_base","syntheses":[]}]}');
+  P := Open('p1');
+  try
+    AssertEquals('', P.ArrayFile);
+    AssertEquals(1, P.SlicingCount);
+    AssertEquals('slice_base', P.Slicings[0].Name);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.OpenKeepsSynthesesListedInProjectFile;
+var
+  P: TProject;
+begin
+  MakeSlice('p1', 'slice_base');
+  MakeSynthesis('p1', 'slice_base', 'synthes_2026-11-01');
+  MakeSynthesis('p1', 'slice_base', 'synthes_2026-11-02');
+  WriteText('p1\p1.OlProj',
+    '{"version":1,"array":"","slicings":[{"folder":"slice_base",' +
+    '"syntheses":["synthes_2026-11-02","synthes_2026-11-09"]}]}');
+  P := Open('p1');
+  try
+    // synthes_2026-11-01 не в файле - скрыт; synthes_2026-11-09 нет на диске - выпал
+    AssertEquals(1, Length(P.Slicings[0].Syntheses));
+    AssertEquals('synthes_2026-11-02', P.Slicings[0].Syntheses[0].Name);
+    AssertEquals(ExpandFileName(Path('p1\slice_base\synthes_2026-11-02')),
+      P.Slicings[0].Syntheses[0].Folder);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.OpenFolderWithoutProjectFileCreatesIt;
+var
+  P: TProject;
+begin
+  Touch('p1\data.csv');
+  MakeSlice('p1', 'slice_base');
+  P := Open('p1');
+  try
+    AssertEquals(ExpandFileName(Path('p1\p1.OlProj')), P.FileName);
+    AssertTrue('файл проекта создан', FileExists(Path('p1\p1.OlProj')));
+  finally
+    P.Free;
+  end;
+  // файл есть, поэтому новое на диске при открытии в проект не попадает
+  MakeSlice('p1', 'slice_new');
+  P := Open('p1');
+  try
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertEquals(1, P.SlicingCount);
+    AssertEquals('slice_base', P.Slicings[0].Name);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.OpenByProjectFilePathUsesThatFile;
+var
+  P: TProject;
+begin
+  Touch('p1\a.csv');
+  Touch('p1\b.csv');
+  WriteText('p1\my.OlProj', '{"version":1,"array":"b.csv","slicings":[]}');
+  P := Open('p1\my.OlProj');
+  try
+    AssertEquals(ExpandFileName(Path('p1\my.OlProj')), P.FileName);
+    AssertEquals(ExpandFileName(Path('p1')), P.Dir);
+    AssertEquals(ExpandFileName(Path('p1\b.csv')), P.ArrayFile);
+    AssertFalse('файл по умолчанию не создаётся', FileExists(Path('p1\p1.OlProj')));
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.OpenRefusesUnreadableProjectFile;
 var
   P: TProject;
   ErrorText: string;
 begin
-  Touch('p1\a.csv');
-  Touch('p1\b.csv');
+  WriteText('p1\p1.OlProj', '{not json');
   P := OpenProject(Path('p1'), ErrorText);
   try
     AssertTrue(P = nil);
     AssertTrue('начало текста',
-      Pos('В проекте должен быть один файл массива (.csv)', ErrorText) = 1);
-    AssertTrue('в тексте имя первого файла', Pos('a.csv', ErrorText) > 0);
-    AssertTrue('в тексте имя второго файла', Pos('b.csv', ErrorText) > 0);
+      Pos('Не удалось прочитать файл проекта:' + LineEnding +
+        ExpandFileName(Path('p1\p1.OlProj')), ErrorText) = 1);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.OpenRefusesProjectFileWithPathInName;
+var
+  P: TProject;
+  ErrorText: string;
+begin
+  WriteText('p1\p1.OlProj',
+    '{"version":1,"array":"","slicings":[{"folder":"..\\other","syntheses":[]}]}');
+  P := OpenProject(Path('p1'), ErrorText);
+  try
+    AssertTrue(P = nil);
+    AssertTrue('текст про недопустимое имя',
+      Pos('недопустимое имя "..\other"', ErrorText) > 0);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.RefreshAddsNewDiskItemsAndSavesThem;
+var
+  P: TProject;
+  ErrorText: string;
+begin
+  MakeSlice('p1', 'slice_base');
+  P := Open('p1');
+  try
+    Touch('p1\data.csv');
+    MakeSlice('p1', 'slice_new');
+    MakeSynthesis('p1', 'slice_base', 'synthes_2026-11-01');
+    AssertTrue(P.Refresh(ErrorText));
+    AssertEquals('', ErrorText);
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertEquals(2, P.SlicingCount);
+    AssertEquals('slice_new', P.Slicings[1].Name);
+    AssertEquals(1, Length(P.Slicings[0].Syntheses));
+  finally
+    P.Free;
+  end;
+  // изменения записаны в файл проекта
+  P := Open('p1');
+  try
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertEquals(2, P.SlicingCount);
+    AssertEquals(1, Length(P.Slicings[0].Syntheses));
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.RefreshKeepsHiddenItemsHidden;
+var
+  P: TProject;
+  ErrorText: string;
+begin
+  MakeSlice('p1', 'slice_base');
+  MakeSlice('p1', 'slice_other');
+  WriteText('p1\p1.OlProj',
+    '{"version":1,"array":"","slicings":[{"folder":"slice_base","syntheses":[]}]}');
+  P := Open('p1');
+  try
+    AssertTrue(P.Refresh(ErrorText));
+    AssertTrue(P.Refresh(ErrorText));
+    AssertEquals(1, P.SlicingCount);
+    AssertEquals('slice_base', P.Slicings[0].Name);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.RefreshDropsItemsDeletedFromDisk;
+var
+  P: TProject;
+  ErrorText: string;
+begin
+  MakeSlice('p1', 'slice_base');
+  MakeSlice('p1', 'slice_other');
+  MakeSynthesis('p1', 'slice_base', 'synthes_2026-11-01');
+  Touch('p1\data.csv');
+  P := Open('p1');
+  try
+    AssertEquals(2, P.SlicingCount);
+    RemoveDirectoryTree(Path('p1\slice_other'));
+    RemoveDirectoryTree(Path('p1\slice_base\synthes_2026-11-01'));
+    DeleteFile(Path('p1\data.csv'));
+    AssertTrue(P.Refresh(ErrorText));
+    AssertEquals('', P.ArrayFile);
+    AssertEquals(1, P.SlicingCount);
+    AssertEquals('slice_base', P.Slicings[0].Name);
+    AssertEquals(0, Length(P.Slicings[0].Syntheses));
+  finally
+    P.Free;
+  end;
+  // выпавшее записано в файл проекта: снова созданная папка в проект не вернётся
+  MakeSlice('p1', 'slice_other');
+  P := Open('p1');
+  try
+    AssertEquals(1, P.SlicingCount);
   finally
     P.Free;
   end;
@@ -514,11 +727,12 @@ begin
   MakeSlice('p1', 'slice_base');
   P := Open('p1');
   try
-    // появился второй CSV: перечитать нельзя, прежнее состояние остаётся
-    Touch('p1\second.csv');
+    // файл проекта испорчен: перечитать нельзя, прежнее состояние остаётся
+    WriteText('p1\p1.OlProj', '{not json');
     MakeSlice('p1', 'slice_new');
     AssertFalse(P.Refresh(ErrorText));
-    AssertTrue('текст про несколько CSV', Pos('second.csv', ErrorText) > 0);
+    AssertTrue('текст про файл проекта',
+      Pos('Не удалось прочитать файл проекта:', ErrorText) = 1);
     AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
     AssertEquals(1, P.SlicingCount);
     AssertEquals('slice_base', P.Slicings[0].Name);
@@ -561,6 +775,10 @@ begin
     AssertEquals('', P.ArrayFile);
     AssertEquals(0, P.SlicingCount);
     AssertTrue(DirectoryExists(Path('new project')));
+    AssertEquals(ExpandFileName(Path('new project\new project.OlProj')),
+      P.FileName);
+    AssertTrue('файл проекта создан',
+      FileExists(Path('new project\new project.OlProj')));
   finally
     P.Free;
   end;
