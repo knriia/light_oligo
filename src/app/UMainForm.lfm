@@ -28,45 +28,38 @@ object MainForm: TMainForm
       Height = 598
       Top = 1
       Width = 422
-      ActivePage = TS_Sequences
       Align = alClient
-      TabIndex = 0
       TabOrder = 0
-      object TS_Sequences: TTabSheet
-        Caption = 'TS_Sequences'
-        ClientHeight = 493
-        ClientWidth = 840
-      end
-      object TS_Synthesis: TTabSheet
-        Caption = 'TS_Synthesis'
-        ClientHeight = 493
-        ClientWidth = 840
-      end
-      object TS_Protocol: TTabSheet
-        Caption = 'TS_Protocol'
-        ClientHeight = 493
-        ClientWidth = 840
-      end
-      object TS_Manual: TTabSheet
-        Caption = 'TS_Manual'
-        ClientHeight = 493
-        ClientWidth = 840
-      end
-      object TS_Log: TTabSheet
-        Caption = 'TS_Log'
-        ClientHeight = 493
-        ClientWidth = 840
-        object Memo1: TMemo
-          Left = 0
-          Height = 493
-          Top = 0
-          Width = 840
-          Align = alClient
-          ScrollBars = ssAutoBoth
-          TabOrder = 0
-        end
-      end
     end
+  end
+  object Panel_Log: TPanel
+    Left = 0
+    Height = 150
+    Top = 450
+    Width = 850
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 150
+    ClientWidth = 850
+    TabOrder = 1
+    object Memo1: TMemo
+      Left = 0
+      Height = 150
+      Top = 0
+      Width = 850
+      Align = alClient
+      ScrollBars = ssAutoBoth
+      TabOrder = 0
+    end
+  end
+  object Splitter_Log: TSplitter
+    Cursor = crVSplit
+    Left = 0
+    Height = 5
+    Top = 445
+    Width = 850
+    Align = alBottom
+    ResizeAnchor = akBottom
   end
   object Tmr_EzCADer: TTimer
     Enabled = False

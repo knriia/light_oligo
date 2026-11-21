@@ -24,6 +24,8 @@
     "UMainForm": "app",
     "AppSynthesisAdapters": "app",
     "AppComposition": "app",
+    "UProjectPanel": "app",
+    "UDocumentHost": "app",
 
     "AppPaths": "platform",
     "CommonUtils": "platform",

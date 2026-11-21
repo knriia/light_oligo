@@ -18,6 +18,17 @@ type
   // Что открывает «Файл → Открыть» по имени выбранного файла.
   TProjectFileKind = (pfkUnknown, pfkArray, pfkProtocol, pfkSynthesis);
 
+  // Строка дерева проекта: проект, массив, слайсинг, синтез.
+  TProjectNodeKind = (pnkProject, pnkArray, pnkSlicing, pnkSynthesis);
+
+  TProjectNode = record
+    Kind: TProjectNodeKind;
+    Level: Integer;    // глубина: проект 0, массив и слайсинги 1, синтезы 2
+    Caption: string;   // имя проекта, файла массива или папки
+    Path: string;      // файл массива или папка проекта, слайсинга, синтеза
+  end;
+  TProjectNodes = array of TProjectNode;
+
   TProjectSynthesis = record
     Name: string;     // имя папки синтеза
     Folder: string;   // полный путь к папке синтеза
@@ -64,6 +75,9 @@ type
 // Тип файла по имени: .csv - массив, .pro - протокол, synthesis.ini -
 // синтез (регистр не важен), остальное - pfkUnknown.
 function ProjectFileKindOf(const AFileName: string): TProjectFileKind;
+// Дерево проекта плоским списком в порядке показа: проект, массив (если есть),
+// затем каждый слайсинг и сразу за ним его синтезы.
+function ProjectNodes(AProject: TProject): TProjectNodes;
 // Открывает существующий проект. Нет папки, не папка проекта или несколько
 // CSV - nil, текст объясняет.
 function OpenProject(const ADir: string; out AErrorText: string): TProject;
@@ -89,6 +103,38 @@ begin
     Result := pfkProtocol
   else
     Result := pfkUnknown;
+end;
+
+function ProjectNodes(AProject: TProject): TProjectNodes;
+var
+  Count, I, J: Integer;
+
+  procedure Add(AKind: TProjectNodeKind; ALevel: Integer;
+    const ACaption, APath: string);
+  begin
+    Result[Count].Kind := AKind;
+    Result[Count].Level := ALevel;
+    Result[Count].Caption := ACaption;
+    Result[Count].Path := APath;
+    Inc(Count);
+  end;
+
+begin
+  Count := 0;
+  SetLength(Result, 2 + AProject.SlicingCount);
+  for I := 0 to AProject.SlicingCount - 1 do
+    SetLength(Result, Length(Result) + Length(AProject.Slicings[I].Syntheses));
+  Add(pnkProject, 0, AProject.Name, AProject.Dir);
+  if AProject.ArrayFile <> '' then
+    Add(pnkArray, 1, ExtractFileName(AProject.ArrayFile), AProject.ArrayFile);
+  for I := 0 to AProject.SlicingCount - 1 do
+  begin
+    Add(pnkSlicing, 1, AProject.Slicings[I].Name, AProject.Slicings[I].Folder);
+    for J := 0 to High(AProject.Slicings[I].Syntheses) do
+      Add(pnkSynthesis, 2, AProject.Slicings[I].Syntheses[J].Name,
+        AProject.Slicings[I].Syntheses[J].Folder);
+  end;
+  SetLength(Result, Count);
 end;
 
 function IsDirectoryEntry(const ASearch: TSearchRec): Boolean;

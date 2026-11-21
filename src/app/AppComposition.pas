@@ -17,10 +17,7 @@ type
   TAppComposition = class
   private
     FOwner: TComponent;
-    FManualParent: TWinControl;
-    FProtocolParent: TWinControl;
-    FSynthesisParent: TWinControl;
-    FSequencesParent: TWinControl;
+    FHolder: TWinControl;
     FManualLog: TManualLogEvent;
     FSynthesisLog: TSynthesisLogEvent;
     FSequencesLog: TSequencesLogEvent;
@@ -39,8 +36,9 @@ type
     FSynthesisMarker: TEzCadLayerMarker;
     FSynthesisLayers: TLaserLayersBuilder;
   public
-    constructor Create(AOwner: TComponent; AManualParent,
-      AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
+    // AHolder - невидимый контейнер, в котором формы создаются; на вкладки
+    // их переносит хост документов.
+    constructor Create(AOwner: TComponent; AHolder: TWinControl;
       AManualLog: TManualLogEvent; ASynthesisLog: TSynthesisLogEvent;
       ASequencesLog: TSequencesLogEvent; ALaserLog: TLaserLogEvent;
       AClearLog: TNotifyEvent;
@@ -55,6 +53,7 @@ type
     procedure EzCadWatcherStart;
     function EzCadWatcherTick: Boolean;
     property SequencesForm: TSequencesForm read FSequencesForm;
+    property ManualForm: TManualForm read FManualForm;
     property ProtocolForm: TProtocolForm read FProtocolForm;
     property SynthesisForm: TSynthesisForm read FSynthesisForm;
     property LaserActions: TLaserActions read FLaserActions;
@@ -67,8 +66,7 @@ uses
 
 { TAppComposition }
 
-constructor TAppComposition.Create(AOwner: TComponent; AManualParent,
-  AProtocolParent, ASynthesisParent, ASequencesParent: TWinControl;
+constructor TAppComposition.Create(AOwner: TComponent; AHolder: TWinControl;
   AManualLog: TManualLogEvent; ASynthesisLog: TSynthesisLogEvent;
   ASequencesLog: TSequencesLogEvent; ALaserLog: TLaserLogEvent;
   AClearLog: TNotifyEvent;
@@ -77,10 +75,7 @@ constructor TAppComposition.Create(AOwner: TComponent; AManualParent,
 begin
   inherited Create;
   FOwner := AOwner;
-  FManualParent := AManualParent;
-  FProtocolParent := AProtocolParent;
-  FSynthesisParent := ASynthesisParent;
-  FSequencesParent := ASequencesParent;
+  FHolder := AHolder;
   FManualLog := AManualLog;
   FSynthesisLog := ASynthesisLog;
   FSequencesLog := ASequencesLog;
@@ -123,7 +118,7 @@ begin
   // Порядок создания форм важен для Parent, Align и ApplyCaptions.
   FManualForm := TManualForm.Create(FOwner);
   FManualForm.BorderStyle := bsNone;
-  FManualForm.Parent := FManualParent;
+  FManualForm.Parent := FHolder;
   FManualForm.Align := alClient;
   FManualForm.ApplyCaptions(InterfaceIniFile);
   FManualForm.LoadSettings;
@@ -132,7 +127,7 @@ begin
 
   FProtocolForm := TProtocolForm.Create(FOwner);
   FProtocolForm.BorderStyle := bsNone;
-  FProtocolForm.Parent := FProtocolParent;
+  FProtocolForm.Parent := FHolder;
   FProtocolForm.Align := alClient;
   FProtocolForm.ApplyCaptions(InterfaceIniFile);
   FProtocolForm.Show;
@@ -158,7 +153,7 @@ begin
 
   FSynthesisForm := TSynthesisForm.Create(FOwner);
   FSynthesisForm.BorderStyle := bsNone;
-  FSynthesisForm.Parent := FSynthesisParent;
+  FSynthesisForm.Parent := FHolder;
   FSynthesisForm.Align := alClient;
   FSynthesisForm.ApplyCaptions(InterfaceIniFile);
   FSynthesisForm.Station := FSynthesisStation;
@@ -174,15 +169,14 @@ begin
 
   FSequencesForm := TSequencesForm.Create(FOwner);
   FSequencesForm.BorderStyle := bsNone;
-  FSequencesForm.Parent := FSequencesParent;
+  FSequencesForm.Parent := FHolder;
   FSequencesForm.Align := alClient;
   FSequencesForm.ApplyCaptions(InterfaceIniFile);
   FSequencesForm.OnLog := FSequencesLog;
 
   FSequencesForm.Show;
 
-  // синтез создаётся в проекте, открытом на вкладке последовательностей
-  FSynthesisForm.OnGetProjectDir := @FSequencesForm.ProjectDir;
+  // проект для синтеза задаёт главное окно (выбор в дереве проектов)
 end;
 
 function TAppComposition.CanCloseAll: Boolean;
