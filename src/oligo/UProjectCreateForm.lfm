@@ -1,11 +1,11 @@
-object ArraySaveForm: TArraySaveForm
+object ProjectCreateForm: TProjectCreateForm
   Left = 0
-  Height = 176
+  Height = 124
   Top = 0
   Width = 720
   BorderStyle = bsDialog
-  Caption = 'ArraySaveForm'
-  ClientHeight = 176
+  Caption = 'ProjectCreateForm'
+  ClientHeight = 124
   ClientWidth = 720
   Position = poMainFormCenter
   OnCloseQuery = FormCloseQuery
@@ -47,42 +47,28 @@ object ArraySaveForm: TArraySaveForm
     Width = 468
     TabOrder = 2
   end
-  object L_ArrayFile: TLabel
-    Left = 12
-    Height = 15
-    Top = 86
-    Width = 40
-    Caption = 'L_ArrayFile'
-  end
-  object E_ArrayFile: TEdit
-    Left = 240
-    Height = 23
-    Top = 82
-    Width = 468
-    TabOrder = 3
-  end
-  object B_Save: TButton
+  object B_Create: TButton
     Left = 508
     Height = 25
-    Top = 134
+    Top = 82
     Width = 92
-    Caption = 'B_Save'
+    Caption = 'B_Create'
     Default = True
     ModalResult = 1
-    TabOrder = 4
+    TabOrder = 3
   end
   object B_Cancel: TButton
     Left = 616
     Height = 25
-    Top = 134
+    Top = 82
     Width = 92
     Cancel = True
     Caption = 'B_Cancel'
     ModalResult = 2
-    TabOrder = 5
+    TabOrder = 4
   end
   object SDD_Folder: TSelectDirectoryDialog
     Left = 24
-    Top = 128
+    Top = 76
   end
 end

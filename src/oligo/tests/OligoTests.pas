@@ -97,8 +97,6 @@ type
     procedure GeometrySaveKeepsOtherSections;
     procedure GeometrySaveReportsUnwritableFolder;
     procedure GeometryFileKeepsSpotAndSubstrate;
-    procedure NewArrayIsSuggestedIntoProjectsFolder;
-    procedure OpenedArrayIsSuggestedIntoItsProject;
     procedure OtherCsvInProjectFolderIsFound;
     procedure OccupiedCellsAreUnionOfLayerMatrices;
     procedure OccupiedCellsRejectDifferentMatrixSize;
@@ -155,11 +153,6 @@ type
     procedure RejectsEmptyName;
     procedure RejectsForbiddenCharacters;
     procedure RejectsTrailingDotOrSpace;
-    procedure FilePathJoinsFolderNameAndExtension;
-    procedure FilePathDoesNotDoubleExtension;
-    procedure FilePathAcceptsDriveRootAndTrailingSlash;
-    procedure FilePathRejectsRelativeOrEmptyFolder;
-    procedure FilePathRejectsBadFolderPartOrName;
     procedure FolderPathChecksDriveAndParts;
   end;
 
@@ -1389,45 +1382,6 @@ begin
   AssertTrue(ErrorText <> '');
 end;
 
-procedure TOligoFileTests.NewArrayIsSuggestedIntoProjectsFolder;
-var
-  Doc: TOligoArrayDocument;
-  Folder, ProjectName: string;
-begin
-  Doc := TOligoArrayDocument.Create;
-  try
-    Doc.NewArray(Arr(['AT']));
-    Doc.SuggestProjectLocation('D:\data\projects\',
-      EncodeDate(2026, 11, 4) + EncodeTime(14, 30, 5, 0), Folder, ProjectName);
-    AssertEquals('2026-11-04 14-30-05', ProjectName);
-    AssertEquals('D:\data\projects', Folder);
-  finally
-    Doc.Free;
-  end;
-end;
-
-procedure TOligoFileTests.OpenedArrayIsSuggestedIntoItsProject;
-// имя проекта - имя его папки, а CSV внутри может называться иначе
-var
-  Doc: TOligoArrayDocument;
-  Folder, ProjectName, ErrorText, ProjectDir: string;
-begin
-  ProjectDir := FilePath('proj');
-  AssertTrue(ForceDirectories(ProjectDir));
-  Doc := TOligoArrayDocument.Create;
-  try
-    AssertTrue(ErrorText, SaveOligoArrayFile(ProjectDir + PathDelim + 'my.csv',
-      Arr(['AT']), ErrorText));
-    AssertTrue(ErrorText, Doc.LoadFromFile(ProjectDir + PathDelim + 'my.csv',
-      ErrorText));
-    Doc.SuggestProjectLocation('D:\data\projects', Now, Folder, ProjectName);
-    AssertEquals('proj', ProjectName);
-    AssertEquals(ExcludeTrailingPathDelimiter(ExpandFileName(FDirectory)), Folder);
-  finally
-    Doc.Free;
-  end;
-end;
-
 procedure TOligoFileTests.OtherCsvInProjectFolderIsFound;
 var
   ErrorText: string;
@@ -1940,57 +1894,6 @@ var
 begin
   AssertFalse(CheckFileNamePart('name.', 'Имя файла', ErrorText));
   AssertFalse(CheckFileNamePart('name ', 'Имя файла', ErrorText));
-end;
-
-procedure TFileNameCheckTests.FilePathJoinsFolderNameAndExtension;
-var
-  FilePath, ErrorText: string;
-begin
-  AssertTrue(ErrorText, MakeFilePathInFolder(' C:\Users\me\Desktop ', ' arr 1 ',
-    '.csv', FilePath, ErrorText));
-  AssertEquals('C:\Users\me\Desktop\arr 1.csv', FilePath);
-end;
-
-procedure TFileNameCheckTests.FilePathDoesNotDoubleExtension;
-var
-  FilePath, ErrorText: string;
-begin
-  AssertTrue(ErrorText, MakeFilePathInFolder('D:\data', 'arr.CSV', '.csv',
-    FilePath, ErrorText));
-  AssertEquals('D:\data\arr.csv', FilePath);
-end;
-
-procedure TFileNameCheckTests.FilePathAcceptsDriveRootAndTrailingSlash;
-var
-  FilePath, ErrorText: string;
-begin
-  AssertTrue(ErrorText, MakeFilePathInFolder('D:\', 'a', '.csv', FilePath, ErrorText));
-  AssertEquals('D:\a.csv', FilePath);
-  AssertTrue(ErrorText, MakeFilePathInFolder('D:\data\', 'a', '.csv', FilePath, ErrorText));
-  AssertEquals('D:\data\a.csv', FilePath);
-end;
-
-procedure TFileNameCheckTests.FilePathRejectsRelativeOrEmptyFolder;
-var
-  FilePath, ErrorText: string;
-begin
-  AssertFalse(MakeFilePathInFolder('', 'a', '.csv', FilePath, ErrorText));
-  AssertTrue(ErrorText <> '');
-  AssertFalse(MakeFilePathInFolder('data\projects', 'a', '.csv', FilePath, ErrorText));
-  AssertTrue(ErrorText <> '');
-  AssertEquals('', FilePath);
-end;
-
-procedure TFileNameCheckTests.FilePathRejectsBadFolderPartOrName;
-var
-  FilePath, ErrorText: string;
-begin
-  AssertFalse(MakeFilePathInFolder('D:\da?ta\x', 'a', '.csv', FilePath, ErrorText));
-  AssertTrue(ErrorText <> '');
-  AssertFalse(MakeFilePathInFolder('D:\data.\x', 'a', '.csv', FilePath, ErrorText));
-  AssertFalse(MakeFilePathInFolder('D:\data', 'a:b', '.csv', FilePath, ErrorText));
-  AssertTrue(ErrorText <> '');
-  AssertFalse(MakeFilePathInFolder('D:\data', '', '.csv', FilePath, ErrorText));
 end;
 
 procedure TFileNameCheckTests.FolderPathChecksDriveAndParts;

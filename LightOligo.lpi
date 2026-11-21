@@ -443,9 +443,9 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src\oligo\UArraySaveForm.pas"/>
+        <Filename Value="src\oligo\UProjectCreateForm.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="ArraySaveForm"/>
+        <ComponentName Value="ProjectCreateForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>

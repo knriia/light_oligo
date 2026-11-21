@@ -29,7 +29,9 @@ type
     procedure OpenTakesArrayNamedInProjectFile;
     procedure OpenHidesDiskItemsMissingFromProjectFile;
     procedure OpenKeepsSynthesesListedInProjectFile;
-    procedure OpenFolderWithoutProjectFileCreatesIt;
+    procedure OpenFolderWithoutProjectFileIsModifiedUntilSaved;
+    procedure RefreshMarksProjectModifiedAndKeepsChangesUntilSaved;
+    procedure IncludeArrayAddsHiddenCsvAndMarksModified;
     procedure OpenByProjectFilePathUsesThatFile;
     procedure OpenRefusesUnreadableProjectFile;
     procedure OpenRefusesProjectFileWithPathInName;
@@ -235,15 +237,20 @@ begin
   end;
 end;
 
-procedure TProjectModelTests.OpenFolderWithoutProjectFileCreatesIt;
+procedure TProjectModelTests.OpenFolderWithoutProjectFileIsModifiedUntilSaved;
 var
   P: TProject;
+  ErrorText: string;
 begin
   Touch('p1\data.csv');
   MakeSlice('p1', 'slice_base');
   P := Open('p1');
   try
     AssertEquals(ExpandFileName(Path('p1\p1.OlProj')), P.FileName);
+    AssertTrue('проект изменён', P.Modified);
+    AssertFalse('файл проекта ещё не записан', FileExists(Path('p1\p1.OlProj')));
+    AssertTrue('запись файла проекта', P.SaveProject(ErrorText));
+    AssertFalse('после записи не изменён', P.Modified);
     AssertTrue('файл проекта создан', FileExists(Path('p1\p1.OlProj')));
   finally
     P.Free;
@@ -329,6 +336,7 @@ begin
     AssertEquals(2, P.SlicingCount);
     AssertEquals('slice_new', P.Slicings[1].Name);
     AssertEquals(1, Length(P.Slicings[0].Syntheses));
+    AssertTrue('запись файла проекта', P.SaveProject(ErrorText));
   finally
     P.Free;
   end;
@@ -338,6 +346,68 @@ begin
     AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
     AssertEquals(2, P.SlicingCount);
     AssertEquals(1, Length(P.Slicings[0].Syntheses));
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.RefreshMarksProjectModifiedAndKeepsChangesUntilSaved;
+// записанный проект: новый CSV на диске - изменение в памяти; повторная сверка
+// его не теряет, запись в файл снимает признак и сохраняет изменение
+var
+  P: TProject;
+  ErrorText: string;
+begin
+  WriteText('p1\p1.OlProj', '{"version":1,"array":"","slicings":[]}');
+  P := Open('p1');
+  try
+    AssertFalse('открытый по файлу проект не изменён', P.Modified);
+    Touch('p1\data.csv');
+    AssertTrue(P.Refresh(ErrorText));
+    AssertTrue('новый массив - проект изменён', P.Modified);
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertTrue(P.Refresh(ErrorText));
+    AssertEquals('повторная сверка не теряет массив',
+      ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertTrue('запись файла проекта', P.SaveProject(ErrorText));
+    AssertFalse(P.Modified);
+  finally
+    P.Free;
+  end;
+  P := Open('p1');
+  try
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TProjectModelTests.IncludeArrayAddsHiddenCsvAndMarksModified;
+// CSV на диске, которого нет в файле проекта, в проект не входит, пока его не
+// включат явно; после записи файла проекта он остаётся в составе
+var
+  P: TProject;
+  ErrorText: string;
+begin
+  Touch('p1\data.csv');
+  WriteText('p1\p1.OlProj', '{"version":1,"array":"","slicings":[]}');
+  P := Open('p1');
+  try
+    AssertEquals('CSV скрыт', '', P.ArrayFile);
+    AssertFalse(P.Modified);
+    P.IncludeArray(Path('p1\data.csv'));
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertTrue('проект изменён', P.Modified);
+    AssertTrue(P.Refresh(ErrorText));
+    AssertEquals('сверка не теряет включённый CSV',
+      ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
+    AssertTrue('запись файла проекта', P.SaveProject(ErrorText));
+  finally
+    P.Free;
+  end;
+  P := Open('p1');
+  try
+    AssertEquals(ExpandFileName(Path('p1\data.csv')), P.ArrayFile);
   finally
     P.Free;
   end;
@@ -383,6 +453,7 @@ begin
     AssertEquals(1, P.SlicingCount);
     AssertEquals('slice_base', P.Slicings[0].Name);
     AssertEquals(0, Length(P.Slicings[0].Syntheses));
+    AssertTrue('запись файла проекта', P.SaveProject(ErrorText));
   finally
     P.Free;
   end;
@@ -727,6 +798,7 @@ begin
   MakeSlice('p1', 'slice_base');
   P := Open('p1');
   try
+    AssertTrue('запись файла проекта', P.SaveProject(ErrorText));
     // файл проекта испорчен: перечитать нельзя, прежнее состояние остаётся
     WriteText('p1\p1.OlProj', '{not json');
     MakeSlice('p1', 'slice_new');
@@ -779,6 +851,7 @@ begin
       P.FileName);
     AssertTrue('файл проекта создан',
       FileExists(Path('new project\new project.OlProj')));
+    AssertFalse('новый проект записан', P.Modified);
   finally
     P.Free;
   end;

@@ -6,9 +6,11 @@ unit ProjectModel;
 // взяты его слои, поэтому связь «синтез - слайсинг» задаёт расположение папки.
 // Файл на диске, которого нет в .OlProj, в проект не входит.
 // Refresh сверяет файл проекта с диском: записи, чьих файлов уже нет, выпадают;
-// всё, что появилось на диске после прошлой сверки, добавляется в проект и файл
-// перезаписывается. Папка без .OlProj (прежний формат) при первой сверке
-// принимается целиком, и файл создаётся. Нет массива - проект пустой.
+// всё, что появилось на диске после прошлой сверки, добавляется в проект. Всё
+// это только меняет модель и помечает проект изменённым (Modified): в файл оно
+// попадает по SaveProject, а до тех пор сверки идут от состояния в памяти.
+// Папка без .OlProj (прежний формат) принимается целиком и считается изменённой,
+// пока файл не записан. Нет массива - проект пустой.
 
 {$mode ObjFPC}{$H+}
 
@@ -56,6 +58,7 @@ type
     FArrayFile: string;
     FSlicings: TProjectSlicings;
     FKnown: TStringList;  // что было на диске при прошлой сверке; nil - сверки не было
+    FModified: Boolean;   // состав проекта изменён и не записан в файл проекта
     function GetName: string;
     function GetSlicingCount: Integer;
     function GetSlicing(AIndex: Integer): TProjectSlicing;
@@ -68,6 +71,11 @@ type
     // Сверяет файл проекта с диском (см. описание модуля). Ошибка - False, текст
     // объясняет, и модель остаётся прежней.
     function Refresh(out AErrorText: string): Boolean;
+    // Записывает состав проекта в файл проекта; при успехе Modified снимается.
+    function SaveProject(out AErrorText: string): Boolean;
+    // Включает в проект CSV из его папки (файл лежит на диске, но в проект не
+    // входил); прежний массив заменяется. Проект становится изменённым.
+    procedure IncludeArray(const AFileName: string);
     // Индекс слайсинга по имени его папки или -1.
     function IndexOfSlicing(const AName: string): Integer;
     // Индекс слайсинга, в папке которого лежит синтез (по полному пути
@@ -78,6 +86,8 @@ type
     property Dir: string read FDir;
     // Полный путь к файлу проекта (.OlProj).
     property FileName: string read FFile;
+    // Состав проекта изменён и ещё не записан в файл проекта.
+    property Modified: Boolean read FModified;
     // Имя проекта - имя его папки (для корня диска - сам диск).
     property Name: string read GetName;
     // Полный путь к CSV массива; пусто, если массива в проекте нет.
@@ -99,7 +109,8 @@ function OpenProject(const APath: string; out AErrorText: string): TProject;
 // Создаёт папку нового проекта AParentDir\AName и открывает её. Папка
 // AParentDir должна существовать, создаётся только папка проекта. Имя или
 // путь недопустимы, родителя нет, папка уже есть, создать не удалось - nil,
-// текст объясняет.
+// текст объясняет. Файл проекта записывается сразу (проект не изменён); если
+// записать не удалось, созданная пустая папка удаляется.
 function CreateProject(const AParentDir, AName: string;
   out AErrorText: string): TProject;
 
@@ -503,12 +514,23 @@ begin
     if NewFile = '' then
       NewFile := DefaultProjectFile(FDir);
   end;
-  FileExisted := FileExists(NewFile);
   FileArray := '';
   FileSlicings := nil;
-  if FileExisted and
-     not LoadProjectFile(NewFile, FileArray, FileSlicings, AErrorText) then
-    Exit;
+  if FModified and (FKnown <> nil) then
+  begin
+    // несохранённые изменения: основа сверки - состав в памяти, а не файл
+    FileExisted := True;
+    if FArrayFile <> '' then
+      FileArray := ExtractFileName(FArrayFile);
+    FileSlicings := FSlicings;
+  end
+  else
+  begin
+    FileExisted := FileExists(NewFile);
+    if FileExisted and
+       not LoadProjectFile(NewFile, FileArray, FileSlicings, AErrorText) then
+      Exit;
+  end;
   ScanDisk(FDir, DiskArray, DiskSlicings);
   RootDir := IncludeTrailingPathDelimiter(FDir);
   Changed := not FileExisted;
@@ -600,7 +622,20 @@ begin
   FKnown := Known;
   Result := True;
   if Changed then
-    Result := Save(AErrorText);
+    FModified := True;
+end;
+
+procedure TProject.IncludeArray(const AFileName: string);
+begin
+  FArrayFile := ExpandFileName(AFileName);
+  FModified := True;
+end;
+
+function TProject.SaveProject(out AErrorText: string): Boolean;
+begin
+  Result := Save(AErrorText);
+  if Result then
+    FModified := False;
 end;
 
 function TProject.IndexOfSlicing(const AName: string): Integer;
@@ -673,6 +708,12 @@ begin
     Exit;
   end;
   Result := OpenProject(Dir, AErrorText);
+  // новый проект записывается сразу: имя и место уже заданы
+  if (Result <> nil) and not Result.SaveProject(AErrorText) then
+  begin
+    FreeAndNil(Result);
+    RemoveDir(Dir);
+  end;
 end;
 
 end.

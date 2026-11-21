@@ -21,6 +21,8 @@ type
     BB_CreateArr: TBitBtn;
     BB_CancelArr: TBitBtn;
     E_ConstSeq: TEdit;
+    E_FileName: TEdit;
+    L_FileName: TLabel;
     L_ArrColumns: TLabel;
     L_ArrRows: TLabel;
     L_SetOligoSize: TLabel;
@@ -30,12 +32,24 @@ type
     SE_NOligoCol: TSpinEdit;
     SE_NOligoRow: TSpinEdit;
     SE_LenOfRNDSeq: TSpinEdit;
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure RG_FillClick(Sender: TObject);
   private
+    FFileMode: Boolean;      // окно спрашивает ещё и имя файла массива
+    FProjectDir: string;     // папка проекта, где появится файл
+    FReplaceFile: string;    // CSV, который заменяется: его имя разрешено
+    function GetFileBase: string;
+    procedure ShowFileRow(AVisible: Boolean);
     Procedure ShowFillElements(aFillType: integer);
   public
+    // Окно спрашивает и имя файла массива в папке проекта AProjectDir (по
+    // умолчанию ADefaultName); AReplaceFile - заменяемый CSV, его имя можно
+    // оставить. Без вызова (или с пустой AProjectDir) имя не спрашивается.
+    procedure AskFileName(const AProjectDir, ADefaultName, AReplaceFile: string);
+    // Имя файла без .csv, введённое в окне; пусто, если имя не спрашивалось.
+    property FileBase: string read GetFileBase;
     // Показывает окно. True, если нажали OK; тогда в параметрах - заданный массив.
     function Execute(out ARows, ACols: Integer; out AFill: TOligoFill;
       out ARandomLength: Integer; out AConstSeq: String): Boolean;
@@ -46,7 +60,7 @@ var
 
 implementation
 uses
-  Localization;
+  LazFileUtils, Localization, AppPaths;
 
 {$R *.lfm}
 
@@ -66,11 +80,77 @@ begin
   BB_CreateArr.Caption:=ReadInterfaceString('OligoArray','BB_CreateArr','OK');
   L_LenOfRNDSeq.Caption:=ReadInterfaceString('OligoArray','L_LenOfRNDSeq','Length');
   L_Seq.Caption:=ReadInterfaceString('OligoArray','L_Seq','Sequence');
+  L_FileName.Caption:=ReadInterfaceString('OligoArray','L_FileName','File name');
 
   E_ConstSeq.Text:=ReadConfigString('OligoArray','E_ConstSeq','AAATTTGGGCCC');
   SE_NOligoCol.Value:=ReadConfigInteger('OligoArray','SE_NOligoCol',10);
   SE_NOligoRow.Value:=ReadConfigInteger('OligoArray','SE_NOligoRow',10);
   SE_LenOfRNDSeq.Value:=ReadConfigInteger('OligoArray','SE_LenOfRNDSeq',10);
+end;
+
+function TOligoArrayForm.GetFileBase: string;
+begin
+  Result:='';
+  if not FFileMode then
+    Exit;
+  Result:=Trim(E_FileName.Text);
+  if SameText(ExtractFileExt(Result), '.csv') then
+    Result:=Copy(Result, 1, Length(Result)-4);
+end;
+
+procedure TOligoArrayForm.ShowFileRow(AVisible: Boolean);
+// строка имени файла сверху; остальное окно сдвигается вниз на её высоту
+const
+  ROW_SHIFT = 36;
+var
+  I: Integer;
+  Shift: Integer;
+begin
+  if AVisible=L_FileName.Visible then
+    Exit;
+  if AVisible then
+    Shift:=ROW_SHIFT
+  else
+    Shift:=-ROW_SHIFT;
+  for I:=0 to ControlCount-1 do
+    if (Controls[I]<>L_FileName) and (Controls[I]<>E_FileName) then
+      Controls[I].Top:=Controls[I].Top+Shift;
+  ClientHeight:=ClientHeight+Shift;
+  L_FileName.Visible:=AVisible;
+  E_FileName.Visible:=AVisible;
+end;
+
+procedure TOligoArrayForm.AskFileName(const AProjectDir, ADefaultName,
+  AReplaceFile: string);
+begin
+  FFileMode:=AProjectDir<>'';
+  FProjectDir:=AProjectDir;
+  FReplaceFile:=AReplaceFile;
+  E_FileName.Text:=ADefaultName;
+  ShowFileRow(FFileMode);
+end;
+
+procedure TOligoArrayForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+// «OK» закрывает окно, только если имя файла допустимо и свободно в проекте
+var
+  ErrorText, FilePath: string;
+begin
+  if (ModalResult<>mrOK) or not FFileMode then
+    Exit;
+  CanClose:=CheckFileNamePart(GetFileBase,
+    ReadInterfaceString('OligoArray','L_FileName','File name'), ErrorText);
+  if CanClose then
+  begin
+    FilePath:=IncludeTrailingPathDelimiter(FProjectDir)+GetFileBase+'.csv';
+    if FileExists(FilePath) and not SameFileName(FilePath, FReplaceFile) then
+    begin
+      ErrorText:=ReadInterfaceString('OligoArray','FileNameExists',
+        'Файл с таким именем уже есть в проекте.');
+      CanClose:=False;
+    end;
+  end;
+  if not CanClose then
+    ShowMessage(ErrorText);
 end;
 
 procedure TOligoArrayForm.RG_FillClick(Sender: TObject);

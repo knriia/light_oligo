@@ -41,12 +41,6 @@ type
     function HasFile: Boolean;
     // Папка файла массива; пусто, если массив ещё не сохранялся.
     function ArrayDir: string;
-    // Куда предлагать сохранить проект: открытый из файла - туда же
-    // (папка проектов = родитель папки проекта, имя = имя папки проекта),
-    // новый - в AProjectsDir с именем по времени ANow (DEFAULT_NAME_FORMAT).
-    // CSV проекта лежит в <папка проектов>\<имя>\<имя файла>.csv.
-    procedure SuggestProjectLocation(const AProjectsDir: string;
-      ANow: TDateTime; out AParentDir, AName: string);
 
     // Результат слайсинга: таблица слоёв и папка слайса, где лежат Slices.txt,
     // layers и Slices.lays. Забывается, когда массив меняется, заменяется или
@@ -175,21 +169,6 @@ begin
   Result:='';
   if HasFile then
     Result:=ExtractFileDir(FFileName);
-end;
-
-procedure TOligoArrayDocument.SuggestProjectLocation(const AProjectsDir: string;
-  ANow: TDateTime; out AParentDir, AName: string);
-begin
-  if HasFile then
-  begin
-    AParentDir:=ExtractFileDir(ArrayDir);
-    AName:=ExtractFileName(ArrayDir);
-  end
-  else
-  begin
-    AParentDir:=ExcludeTrailingPathDelimiter(AProjectsDir);
-    AName:=FormatDateTime(DEFAULT_NAME_FORMAT, ANow);
-  end;
 end;
 
 procedure TOligoArrayDocument.SetSlicing(const ATable: TSliceLayers;

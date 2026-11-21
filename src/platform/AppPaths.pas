@@ -60,13 +60,6 @@ procedure MigrateLegacyData(const AExecutableFileName: string = '');
 function CheckFileNamePart(const AName, ACaption: string;
   out ErrorText: string): Boolean;
 
-// Полный путь к файлу AName с расширением AExt (например '.csv') в папке
-// AFolder. Папка - полный путь (с диском), каждая её часть и имя файла
-// проверяются как CheckFileNamePart. Если AExt уже есть в имени, второй раз
-// не добавляется.
-function MakeFilePathInFolder(const AFolder, AName, AExt: string;
-  out AFilePath, AErrorText: string): Boolean;
-
 // Папка - полный путь с диском, каждая часть проходит CheckFileNamePart.
 // Самой папки может ещё не быть.
 function CheckFolderPath(const AFolder: string; out AErrorText: string): Boolean;
@@ -323,27 +316,6 @@ begin
   for I := 0 to High(Parts) do
     if not CheckFileNamePart(Parts[I], 'Папка', AErrorText) then
       Exit;
-  Result := True;
-end;
-
-function MakeFilePathInFolder(const AFolder, AName, AExt: string;
-  out AFilePath, AErrorText: string): Boolean;
-var
-  Folder, Name: string;
-begin
-  Result := False;
-  AFilePath := '';
-  if not CheckFolderPath(AFolder, AErrorText) then
-    Exit;
-  Folder := ExcludeTrailingPathDelimiter(Trim(AFolder));
-
-  Name := Trim(AName);
-  if (AExt <> '') and SameText(ExtractFileExt(Name), AExt) then
-    Name := ChangeFileExt(Name, '');
-  if not CheckFileNamePart(Name, 'Имя файла', AErrorText) then
-    Exit;
-
-  AFilePath := IncludeTrailingPathDelimiter(Folder) + Name + AExt;
   Result := True;
 end;
 
