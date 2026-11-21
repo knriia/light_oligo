@@ -28,29 +28,6 @@ uses
   Graphics, UiTheme;
 
 function CreateIconList(AOwner: TComponent; ASize: Integer;
-  const AIconsRoot: string = ''): TImageList;
-
-// Список для экрана с APpi, размер выбирает IconSizeForPpi.
-function CreateIconListForPpi(AOwner: TComponent; APpi: Integer;
-  const AIconsRoot: string = ''): TImageList;
-
-implementation
-
-uses
-  Graphics, UiTheme;
-
-function IconsDir(ASize: Integer; const AIconsRoot: string): string;
-var
-  Root: string;
-begin
-  Root := AIconsRoot;
-  if Root = '' then
-    Root := AppDir + 'icons';
-  Result := IncludeTrailingPathDelimiter(Root) + IntToStr(ASize) +
-    PathDelim;
-end;
-
-function CreateIconList(AOwner: TComponent; ASize: Integer;
   const AIconsRoot: string): TImageList;
 var
   I: Integer;

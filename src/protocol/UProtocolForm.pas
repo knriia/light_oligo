@@ -59,6 +59,7 @@ type
     procedure EditNode(const APosition: TProtocolPosition);
     function ConfirmSaveChanges: Boolean;
     function SaveProtocol: Boolean;
+    function NeedsSave: Boolean;
     function ChooseProtocolType(out AType: string): Boolean;
     procedure ClearProtocol;
   public
@@ -67,6 +68,14 @@ type
     procedure ApplyCaptions(AIni: TCustomIniFile);
     // Открывает протокол из файла (без вопросов); при ошибке остаётся прежний.
     function OpenFile(const AFileName: string; out AErrorText: string): Boolean;
+    // Новый протокол, открытие файла и сохранение: как кнопки вкладки,
+    // вызываются из главного меню. OpenProtocolFile сначала спрашивает о
+    // несохранённом, ошибку показывает сообщением.
+    procedure NewProtocol;
+    // False - отмена или ошибка, протокол прежний.
+    function OpenProtocolFile(const AFileName: string): Boolean;
+    procedure SaveCurrent;
+    function CanSave: Boolean;
     // Вопрос о несохранённых изменениях перед закрытием программы.
     function CanCloseFromHost: Boolean;
     // Проверка SyrSt по конфигурации станции при вводе операции.
@@ -198,7 +207,7 @@ begin
   B_Delete.Enabled := not IsNoPosition(Selected);
   B_MoveUp.Enabled := CanMoveUp(FModel, Selected);
   B_MoveDown.Enabled := CanMoveDown(FModel, Selected);
-  B_Save.Enabled := FModified or ((FFileName = '') and (FModel.BlockCount > 0));
+  B_Save.Enabled := NeedsSave;
 
   if FFileName <> '' then
     StatusText := ExtractFileName(FFileName)
@@ -348,6 +357,12 @@ begin
   end;
 end;
 
+function TProtocolForm.NeedsSave: Boolean;
+// изменён, либо ещё без файла, но не пуст
+begin
+  Result := FModified or ((FFileName = '') and (FModel.BlockCount > 0));
+end;
+
 function TProtocolForm.SaveProtocol: Boolean;
 var
   FileName, ResultName, ErrorText: string;
@@ -458,6 +473,33 @@ begin
     FProtocolType := '';
   FModified := False;
   RebuildTree(NoPosition);
+end;
+
+procedure TProtocolForm.NewProtocol;
+begin
+  B_NewClick(nil);
+end;
+
+function TProtocolForm.OpenProtocolFile(const AFileName: string): Boolean;
+var
+  ErrorText: string;
+begin
+  Result := False;
+  if not ConfirmSaveChanges then
+    Exit;
+  Result := OpenFile(AFileName, ErrorText);
+  if not Result then
+    MessageDlg(ErrorText, mtError, [mbOK], 0);
+end;
+
+procedure TProtocolForm.SaveCurrent;
+begin
+  SaveProtocol;
+end;
+
+function TProtocolForm.CanSave: Boolean;
+begin
+  Result := NeedsSave;
 end;
 
 procedure TProtocolForm.B_SaveClick(Sender: TObject);

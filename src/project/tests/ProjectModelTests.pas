@@ -37,6 +37,12 @@ type
     procedure RootFolderKeepsDelimiterAndNamesDrive;
     procedure SynthesesAreFoldersWithInfoFileInsideSlicing;
     procedure SynthesesBelongToTheirOwnSlicing;
+    procedure FileKindCsvIsArray;
+    procedure FileKindUpperCaseCsvIsArray;
+    procedure FileKindProIsProtocol;
+    procedure FileKindSynthesisInfoIsSynthesis;
+    procedure FileKindOtherIniIsUnknown;
+    procedure FileKindNoExtensionIsUnknown;
     procedure IndexOfSlicingFindsByFolderName;
     procedure SlicingOfSynthesisFollowsParentFolder;
     procedure SlicingOfSynthesisIgnoresFoldersOutsideSlicings;
@@ -573,6 +579,37 @@ begin
     P.Free;
   end;
   AssertEquals('в папке теста ничего не создано', 0, CountEntries(FRoot));
+end;
+
+procedure TProjectModelTests.FileKindCsvIsArray;
+begin
+  AssertTrue(pfkArray = ProjectFileKindOf('D:\proj\a\a.csv'));
+end;
+
+procedure TProjectModelTests.FileKindUpperCaseCsvIsArray;
+begin
+  AssertTrue(pfkArray = ProjectFileKindOf('D:\proj\A.CSV'));
+end;
+
+procedure TProjectModelTests.FileKindProIsProtocol;
+begin
+  AssertTrue(pfkProtocol = ProjectFileKindOf('D:\data\protocols\A_one.pro'));
+end;
+
+procedure TProjectModelTests.FileKindSynthesisInfoIsSynthesis;
+begin
+  AssertTrue(pfkSynthesis = ProjectFileKindOf(
+    'D:\proj\slice_base\s1\' + SYNTHESIS_INFO_FILE));
+end;
+
+procedure TProjectModelTests.FileKindOtherIniIsUnknown;
+begin
+  AssertTrue(pfkUnknown = ProjectFileKindOf('D:\proj\other.ini'));
+end;
+
+procedure TProjectModelTests.FileKindNoExtensionIsUnknown;
+begin
+  AssertTrue(pfkUnknown = ProjectFileKindOf('D:\proj\readme'));
 end;
 
 initialization

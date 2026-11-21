@@ -25,7 +25,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
+            <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station;src\project"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -74,7 +74,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
+            <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station;src\project"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -562,7 +562,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station"/>
+      <OtherUnitFiles Value="src\app;src\shared;src\platform;src\laser;src\manual;src\oligo;src\protocol;src\synthesis;src\station;src\project"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

@@ -47,6 +47,7 @@ type
     procedure ApplyWidthMode;
     procedure StoreCell(ACol, ARow: Integer);
     function SaveArray: Boolean;
+    function LoadFile(const AFileName: string): Boolean;
     function ConfirmSaveIfModified: Boolean;
     function RequireArray: Boolean;
   public
@@ -61,6 +62,15 @@ type
     // Папка открытого проекта (там лежит файл массива); пусто - массив ещё
     // не сохранён в проект.
     function ProjectDir: string;
+    // Те же действия, что у кнопок вкладки; вызываются из главного меню.
+    procedure CreateArray;
+    // Открывает CSV массива: вопрос о несохранённом, замена текущего.
+    // False - отмена или ошибка чтения, массив прежний.
+    function OpenArrayFile(const AFileName: string): Boolean;
+    procedure SaveArrayToProject;
+    procedure SliceArray;
+    // Есть ли массив.
+    function HasArray: Boolean;
   end;
 
 implementation
@@ -105,6 +115,31 @@ end;
 function TSequencesForm.ProjectDir: string;
 begin
   Result:=FDocument.ArrayDir;
+end;
+
+procedure TSequencesForm.CreateArray;
+begin
+  B_CreateOligoArrClick(nil);
+end;
+
+function TSequencesForm.OpenArrayFile(const AFileName: string): Boolean;
+begin
+  Result:=ConfirmSaveIfModified and LoadFile(AFileName);
+end;
+
+procedure TSequencesForm.SaveArrayToProject;
+begin
+  SaveArray;
+end;
+
+procedure TSequencesForm.SliceArray;
+begin
+  B_SliceOligoArrClick(nil);
+end;
+
+function TSequencesForm.HasArray: Boolean;
+begin
+  Result:=not FDocument.IsEmpty;
 end;
 
 procedure TSequencesForm.Log(const AMsg: string);
@@ -194,8 +229,6 @@ begin
 end;
 
 procedure TSequencesForm.B_LoadOligoArrClick(Sender: TObject);
-var
-  ErrorText: String;
 begin
   if not ConfirmSaveIfModified then // загруженный массив заменит текущий
     Exit;
@@ -204,10 +237,18 @@ begin
   OD_File.FilterIndex:=1;
   if not OD_File.Execute then
     Exit;
-  if not FDocument.LoadFromFile(OD_File.FileName, ErrorText) then
+  LoadFile(OD_File.FileName);
+end;
+
+function TSequencesForm.LoadFile(const AFileName: string): Boolean;
+var
+  ErrorText: String;
+begin
+  Result:=FDocument.LoadFromFile(AFileName, ErrorText);
+  if not Result then
   begin
     ShowMessage('Не удалось прочитать файл массива:'+LineEnding+
-                OD_File.FileName+LineEnding+ErrorText);
+                AFileName+LineEnding+ErrorText);
     Exit;
   end;
   DisplayOligoArray;
