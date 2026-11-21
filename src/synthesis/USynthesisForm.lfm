@@ -1,7 +1,7 @@
 object SynthesisForm: TSynthesisForm
-  Left = -976
+  Left = 303
   Height = 493
-  Top = 48
+  Top = 255
   Width = 840
   Caption = 'SynthesisForm'
   ClientHeight = 493

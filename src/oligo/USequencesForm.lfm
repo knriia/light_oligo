@@ -14,6 +14,7 @@ object SequencesForm: TSequencesForm
     Width = 185
     Align = alLeft
     Caption = 'GB_OligControl'
+    Visible = False
     ClientHeight = 473
     ClientWidth = 181
     TabOrder = 0

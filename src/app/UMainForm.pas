@@ -48,6 +48,9 @@ type
     function SynthesisProjectDir: string;
     function ChooseProject(const ANeedKey, ANeedDefault: string): TProject;
     function EnsureArrayOpen(AProject: TProject): Boolean;
+    function AskArrayFileName(AProject: TProject; out AFileBase: string): Boolean;
+    procedure OpenSequencesTab;
+    procedure UpdateSequencesCaption;
     procedure ProjectItemOpen(AKind: TProjectNodeKind; const APath: string);
     procedure RefreshProjectTree;
     procedure ActOpenProjectExecute(Sender: TObject);
@@ -219,6 +222,68 @@ begin
     FComposition.SequencesForm.OpenArrayFile(AProject.ArrayFile);
 end;
 
+function TMainForm.AskArrayFileName(AProject: TProject;
+  out AFileBase: string): Boolean;
+// Окно ввода имени файла последовательности; имя без .csv, файла с таким
+// именем в проекте ещё нет.
+const
+  BAD_CHARS = ['\', '/', ':', '*', '?', '"', '<', '>', '|'];
+var
+  Value: string;
+  I: Integer;
+  Bad: Boolean;
+begin
+  Result := False;
+  AFileBase := '';
+  Value := DEFAULT_ARRAY_FILE;
+  repeat
+    if not InputQuery(
+      ReadInterfaceString(MENU_SECTION, 'SequenceNameTitle', 'Последовательность'),
+      ReadInterfaceString(MENU_SECTION, 'SequenceNamePrompt', 'Имя файла:'),
+      Value) then
+      Exit;
+    Value := Trim(Value);
+    if SameText(ExtractFileExt(Value), '.csv') then
+      Value := Copy(Value, 1, Length(Value) - 4);
+    Bad := (Value = '') or (Value[Length(Value)] = '.');
+    for I := 1 to Length(Value) do
+      if Value[I] in BAD_CHARS then
+        Bad := True;
+    if Bad then
+    begin
+      ShowMessage(ReadInterfaceString(MENU_SECTION, 'SequenceNameInvalid',
+        'Недопустимое имя файла.'));
+      Continue;
+    end;
+    if FileExists(IncludeTrailingPathDelimiter(AProject.Dir) + Value + '.csv') then
+    begin
+      ShowMessage(ReadInterfaceString(MENU_SECTION, 'SequenceNameExists',
+        'Файл с таким именем уже есть в проекте.'));
+      Continue;
+    end;
+    AFileBase := Value;
+    Exit(True);
+  until False;
+end;
+
+procedure TMainForm.UpdateSequencesCaption;
+// вкладка массива подписана именем его файла, при изменениях - со звёздочкой
+var
+  TabCaption: string;
+begin
+  TabCaption := FComposition.SequencesForm.ArrayFileName;
+  if TabCaption = '' then
+    TabCaption := ReadInterfaceString('Main', 'TS_Sequences', 'Sequence');
+  FHost.SetCaption(FComposition.SequencesForm, TabCaption,
+    FComposition.SequencesForm.IsModified);
+end;
+
+procedure TMainForm.OpenSequencesTab;
+begin
+  UpdateSequencesCaption;
+  FHost.Open(FComposition.SequencesForm);
+end;
+
 procedure TMainForm.ProjectItemOpen(AKind: TProjectNodeKind;
   const APath: string);
 // двойной щелчок по строке дерева: массив и синтез открываются на своих
@@ -227,7 +292,7 @@ begin
   case AKind of
     pnkArray:
       if FComposition.SequencesForm.OpenArrayFile(APath) then
-        FHost.Open(FComposition.SequencesForm);
+        OpenSequencesTab;
     pnkSynthesis:
       if FComposition.SynthesisForm.OpenSynthesisFile(
         IncludeTrailingPathDelimiter(APath) + SYNTHESIS_INFO_FILE) then
@@ -407,6 +472,7 @@ begin
     FActSave.Enabled := FComposition.ProtocolForm.CanSave
   else
     FActSave.Enabled := False;
+  UpdateSequencesCaption;
   FActCloseProject.Enabled := FProjectPanel.SelectedProjectIndex >= 0;
   FActTabSequences.Checked := ActiveDoc = FComposition.SequencesForm;
   FActTabSynthesis.Checked := ActiveDoc = FComposition.SynthesisForm;
@@ -443,6 +509,7 @@ procedure TMainForm.ActNewSequenceExecute(Sender: TObject);
 // в проекте один массив
 var
   Project: TProject;
+  FileBase: string;
 begin
   Project := ChooseProject('NeedProjectSequence',
     'Создайте проект, чтобы создать последовательность');
@@ -455,8 +522,10 @@ begin
       Project.ArrayFile);
     Exit;
   end;
-  FHost.Open(FComposition.SequencesForm);
-  FComposition.SequencesForm.CreateArrayInProject(Project.Dir);
+  if not AskArrayFileName(Project, FileBase) then
+    Exit;
+  if FComposition.SequencesForm.CreateArrayInProject(Project.Dir, FileBase) then
+    OpenSequencesTab;
   RefreshProjectTree;
 end;
 
@@ -476,7 +545,7 @@ begin
   end;
   if not EnsureArrayOpen(Project) then
     Exit;
-  FHost.Open(FComposition.SequencesForm);
+  OpenSequencesTab;
   FComposition.SequencesForm.SliceArray;
   RefreshProjectTree;
 end;
@@ -539,7 +608,7 @@ begin
   case ProjectFileKindOf(FileName) of
     pfkArray:
       if FComposition.SequencesForm.OpenArrayFile(FileName) then
-        FHost.Open(FComposition.SequencesForm);
+        OpenSequencesTab;
     pfkProtocol:
       if FComposition.ProtocolForm.OpenProtocolFile(FileName) then
         FHost.Open(FComposition.ProtocolForm);
@@ -560,6 +629,7 @@ begin
   if ActiveDoc = FComposition.SequencesForm then
   begin
     FComposition.SequencesForm.SaveArrayToProject;
+    OpenSequencesTab;
     RefreshProjectTree;
   end
   else if ActiveDoc = FComposition.ProtocolForm then
@@ -576,7 +646,7 @@ procedure TMainForm.ActTabExecute(Sender: TObject);
 // прячет нижнюю панель
 begin
   if Sender = FActTabSequences then
-    FHost.Open(FComposition.SequencesForm)
+    OpenSequencesTab
   else if Sender = FActTabSynthesis then
     FHost.Open(FComposition.SynthesisForm)
   else if Sender = FActTabProtocol then

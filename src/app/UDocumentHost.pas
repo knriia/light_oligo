@@ -11,6 +11,10 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, ComCtrls;
 
+const
+  CLOSE_MARK = '×';
+  CLOSE_CLICK_WIDTH = 22; // ширина зоны крестика у правого края вкладки, px
+
 type
   // Можно ли закрыть вкладку (например, спросить о сохранении).
   TDocumentCanCloseEvent = function: Boolean of object;
@@ -18,6 +22,7 @@ type
   TDocumentEntry = record
     Form: TForm;
     Caption: string;
+    Modified: Boolean;                 // перед подписью вкладки - звёздочка
     CanClose: TDocumentCanCloseEvent;  // nil - закрывается без вопросов
     Sheet: TTabSheet;                  // nil - вкладка закрыта
   end;
@@ -31,7 +36,9 @@ type
     FEntries: array of TDocumentEntry;
     function IndexOfForm(AForm: TForm): Integer;
     function IndexOfSheet(ASheet: TTabSheet): Integer;
-    procedure CloseTabClicked(Sender: TObject);
+    function TabText(const AEntry: TDocumentEntry): string;
+    procedure PagesMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
   public
     // APages - полоса вкладок; AHolder - невидимый контейнер для форм
     // без вкладки.
@@ -41,6 +48,10 @@ type
       ACanClose: TDocumentCanCloseEvent);
     // Показывает вкладку формы (создаёт, если закрыта) и делает активной.
     procedure Open(AForm: TForm);
+    // Меняет подпись вкладки формы и признак изменений (звёздочка перед
+    // подписью); у открытой вкладки - сразу.
+    procedure SetCaption(AForm: TForm; const ACaption: string;
+      AModified: Boolean = False);
     // Закрывает вкладку, если CanClose разрешает. True - вкладки нет.
     function Close(AForm: TForm): Boolean;
     function IsOpen(AForm: TForm): Boolean;
@@ -55,8 +66,17 @@ begin
   inherited Create;
   FPages := APages;
   FHolder := AHolder;
-  FPages.Options := FPages.Options + [nboShowCloseButtons];
-  FPages.OnCloseTabClicked := @CloseTabClicked;
+  // Win32 не рисует крестики у вкладок: крестик - символ в подписи, клик по
+  // нему обрабатывается здесь
+  FPages.OnMouseDown := @PagesMouseDown;
+end;
+
+function TDocumentHost.TabText(const AEntry: TDocumentEntry): string;
+begin
+  Result := AEntry.Caption;
+  if AEntry.Modified then
+    Result := '*' + Result;
+  Result := Result + '  ' + CLOSE_MARK;
 end;
 
 function TDocumentHost.IndexOfForm(AForm: TForm): Integer;
@@ -88,6 +108,7 @@ begin
   SetLength(FEntries, N + 1);
   FEntries[N].Form := AForm;
   FEntries[N].Caption := ACaption;
+  FEntries[N].Modified := False;
   FEntries[N].CanClose := ACanClose;
   FEntries[N].Sheet := nil;
   AForm.BorderStyle := bsNone;
@@ -104,13 +125,28 @@ begin
   if FEntries[I].Sheet = nil then
   begin
     FEntries[I].Sheet := TTabSheet.Create(FPages);
-    FEntries[I].Sheet.Caption := FEntries[I].Caption;
+    FEntries[I].Sheet.Caption := TabText(FEntries[I]);
     FEntries[I].Sheet.PageControl := FPages;
     AForm.Parent := FEntries[I].Sheet;
     AForm.Align := alClient;
     AForm.Show;
   end;
   FPages.ActivePage := FEntries[I].Sheet;
+end;
+
+procedure TDocumentHost.SetCaption(AForm: TForm; const ACaption: string;
+  AModified: Boolean);
+var
+  I: Integer;
+begin
+  I := IndexOfForm(AForm);
+  if I < 0 then
+    Exit;
+  FEntries[I].Caption := ACaption;
+  FEntries[I].Modified := AModified;
+  if (FEntries[I].Sheet <> nil) and
+     (FEntries[I].Sheet.Caption <> TabText(FEntries[I])) then
+    FEntries[I].Sheet.Caption := TabText(FEntries[I]);
 end;
 
 function TDocumentHost.Close(AForm: TForm): Boolean;
@@ -151,13 +187,21 @@ begin
     Result := FEntries[I].Form;
 end;
 
-procedure TDocumentHost.CloseTabClicked(Sender: TObject);
+procedure TDocumentHost.PagesMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+// крестик - правый край вкладки; средняя кнопка закрывает вкладку целиком
 var
-  I: Integer;
+  Tab, I: Integer;
+  R: TRect;
 begin
-  if not (Sender is TTabSheet) then
+  Tab := FPages.IndexOfTabAt(X, Y);
+  if Tab < 0 then
     Exit;
-  I := IndexOfSheet(TTabSheet(Sender));
+  R := FPages.TabRect(Tab);
+  if not ((Button = mbMiddle) or
+          ((Button = mbLeft) and (X >= R.Right - CLOSE_CLICK_WIDTH))) then
+    Exit;
+  I := IndexOfSheet(FPages.Pages[Tab]);
   if I >= 0 then
     Close(FEntries[I].Form);
 end;
