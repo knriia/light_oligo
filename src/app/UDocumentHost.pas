@@ -9,11 +9,13 @@ unit UDocumentHost;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, ComCtrls;
+  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, Graphics, Types;
 
 const
   CLOSE_MARK = '×';
   CLOSE_CLICK_WIDTH = 22; // ширина зоны крестика у правого края вкладки, px
+  CLOSE_HOVER_COLOR = $004040D8;  // фон крестика под курсором (BGR)
+  CLOSE_HOVER_INSET = 2;          // отступ метки крестика от краёв вкладки, px
 
 type
   // Можно ли закрыть вкладку (например, спросить о сохранении).
@@ -34,9 +36,17 @@ type
     FPages: TPageControl;
     FHolder: TWinControl;
     FEntries: array of TDocumentEntry;
+    FHoverMark: TLabel;  // подсвеченный крестик поверх вкладки под курсором
+    FHoverTab: Integer;  // вкладка, над крестиком которой курсор; -1 - нет
     function IndexOfForm(AForm: TForm): Integer;
     function IndexOfSheet(ASheet: TTabSheet): Integer;
     function TabText(const AEntry: TDocumentEntry): string;
+    function CloseZoneTab(X, Y: Integer): Integer;
+    procedure HoverMarkClick(Sender: TObject);
+    procedure HoverMarkMouseLeave(Sender: TObject);
+    procedure ShowHoverMark(ATab: Integer);
+    procedure PagesMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure PagesMouseLeave(Sender: TObject);
     procedure PagesMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
   public
@@ -69,6 +79,24 @@ begin
   // Win32 не рисует крестики у вкладок: крестик - символ в подписи, клик по
   // нему обрабатывается здесь
   FPages.OnMouseDown := @PagesMouseDown;
+  // Win32 не даёт перерисовать вкладку: при наведении на крестик поверх него
+  // показывается подсвеченная метка, она же и закрывает вкладку
+  FHoverTab := -1;
+  FHoverMark := TLabel.Create(FPages);
+  FHoverMark.Parent := FPages;
+  FHoverMark.AutoSize := False;
+  FHoverMark.Alignment := taCenter;
+  FHoverMark.Layout := tlCenter;
+  FHoverMark.Caption := CLOSE_MARK;
+  FHoverMark.Transparent := False;
+  FHoverMark.Color := CLOSE_HOVER_COLOR;
+  FHoverMark.Font.Color := clWhite;
+  FHoverMark.Cursor := crHandPoint;
+  FHoverMark.Visible := False;
+  FHoverMark.OnClick := @HoverMarkClick;
+  FHoverMark.OnMouseLeave := @HoverMarkMouseLeave;
+  FPages.OnMouseMove := @PagesMouseMove;
+  FPages.OnMouseLeave := @PagesMouseLeave;
 end;
 
 function TDocumentHost.TabText(const AEntry: TDocumentEntry): string;
@@ -147,6 +175,9 @@ begin
   if (FEntries[I].Sheet <> nil) and
      (FEntries[I].Sheet.Caption <> TabText(FEntries[I])) then
     FEntries[I].Sheet.Caption := TabText(FEntries[I]);
+  // ширина вкладки могла измениться: метка крестика на новое место
+  if FHoverTab >= 0 then
+    ShowHoverMark(FHoverTab);
 end;
 
 function TDocumentHost.Close(AForm: TForm): Boolean;
@@ -162,6 +193,7 @@ begin
     Exit(False);
   Sheet := FEntries[I].Sheet;
   FEntries[I].Sheet := nil;
+  ShowHoverMark(-1);
   AForm.Hide;
   AForm.Parent := FHolder;
   Sheet.Free;
@@ -185,6 +217,78 @@ begin
   I := IndexOfSheet(FPages.ActivePage as TTabSheet);
   if I >= 0 then
     Result := FEntries[I].Form;
+end;
+
+function TDocumentHost.CloseZoneTab(X, Y: Integer): Integer;
+// вкладка, у крестика которой курсор; -1 - курсор не над крестиком
+var
+  R: TRect;
+begin
+  Result := FPages.IndexOfTabAt(X, Y);
+  if Result < 0 then
+    Exit;
+  R := FPages.TabRect(Result);
+  if X < R.Right - CLOSE_CLICK_WIDTH then
+    Result := -1;
+end;
+
+procedure TDocumentHost.ShowHoverMark(ATab: Integer);
+var
+  R: TRect;
+begin
+  FHoverTab := ATab;
+  if ATab < 0 then
+  begin
+    FHoverMark.Visible := False;
+    Exit;
+  end;
+  R := FPages.TabRect(ATab);
+  FHoverMark.SetBounds(R.Right - CLOSE_CLICK_WIDTH, R.Top + CLOSE_HOVER_INSET,
+    CLOSE_CLICK_WIDTH - CLOSE_HOVER_INSET, R.Bottom - R.Top - 2 * CLOSE_HOVER_INSET);
+  FHoverMark.Visible := True;
+  FHoverMark.BringToFront;
+end;
+
+procedure TDocumentHost.PagesMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+var
+  Tab: Integer;
+begin
+  Tab := CloseZoneTab(X, Y);
+  if Tab <> FHoverTab then
+    ShowHoverMark(Tab);
+end;
+
+procedure TDocumentHost.PagesMouseLeave(Sender: TObject);
+// курсор ушёл с полосы вкладок; на метку он мог просто перейти
+var
+  P: TPoint;
+begin
+  P := FHoverMark.ScreenToClient(Mouse.CursorPos);
+  if not FHoverMark.Visible or not PtInRect(FHoverMark.ClientRect, P) then
+    ShowHoverMark(-1);
+end;
+
+procedure TDocumentHost.HoverMarkMouseLeave(Sender: TObject);
+var
+  P: TPoint;
+begin
+  P := FPages.ScreenToClient(Mouse.CursorPos);
+  if CloseZoneTab(P.X, P.Y) <> FHoverTab then
+    ShowHoverMark(-1);
+end;
+
+procedure TDocumentHost.HoverMarkClick(Sender: TObject);
+var
+  I, Tab: Integer;
+begin
+  Tab := FHoverTab;
+  ShowHoverMark(-1);
+  if (Tab < 0) or (Tab >= FPages.PageCount) then
+    Exit;
+  I := IndexOfSheet(FPages.Pages[Tab]);
+  if I >= 0 then
+    Close(FEntries[I].Form);
 end;
 
 procedure TDocumentHost.PagesMouseDown(Sender: TObject; Button: TMouseButton;

@@ -5,10 +5,10 @@ unit UMainForm;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
-  Graphics, Buttons, Menus, ActnList,
+  Classes, SysUtils, IniFiles, Forms, Controls, Dialogs, StdCtrls, ComCtrls, ExtCtrls,
+  Graphics, Buttons, Menus, ActnList, LCLType,
   DispenserLayout, Localization, AppComposition, AppPaths, ProjectModel,
-  SynthesisFolder, OligoArrayDocument, UArraySaveForm, UChoiceForm,
+  SynthesisFolder, OligoArrayDocument, UProjectCreateForm, UChoiceForm,
   UDocumentHost, UProjectPanel, UiIcons, UiIconNames, UiTheme;
 
 
@@ -41,16 +41,20 @@ type
     FActOpenProject, FActCloseProject, FActRefreshProject: TAction;
     FProjectPanel: TProjectPanel;
     FProjectSplitter: TSplitter;
+    FUnopenedProjects: TStringList;  // проекты из списка, не открывшиеся при запуске
     FSynthesisProjectDir: string;  // проект, выбранный для создания синтеза
     procedure BuildProjectPanel;
+    procedure LoadOpenProjects;
+    function ConfirmSaveProject(AProject: TProject): Boolean;
+    procedure SaveOpenProjects(Sender: TObject);
     procedure BuildHost;
     procedure RegisterDocuments;
     function SynthesisProjectDir: string;
     function ChooseProject(const ANeedKey, ANeedDefault: string): TProject;
     function EnsureArrayOpen(AProject: TProject): Boolean;
-    function AskArrayFileName(AProject: TProject; out AFileBase: string): Boolean;
     procedure OpenSequencesTab;
     procedure UpdateSequencesCaption;
+    procedure SequencesStateChanged(Sender: TObject);
     procedure ProjectItemOpen(AKind: TProjectNodeKind; const APath: string);
     procedure RefreshProjectTree;
     procedure ActOpenProjectExecute(Sender: TObject);
@@ -114,6 +118,8 @@ begin
   RegisterDocuments;
   FComposition.SynthesisForm.OnGetProjectDir := @SynthesisProjectDir;
   BuildProjectPanel;
+  FComposition.SequencesForm.OnStateChanged := @SequencesStateChanged;
+  FComposition.SequencesForm.OnCreateRequested := @ActNewSequenceExecute;
   BuildMenu;
   Randomize();
   UpdateMinimumWindowWidth();
@@ -149,6 +155,7 @@ end;
 const
   MENU_SECTION = 'Menu';
   PROJECT_PANEL_WIDTH = 220;
+  OPEN_PROJECTS_SECTION = 'OpenProjects';
 
 procedure TMainForm.BuildProjectPanel;
 // панель проектов слева; контекстное меню дерева собирает BuildMenu
@@ -162,6 +169,69 @@ begin
   FProjectSplitter.Parent := Self;
   FProjectSplitter.Align := alLeft;
   FProjectSplitter.Left := FProjectPanel.Width;
+  // список открытых проектов хранится между запусками; проект пропадает из
+  // дерева, только если его убрали из дерева или удалили с диска (проект, не
+  // открывшийся из-за ошибки чтения, остаётся в списке)
+  LoadOpenProjects;
+  FProjectPanel.OnChanged := @SaveOpenProjects;
+end;
+
+procedure TMainForm.LoadOpenProjects;
+var
+  Ini: TIniFile;
+  Paths: TStringList;
+  Project: TProject;
+  ErrorText, Path: string;
+  I: Integer;
+begin
+  Paths := TStringList.Create;
+  Ini := TIniFile.Create(SettingsFilePath);
+  FUnopenedProjects := TStringList.Create;
+  try
+    Ini.ReadSectionValues(OPEN_PROJECTS_SECTION, Paths);
+    for I := 0 to Paths.Count - 1 do
+    begin
+      Path := Paths.ValueFromIndex[I];
+      Project := OpenProject(Path, ErrorText);
+      if Project <> nil then
+        FProjectPanel.AddProject(Project)
+      else if FileExists(Path) or DirectoryExists(Path) then
+      begin
+        // есть на диске, но не открылся (ошибка чтения): остаётся в списке
+        FUnopenedProjects.Add(Path);
+        SequencesLog(ErrorText);
+      end;
+      // удалённого с диска проекта в списке больше нет
+    end;
+  finally
+    Ini.Free;
+    Paths.Free;
+  end;
+end;
+
+procedure TMainForm.SaveOpenProjects(Sender: TObject);
+var
+  Ini: TIniFile;
+  I: Integer;
+begin
+  Ini := TIniFile.Create(SettingsFilePath);
+  try
+    Ini.EraseSection(OPEN_PROJECTS_SECTION);
+    for I := 0 to FProjectPanel.ProjectCount - 1 do
+      // файла проекта может ещё не быть (не записан) - тогда папка
+      if FileExists(FProjectPanel.Projects[I].FileName) then
+        Ini.WriteString(OPEN_PROJECTS_SECTION, 'Project' + IntToStr(I),
+          FProjectPanel.Projects[I].FileName)
+      else
+        Ini.WriteString(OPEN_PROJECTS_SECTION, 'Project' + IntToStr(I),
+          FProjectPanel.Projects[I].Dir);
+    for I := 0 to FUnopenedProjects.Count - 1 do
+      Ini.WriteString(OPEN_PROJECTS_SECTION,
+        'Project' + IntToStr(FProjectPanel.ProjectCount + I),
+        FUnopenedProjects[I]);
+  finally
+    Ini.Free;
+  end;
 end;
 
 function TMainForm.SynthesisProjectDir: string;
@@ -222,48 +292,15 @@ begin
     FComposition.SequencesForm.OpenArrayFile(AProject.ArrayFile);
 end;
 
-function TMainForm.AskArrayFileName(AProject: TProject;
-  out AFileBase: string): Boolean;
-// Окно ввода имени файла последовательности; имя без .csv, файла с таким
-// именем в проекте ещё нет.
-const
-  BAD_CHARS = ['\', '/', ':', '*', '?', '"', '<', '>', '|'];
-var
-  Value: string;
-  I: Integer;
-  Bad: Boolean;
+procedure TMainForm.SequencesStateChanged(Sender: TObject);
+// подпись вкладки массива и звёздочка у проекта сразу при изменении массива
 begin
-  Result := False;
-  AFileBase := '';
-  Value := DEFAULT_ARRAY_FILE;
-  repeat
-    if not InputQuery(
-      ReadInterfaceString(MENU_SECTION, 'SequenceNameTitle', 'Последовательность'),
-      ReadInterfaceString(MENU_SECTION, 'SequenceNamePrompt', 'Имя файла:'),
-      Value) then
-      Exit;
-    Value := Trim(Value);
-    if SameText(ExtractFileExt(Value), '.csv') then
-      Value := Copy(Value, 1, Length(Value) - 4);
-    Bad := (Value = '') or (Value[Length(Value)] = '.');
-    for I := 1 to Length(Value) do
-      if Value[I] in BAD_CHARS then
-        Bad := True;
-    if Bad then
-    begin
-      ShowMessage(ReadInterfaceString(MENU_SECTION, 'SequenceNameInvalid',
-        'Недопустимое имя файла.'));
-      Continue;
-    end;
-    if FileExists(IncludeTrailingPathDelimiter(AProject.Dir) + Value + '.csv') then
-    begin
-      ShowMessage(ReadInterfaceString(MENU_SECTION, 'SequenceNameExists',
-        'Файл с таким именем уже есть в проекте.'));
-      Continue;
-    end;
-    AFileBase := Value;
-    Exit(True);
-  until False;
+  UpdateSequencesCaption;
+  // звёздочка у проекта, в котором массив изменён и не сохранён
+  if FComposition.SequencesForm.IsModified then
+    FProjectPanel.SetModifiedProject(FComposition.SequencesForm.ProjectDir)
+  else
+    FProjectPanel.SetModifiedProject('');
 end;
 
 procedure TMainForm.UpdateSequencesCaption;
@@ -338,10 +375,38 @@ begin
   FProjectPanel.AddProject(NewProject);
 end;
 
+function TMainForm.ConfirmSaveProject(AProject: TProject): Boolean;
+// изменённый проект: предлагает записать; False - отмена или запись не удалась
+var
+  ErrorText: string;
+begin
+  Result := True;
+  if not AProject.Modified then
+    Exit;
+  case MessageDlg(Format(ReadInterfaceString(MENU_SECTION, 'ProjectSavePrompt',
+    'Проект «%s» изменён. Сохранить?'), [AProject.Name]), mtConfirmation,
+    [mbYes, mbNo, mbCancel], 0) of
+    mrYes:
+      begin
+        Result := AProject.SaveProject(ErrorText);
+        if not Result then
+          ShowMessage(ErrorText);
+      end;
+    mrNo: Result := True;
+  else
+    Result := False;
+  end;
+end;
+
 procedure TMainForm.ActCloseProjectExecute(Sender: TObject);
 // убирает выделенный проект из дерева; папка и открытые формы не меняются
+var
+  Index: Integer;
 begin
-  FProjectPanel.RemoveProject(FProjectPanel.SelectedProjectIndex);
+  Index := FProjectPanel.SelectedProjectIndex;
+  if (Index >= 0) and not ConfirmSaveProject(FProjectPanel.Projects[Index]) then
+    Exit;
+  FProjectPanel.RemoveProject(Index);
 end;
 
 procedure TMainForm.ActRefreshProjectExecute(Sender: TObject);
@@ -407,6 +472,7 @@ begin
     @ActRefreshProjectExecute);
   FActOpen := NewAction('Open', 'Открыть…', ICON_OPEN, @ActOpenExecute);
   FActSave := NewAction('Save', 'Сохранить', ICON_SAVE, @ActSaveExecute);
+  FActSave.ShortCut := ShortCut(VK_S, [ssCtrl]);
   FActExit := NewAction('Exit', 'Выход', ICON_EXIT, @ActExitExecute);
   FActTabSequences := NewAction('TabSequences', 'Последовательности', '',
     @ActTabExecute);
@@ -472,12 +538,13 @@ var
 begin
   ActiveDoc := FHost.ActiveForm;
   if ActiveDoc = FComposition.SequencesForm then
-    FActSave.Enabled := FComposition.SequencesForm.HasArray
+    FActSave.Enabled := FComposition.SequencesForm.HasArray or
+      FProjectPanel.HasModifiedProjects
   else if ActiveDoc = FComposition.ProtocolForm then
-    FActSave.Enabled := FComposition.ProtocolForm.CanSave
+    FActSave.Enabled := FComposition.ProtocolForm.CanSave or
+      FProjectPanel.HasModifiedProjects
   else
-    FActSave.Enabled := False;
-  UpdateSequencesCaption;
+    FActSave.Enabled := FProjectPanel.HasModifiedProjects;
   FActCloseProject.Enabled := FProjectPanel.SelectedProjectIndex >= 0;
   FActTabSequences.Checked := ActiveDoc = FComposition.SequencesForm;
   FActTabSynthesis.Checked := ActiveDoc = FComposition.SynthesisForm;
@@ -493,10 +560,10 @@ var
   Folder, ProjectName, ErrorText: string;
   NewProject: TProject;
 begin
-  // как при сохранении массива: папка проектов и имя по текущему времени
+  // папка проектов по умолчанию и имя по текущему времени
   Folder := ExcludeTrailingPathDelimiter(ProjectsDir);
   ProjectName := FormatDateTime(DEFAULT_NAME_FORMAT, Now);
-  if not TArraySaveForm.ExecuteProject(Folder, ProjectName) then
+  if not TProjectCreateForm.ExecuteProject(Folder, ProjectName) then
     Exit;
   NewProject := CreateProject(Folder, ProjectName, ErrorText);
   if NewProject = nil then
@@ -511,25 +578,45 @@ end;
 
 procedure TMainForm.ActNewSequenceExecute(Sender: TObject);
 // последовательность создаётся в выбранном проекте и сразу в нём сохраняется;
-// в проекте один массив
+// в проекте один массив. Файл последовательностей, уже лежащий в папке (в
+// проекте или нет), можно добавить в проект, перезаписать или удалить; на каждом
+// вопросе есть отмена
 var
   Project: TProject;
-  FileBase: string;
+  Existing: string;
 begin
   Project := ChooseProject('NeedProjectSequence',
     'Создайте проект, чтобы создать последовательность');
   if Project = nil then
     Exit;
-  if Project.ArrayFile <> '' then
-  begin
-    ShowMessage(ReadInterfaceString(MENU_SECTION, 'ProjectHasArray',
-      'В проекте уже есть последовательность:') + LineEnding +
-      Project.ArrayFile);
-    Exit;
-  end;
-  if not AskArrayFileName(Project, FileBase) then
-    Exit;
-  if FComposition.SequencesForm.CreateArrayInProject(Project.Dir, FileBase) then
+  Existing := Project.ArrayFile;
+  if Existing = '' then
+    Existing := FindOtherProjectCsv(Project.Dir, '');
+  if (Existing <> '') and (Project.ArrayFile = '') then
+    // файл в папке есть, а проекту он не принадлежит (проект не был сохранён)
+    case MessageDlg(ReadInterfaceString(MENU_SECTION, 'ProjectUnlistedArray',
+      'В папке проекта есть файл последовательностей, не входящий в проект:') +
+      LineEnding + Existing + LineEnding + ReadInterfaceString(MENU_SECTION,
+      'ProjectUnlistedArrayChoice', 'Да - добавить его в проект, Нет - создать ' +
+      'новую последовательность, Отмена - ничего не делать.'),
+      mtConfirmation, [mbYes, mbNo, mbCancel], 0) of
+      mrYes:
+        begin
+          if FComposition.SequencesForm.OpenArrayFile(Existing) then
+          begin
+            Project.IncludeArray(Existing);
+            OpenSequencesTab;
+          end;
+          RefreshProjectTree;
+          Exit;
+        end;
+      mrNo: ;
+    else
+      Exit;
+    end;
+  // имя файла спрашивает то же окно, что и параметры массива; с Existing оно
+  // же спросит про перезапись или удаление прежнего файла
+  if FComposition.SequencesForm.CreateArrayInProject(Project.Dir, Existing) then
     OpenSequencesTab;
   RefreshProjectTree;
 end;
@@ -629,6 +716,7 @@ end;
 procedure TMainForm.ActSaveExecute(Sender: TObject);
 var
   ActiveDoc: TForm;
+  ErrorText: string;
 begin
   ActiveDoc := FHost.ActiveForm;
   if ActiveDoc = FComposition.SequencesForm then
@@ -639,6 +727,9 @@ begin
   end
   else if ActiveDoc = FComposition.ProtocolForm then
     FComposition.ProtocolForm.SaveCurrent;
+  // вместе с документом записываются изменённые проекты
+  if not FProjectPanel.SaveModifiedProjects(ErrorText) then
+    ShowMessage(ErrorText);
 end;
 
 procedure TMainForm.ActExitExecute(Sender: TObject);
@@ -728,6 +819,8 @@ begin
 end;
 
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
+var
+  I: Integer;
 begin
   // порядок проверок (протокол, массив, синтез, станция) - в композиции
   if Assigned(FComposition) and not FComposition.CanCloseAll then
@@ -735,6 +828,14 @@ begin
     CloseAction := caNone;
     Exit;
   end;
+  // изменённые проекты: записать или отказаться, иначе состав потеряется
+  if Assigned(FProjectPanel) then
+    for I := 0 to FProjectPanel.ProjectCount - 1 do
+      if not ConfirmSaveProject(FProjectPanel.Projects[I]) then
+      begin
+        CloseAction := caNone;
+        Exit;
+      end;
 
   FinalizeLocalization;
 end;
@@ -744,6 +845,7 @@ begin
   // Адаптеры принадлежат композиции и освобождаются после дочерних форм,
   // которым они делегируют вызовы.
   inherited Destroy;
+  FreeAndNil(FUnopenedProjects);
   FreeAndNil(FHost);
   FreeAndNil(FComposition);
 end;

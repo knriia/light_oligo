@@ -31,9 +31,12 @@ type
     FProjects: array of TProject;
     FItems: array of TProjectTreeItem;  // строки дерева; в Node.Data - индекс + 1
     FOnOpenItem: TProjectItemEvent;
+    FOnChanged: TNotifyEvent;
+    FModifiedDir: string;  // проект с несохранёнными изменениями; пусто - нет
     function GetProjectCount: Integer;
     function GetProject(AIndex: Integer): TProject;
     function IndexOfProjectDir(const ADir: string): Integer;
+    function ProjectCaption(AIndex: Integer): string;
     procedure Rebuild;
     procedure SelectProject(AIndex: Integer);
     procedure TreeCustomDrawItem(Sender: TCustomTreeView; Node: TTreeNode;
@@ -58,9 +61,20 @@ type
     function SelectedProjectIndex: Integer;
     property ProjectCount: Integer read GetProjectCount;
     property Projects[AIndex: Integer]: TProject read GetProject;
+    // Проект с несохранёнными изменениями (по папке): после его имени в дереве
+    // ставится звёздочка. Пусто - изменений нет.
+    procedure SetModifiedProject(const ADir: string);
+    // Звёздочки у имён проектов по текущему состоянию.
+    procedure UpdateCaptions;
+    // Есть проект, состав которого изменён и не записан в файл проекта.
+    function HasModifiedProjects: Boolean;
+    // Записывает все изменённые проекты. Ошибка - False, текст объясняет.
+    function SaveModifiedProjects(out AErrorText: string): Boolean;
     // Контекстное меню дерева.
     property TreeMenu: TPopupMenu write SetTreeMenu;
     property OnOpenItem: TProjectItemEvent read FOnOpenItem write FOnOpenItem;
+    // Состав проектов изменился: проект добавлен или убран из дерева.
+    property OnChanged: TNotifyEvent read FOnChanged write FOnChanged;
   end;
 
 implementation
@@ -134,6 +148,8 @@ begin
   FProjects[High(FProjects)] := AProject;
   Rebuild;
   SelectProject(High(FProjects));
+  if Assigned(FOnChanged) then
+    FOnChanged(Self);
 end;
 
 procedure TProjectPanel.RemoveProject(AIndex: Integer);
@@ -147,6 +163,8 @@ begin
     FProjects[I] := FProjects[I + 1];
   SetLength(FProjects, Length(FProjects) - 1);
   Rebuild;
+  if Assigned(FOnChanged) then
+    FOnChanged(Self);
 end;
 
 function TProjectPanel.Refresh(out AErrorText: string): Boolean;
@@ -184,7 +202,7 @@ begin
       for I := 0 to High(Nodes) do
       begin
         if Nodes[I].Level = 0 then
-          Node := FTree.Items.Add(nil, Nodes[I].Caption)
+          Node := FTree.Items.Add(nil, ProjectCaption(P))
         else
           Node := FTree.Items.AddChild(Parents[Nodes[I].Level - 1],
             Nodes[I].Caption);
@@ -200,6 +218,67 @@ begin
     FTree.FullExpand;
   finally
     FTree.Items.EndUpdate;
+  end;
+end;
+
+function TProjectPanel.ProjectCaption(AIndex: Integer): string;
+begin
+  Result := FProjects[AIndex].Name;
+  if FProjects[AIndex].Modified or
+     ((FModifiedDir <> '') and
+      SameFileName(FProjects[AIndex].Dir, FModifiedDir)) then
+    Result := Result + ' *';
+end;
+
+function TProjectPanel.HasModifiedProjects: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to High(FProjects) do
+    if FProjects[I].Modified then
+      Exit(True);
+end;
+
+function TProjectPanel.SaveModifiedProjects(out AErrorText: string): Boolean;
+var
+  I: Integer;
+  ProjectError: string;
+begin
+  AErrorText := '';
+  for I := 0 to High(FProjects) do
+    if FProjects[I].Modified and not FProjects[I].SaveProject(ProjectError) then
+    begin
+      if AErrorText <> '' then
+        AErrorText := AErrorText + LineEnding;
+      AErrorText := AErrorText + ProjectError;
+    end;
+  Result := AErrorText = '';
+  UpdateCaptions;
+end;
+
+procedure TProjectPanel.SetModifiedProject(const ADir: string);
+begin
+  FModifiedDir := ADir;
+  UpdateCaptions;
+end;
+
+procedure TProjectPanel.UpdateCaptions;
+var
+  I: Integer;
+  Node: TTreeNode;
+  Item: TProjectTreeItem;
+  NewText: string;
+begin
+  for I := 0 to FTree.Items.Count - 1 do
+  begin
+    Node := FTree.Items[I];
+    if (Node.Level <> 0) or (Node.Data = nil) then
+      Continue;
+    Item := FItems[PtrInt(Node.Data) - 1];
+    NewText := ProjectCaption(Item.ProjectIndex);
+    if Node.Text <> NewText then
+      Node.Text := NewText;
   end;
 end;
 

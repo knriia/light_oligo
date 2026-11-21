@@ -8,6 +8,7 @@ object OligoArrayForm: TOligoArrayForm
   ClientWidth = 339
   Position = poMainFormCenter
   LCLVersion = '4.4.0.0'
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnShow = FormShow
   object SE_NOligoCol: TSpinEdit
@@ -125,6 +126,23 @@ object OligoArrayForm: TOligoArrayForm
     Width = 180
     TabOrder = 6
     Text = 'E_ConstSeq'
+  end
+  object L_FileName: TLabel
+    Left = 8
+    Height = 15
+    Top = 4
+    Width = 60
+    Caption = 'L_FileName'
+    Visible = False
+  end
+  object E_FileName: TEdit
+    Left = 128
+    Height = 23
+    Top = 0
+    Width = 180
+    TabOrder = 7
+    Text = 'E_FileName'
+    Visible = False
   end
   object L_Seq: TLabel
     Left = 8
